@@ -50,12 +50,17 @@ Pinned inputs are in:
 build/manifests/sources.json
 ```
 
-The fetcher refuses a cached or downloaded archive whose cryptographic digest does not match the lock.
+The fetcher refuses a cached or downloaded archive whose cryptographic digest does not match the lock. Each Phase 1 source also has a GitHub fallback pinned to an exact release-tag commit. This lets restricted build environments use Git transport without relaxing source versioning.
 
 ```sh
 bash build.sh fetch
 python3 tools/source_lock.py verify
+
+# Force the pinned GitHub fallback transport:
+SYNVEIL_SOURCE_TRANSPORT=git bash build.sh fetch
 ```
+
+`SYNVEIL_SOURCE_TRANSPORT` accepts `auto` (default), `archive`, or `git`. In `auto`, Synveil prefers the official verified archive and falls back to the pinned Git revision only when the upstream transport is unavailable.
 
 No build command resolves a floating "latest" version.
 
