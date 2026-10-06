@@ -67,8 +67,9 @@ mkdir -p "$OUT_DIR"
 log "packing rootfs artifacts"
 (
     cd "$ROOTFS_DIR"
-    find . -print0         | sort -z         | cpio --null -o --format=newc --owner=0:0 2>/dev/null         | zstd -q -T0 -19 -f -o "$OUT_DIR/synveil-initramfs.cpio.zst"
+    find . -print0         | sort -z         | cpio --null -o --format=newc --owner=0:0 2>/dev/null         > "$OUT_DIR/synveil-initramfs.cpio"
 )
+zstd -q -T0 -19 -f "$OUT_DIR/synveil-initramfs.cpio" -o "$OUT_DIR/synveil-initramfs.cpio.zst"
 
 tar     --sort=name     --mtime="@${SOURCE_DATE_EPOCH:-0}"     --owner=0 --group=0 --numeric-owner     -C "$ROOTFS_DIR" -cf - .     | zstd -q -T0 -19 -f -o "$OUT_DIR/synveil-rootfs.tar.zst"
 
