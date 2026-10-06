@@ -1,0 +1,30 @@
+# Synveil build output
+/out/
+/.cache/
+/downloads/
+/dist/
+/target/
+
+# Toolchain/build trees
+/build/work/
+/build/cache/
+/build/toolchain/out/
+
+# Runtime/test artifacts
+*.log
+*.pid
+*.sock
+*.qcow2
+*.raw
+*.img
+*.iso
+*.cpio
+*.cpio.gz
+*.cpio.zst
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+*~
+*.swp
