@@ -1,0 +1,59 @@
+name: Phase 1 full boot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bootstrap-smoke.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-boot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      SYNVEIL_JOBS: "4"
+      SYNVEIL_QEMU_TCG: "1"
+
+    steps:
+      - name: Check out Synveil
+        uses: actions/checkout@v6
+
+      - name: Install bootstrap host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y             build-essential bison flex texinfo gawk             python3 xz-utils bzip2 cpio zstd             dosfstools mtools gdisk             qemu-system-x86 ovmf             libgmp-dev libmpfr-dev libmpc-dev libisl-dev             libelf-dev libssl-dev bc rsync
+
+      - name: Validate bootstrap scripts
+        run: bash build.sh lint
+
+      - name: Build Synveil from pinned sources
+        run: |
+          mkdir -p out/logs
+          set -o pipefail
+          bash build.sh all 2>&1 | tee out/logs/full-build.log
+
+      - name: Boot Synveil in QEMU
+        run: |
+          set -o pipefail
+          bash build.sh smoke 2>&1 | tee out/logs/smoke-driver.log
+
+      - name: Show build identity
+        if: success()
+        run: |
+          cat out/manifests/build.json
+          grep -F SYNVEIL_BOOT_OK out/logs/qemu-smoke.log
+
+      - name: Preserve validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-validation-${{ github.sha }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            out/logs/
+            out/manifests/
