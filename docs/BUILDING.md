@@ -101,6 +101,8 @@ The process builds binutils and a C-only bootstrap GCC, installs Linux UAPI head
 
 This is intentionally a bootstrap compiler, not yet Synveil's final development toolchain.
 
+The stage-1 GCC is C-only and deliberately does not build target libstdc++. During the glibc build, Synveil therefore invokes make with an empty `CXX` variable so glibc selects its supported C-only `links-dso-program-c` bootstrap path. A full C/C++ target compiler belongs after libc exists; Phase 1 does not require it to produce the bootable base image.
+
 ### rootfs
 
 Builds a static BusyBox against the Synveil sysroot and installs it into a purpose-built root filesystem under `build/work/rootfs`.
