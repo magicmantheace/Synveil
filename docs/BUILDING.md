@@ -105,13 +105,14 @@ Synveil supplies its own `/init`. BusyBox exists only to provide bring-up utilit
 Artifacts:
 
 ```text
+out/synveil-initramfs.cpio
 out/synveil-initramfs.cpio.zst
 out/synveil-rootfs.tar.zst
 ```
 
 ### kernel
 
-Builds the pinned upstream Linux source with a QEMU-focused configuration and embeds the root filesystem into the kernel.
+Builds the pinned upstream Linux source with a QEMU-focused configuration and embeds the normalized root-owned `newc` initramfs archive into the kernel.
 
 The x86 Linux EFI stub means the resulting `bzImage` is also a UEFI-loadable executable.
 
