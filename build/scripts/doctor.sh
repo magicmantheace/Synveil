@@ -5,10 +5,10 @@ source "$(dirname "$0")/common.sh"
 
 commands=(
     bash python3 make gcc g++ ld ar as
-    tar xz bzip2 sed awk grep patch perl
+    tar xz bzip2 sed gawk grep patch perl
     bison flex makeinfo
     find sort cpio zstd
-    truncate mkfs.vfat mcopy mmd
+    truncate dd sgdisk mkfs.vfat mcopy mmd
     qemu-system-x86_64 timeout
 )
 
@@ -30,17 +30,34 @@ EOF
 fi
 
 ovmf_found=0
-for candidate in     "${SYNVEIL_OVMF_CODE:-}"     /usr/share/OVMF/OVMF_CODE.fd     /usr/share/OVMF/OVMF_CODE_4M.fd     /usr/share/edk2/ovmf/OVMF_CODE.fd     /usr/share/edk2/x64/OVMF_CODE.fd     /usr/share/ovmf/OVMF.fd
-do
-    if [[ -n "$candidate" && -f "$candidate" ]]; then
-        printf '[doctor] OVMF: %s\n' "$candidate"
+if [[ -n "${SYNVEIL_OVMF_CODE:-}" && -f "${SYNVEIL_OVMF_CODE}" ]]; then
+    printf '[doctor] OVMF: %s\n' "$SYNVEIL_OVMF_CODE"
+    ovmf_found=1
+else
+    firmware_pairs=(
+        "/usr/share/OVMF/OVMF_CODE_4M.fd|/usr/share/OVMF/OVMF_VARS_4M.fd"
+        "/usr/share/OVMF/OVMF_CODE.fd|/usr/share/OVMF/OVMF_VARS.fd"
+        "/usr/share/edk2/ovmf/OVMF_CODE.fd|/usr/share/edk2/ovmf/OVMF_VARS.fd"
+        "/usr/share/edk2/x64/OVMF_CODE.fd|/usr/share/edk2/x64/OVMF_VARS.fd"
+    )
+    for pair in "${firmware_pairs[@]}"; do
+        code="${pair%%|*}"
+        vars="${pair#*|}"
+        if [[ -f "$code" && -f "$vars" ]]; then
+            printf '[doctor] OVMF: %s + %s\n' "$code" "$vars"
+            ovmf_found=1
+            break
+        fi
+    done
+
+    if [[ "$ovmf_found" -eq 0 && -f /usr/share/ovmf/OVMF.fd ]]; then
+        printf '[doctor] OVMF: %s\n' /usr/share/ovmf/OVMF.fd
         ovmf_found=1
-        break
     fi
-done
+fi
 
 if [[ "$ovmf_found" -eq 0 ]]; then
-    printf '[doctor] missing: OVMF UEFI firmware (or set SYNVEIL_OVMF_CODE)\n' >&2
+    printf '[doctor] missing: usable OVMF UEFI firmware pair (or set SYNVEIL_OVMF_CODE/SYNVEIL_OVMF_VARS)\n' >&2
     exit 1
 fi
 
