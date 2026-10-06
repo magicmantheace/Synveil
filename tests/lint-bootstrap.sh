@@ -15,6 +15,7 @@ bash_files=(
     build/scripts/image.sh
     build/scripts/qemu.sh
     tests/smoke-boot.sh
+    tests/inspect-image.sh
 )
 
 for file in "${bash_files[@]}"; do
