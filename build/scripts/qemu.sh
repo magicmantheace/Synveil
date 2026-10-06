@@ -16,7 +16,8 @@ QEMU_ARGS=(
     -monitor none
     -no-reboot
     -net none
-    -drive "file=$IMAGE,format=raw,if=virtio,readonly=on"
+    -drive "if=none,id=synveil_disk,file=$IMAGE,format=raw,readonly=on"
+    -device "virtio-blk-pci,drive=synveil_disk,bootindex=1"
 )
 
 if [[ -r /dev/kvm && "${SYNVEIL_QEMU_TCG:-0}" != 1 ]]; then
@@ -27,40 +28,54 @@ fi
 
 CODE="${SYNVEIL_OVMF_CODE:-}"
 VARS="${SYNVEIL_OVMF_VARS:-}"
+COMBINED=""
 
-if [[ -z "$CODE" ]]; then
-    for candidate in         /usr/share/OVMF/OVMF_CODE.fd         /usr/share/OVMF/OVMF_CODE_4M.fd         /usr/share/edk2/ovmf/OVMF_CODE.fd         /usr/share/edk2/x64/OVMF_CODE.fd
-    do
-        if [[ -f "$candidate" ]]; then
-            CODE="$candidate"
+if [[ -n "$CODE" ]]; then
+    [[ -f "$CODE" ]] || die "SYNVEIL_OVMF_CODE does not exist: $CODE"
+    if [[ -z "$VARS" ]]; then
+        inferred="${CODE/CODE/VARS}"
+        [[ -f "$inferred" ]] && VARS="$inferred"
+    fi
+else
+    firmware_pairs=(
+        "/usr/share/OVMF/OVMF_CODE_4M.fd|/usr/share/OVMF/OVMF_VARS_4M.fd"
+        "/usr/share/OVMF/OVMF_CODE.fd|/usr/share/OVMF/OVMF_VARS.fd"
+        "/usr/share/edk2/ovmf/OVMF_CODE.fd|/usr/share/edk2/ovmf/OVMF_VARS.fd"
+        "/usr/share/edk2/x64/OVMF_CODE.fd|/usr/share/edk2/x64/OVMF_VARS.fd"
+    )
+    for pair in "${firmware_pairs[@]}"; do
+        candidate_code="${pair%%|*}"
+        candidate_vars="${pair#*|}"
+        if [[ -f "$candidate_code" && -f "$candidate_vars" ]]; then
+            CODE="$candidate_code"
+            VARS="$candidate_vars"
             break
         fi
     done
-fi
 
-if [[ -z "$VARS" ]]; then
-    for candidate in         /usr/share/OVMF/OVMF_VARS.fd         /usr/share/OVMF/OVMF_VARS_4M.fd         /usr/share/edk2/ovmf/OVMF_VARS.fd         /usr/share/edk2/x64/OVMF_VARS.fd
-    do
-        if [[ -f "$candidate" ]]; then
-            VARS="$candidate"
-            break
-        fi
-    done
+    if [[ -z "$CODE" && -f /usr/share/ovmf/OVMF.fd ]]; then
+        COMBINED=/usr/share/ovmf/OVMF.fd
+    fi
 fi
 
 cleanup_vars=""
-if [[ -n "$CODE" && -f "$CODE" ]]; then
-    QEMU_ARGS+=(-drive "if=pflash,format=raw,unit=0,readonly=on,file=$CODE")
-    if [[ -n "$VARS" && -f "$VARS" ]]; then
-        cleanup_vars="$(mktemp "${TMPDIR:-/tmp}/synveil-ovmf-vars.XXXXXX.fd")"
-        cp "$VARS" "$cleanup_vars"
-        trap 'rm -f "$cleanup_vars"' EXIT
-        QEMU_ARGS+=(-drive "if=pflash,format=raw,unit=1,file=$cleanup_vars")
-    fi
-elif [[ -f /usr/share/ovmf/OVMF.fd ]]; then
-    QEMU_ARGS+=(-bios /usr/share/ovmf/OVMF.fd)
+if [[ -n "$COMBINED" ]]; then
+    QEMU_ARGS+=(-bios "$COMBINED")
+elif [[ -n "$CODE" ]]; then
+    [[ -n "$VARS" && -f "$VARS" ]]         || die "matching OVMF variable store not found; set SYNVEIL_OVMF_VARS"
+    cleanup_vars="$(mktemp "${TMPDIR:-/tmp}/synveil-ovmf-vars.XXXXXX.fd")"
+    cp "$VARS" "$cleanup_vars"
+    trap 'rm -f "$cleanup_vars"' EXIT
+    QEMU_ARGS+=(
+        -drive "if=pflash,format=raw,unit=0,readonly=on,file=$CODE"
+        -drive "if=pflash,format=raw,unit=1,file=$cleanup_vars"
+    )
 else
-    die "OVMF firmware not found; set SYNVEIL_OVMF_CODE and optionally SYNVEIL_OVMF_VARS"
+    die "OVMF firmware not found; set SYNVEIL_OVMF_CODE and SYNVEIL_OVMF_VARS"
 fi
 
-exec qemu-system-x86_64 "${QEMU_ARGS[@]}"
+set +e
+qemu-system-x86_64 "${QEMU_ARGS[@]}"
+status=$?
+set -e
+exit "$status"
