@@ -1,6 +1,6 @@
 # Synveil Architecture
 
-Status: **initial accepted architecture; implementation has not started**
+Status: **accepted foundation; Phase 1 bootstrap implementation is in progress**
 
 ## 1. System model
 
@@ -326,7 +326,8 @@ The following are intentionally not locked yet:
 - local inference runtime and model families,
 - long-term IPC encoding,
 - secure boot/signing architecture,
-- update channel and repository design,
-- licensing.
+- update channel and repository design.
 
-These should be decided when their roadmap dependency approaches rather than prematurely.
+Licensing is recorded in ADR 0001 and `docs/LICENSING.md`.
+
+These remaining questions should be decided when their roadmap dependency approaches rather than prematurely.
