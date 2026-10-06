@@ -39,4 +39,5 @@ mcopy -i "$ESP_TMP" "$KERNEL_EFI" ::/EFI/BOOT/BOOTX64.EFI
 
 dd if="$ESP_TMP" of="$IMAGE" bs=512 seek="$FIRST_SECTOR" conv=notrunc status=none
 
+bash "$ROOT_DIR/tests/inspect-image.sh" "$IMAGE"
 log "UEFI GPT image ready: $IMAGE"
