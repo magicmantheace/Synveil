@@ -4,7 +4,7 @@ set -Eeuo pipefail
 source "$(dirname "$0")/common.sh"
 
 commands=(
-    bash python3 make gcc g++ ld ar as
+    bash python3 git make gcc g++ ld ar as
     tar xz bzip2 sed gawk grep patch perl
     bison flex makeinfo
     find sort cpio zstd
