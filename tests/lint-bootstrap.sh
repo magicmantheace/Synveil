@@ -26,5 +26,6 @@ sh -n build/rootfs/init
 python3 -m py_compile tools/source_lock.py tools/build_manifest.py
 python3 -m json.tool build/manifests/sources.json >/dev/null
 python3 tools/source_lock.py dump >/dev/null
+python3 tests/validate-source-lock.py
 
 printf '[lint] bootstrap scripts, Python tools, and source manifest passed syntax checks\n'
