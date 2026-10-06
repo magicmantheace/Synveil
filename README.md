@@ -94,4 +94,6 @@ The repository is being initialized before implementation begins. The roadmap is
 
 ## Licensing
 
-No project license has been selected yet. Do not assume redistribution rights for Synveil-authored code until a license is explicitly committed. Third-party components retain their own licenses.
+Synveil-authored operating-system and control-plane code is licensed under the **Mozilla Public License 2.0 (MPL-2.0)** by default. Selected future SDKs and integration libraries may use **Apache-2.0** when explicitly scoped.
+
+Third-party components retain their upstream licenses. See [docs/LICENSING.md](docs/LICENSING.md) and [LICENSE](LICENSE).
