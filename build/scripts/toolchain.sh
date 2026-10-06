@@ -44,8 +44,7 @@ BUILD_TRIPLET="$("$GLIBC_SRC/scripts/config.guess")"
 (
     cd "$WORK_DIR/toolchain/glibc"
     CC="$TARGET-gcc"     AR="$TARGET-ar"     RANLIB="$TARGET-ranlib"     "$GLIBC_SRC/configure"         --prefix=/usr         --host="$TARGET"         --build="$BUILD_TRIPLET"         --with-headers="$SYSROOT/usr/include"         --disable-multilib         --enable-kernel=6.18
-    make -j"$JOBS"
-    make DESTDIR="$SYSROOT" install
+    # The stage-1 compiler intentionally has no target libstdc++ yet.\n    # glibc provides a C implementation of links-dso-program specifically for\n    # bootstrap/cross builds when CXX is empty. Override the make variable so\n    # support/Makefile selects that path instead of attempting -lstdc++.\n    make CXX= -j"$JOBS"\n    make CXX= DESTDIR="$SYSROOT" install
 )
 
 log "checking target compiler against the Synveil sysroot"
