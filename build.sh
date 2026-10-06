@@ -9,6 +9,7 @@ usage() {
 Synveil bootstrap builder
 
 Usage:
+  bash build.sh lint
   bash build.sh doctor
   bash build.sh fetch
   bash build.sh toolchain
@@ -26,6 +27,9 @@ EOF
 
 command="${1:-help}"
 case "$command" in
+    lint)
+        bash "$ROOT_DIR/tests/lint-bootstrap.sh"
+        ;;
     doctor)
         bash "$ROOT_DIR/build/scripts/doctor.sh"
         ;;
@@ -57,6 +61,7 @@ case "$command" in
         bash "$ROOT_DIR/tests/smoke-boot.sh"
         ;;
     all)
+        bash "$ROOT_DIR/tests/lint-bootstrap.sh"
         bash "$ROOT_DIR/build/scripts/doctor.sh"
         python3 "$ROOT_DIR/tools/source_lock.py" fetch
         bash "$ROOT_DIR/build/scripts/toolchain.sh"
