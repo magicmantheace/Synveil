@@ -40,6 +40,7 @@ def main() -> int:
     for name in (
         "synveil-x86_64.efi",
         "synveil-x86_64.img",
+        "synveil-initramfs.cpio",
         "synveil-initramfs.cpio.zst",
         "synveil-rootfs.tar.zst",
     ):
