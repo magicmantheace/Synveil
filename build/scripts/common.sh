@@ -37,6 +37,14 @@ prepare_source() {
     archive="$(source_path "$name")"
     rm -rf "$destination"
     mkdir -p "$WORK_DIR/src"
+
+    if [[ -d "$archive/.git" ]]; then
+        mkdir -p "$destination"
+        git -C "$archive" archive --format=tar HEAD | tar -xf - -C "$destination"
+        printf '%s\n' "$destination"
+        return 0
+    fi
+
     temp="$(mktemp -d "$WORK_DIR/src/.extract.XXXXXX")"
 
     tar -xf "$archive" -C "$temp"
