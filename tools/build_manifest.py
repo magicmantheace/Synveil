@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 ROOT = Path(__file__).resolve().parents[1]
 OUT = Path(os.environ.get("SYNVEIL_OUT_DIR", ROOT / "out"))
 LOCK = ROOT / "build" / "manifests" / "sources.json"
+VERSION = ROOT / "VERSION"
 
 
 def run(*args: str) -> str | None:
@@ -59,7 +60,7 @@ def main() -> int:
 
     manifest = {
         "schema": "synveil.build/v1",
-        "version": "0.1.0-dev",
+        "version": VERSION.read_text(encoding="utf-8").strip(),
         "target": os.environ.get("SYNVEIL_TARGET", "x86_64-synveil-linux-gnu"),
         "git": {
             "commit": git_sha,
