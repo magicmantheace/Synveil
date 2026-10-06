@@ -4,6 +4,7 @@ set -Eeuo pipefail
 source "$(dirname "$0")/common.sh"
 
 ensure_dirs
+SYNVEIL_VERSION="$(tr -d '\n' < "$ROOT_DIR/VERSION")"
 [[ -x "$TOOLCHAIN_DIR/bin/$TARGET-gcc" ]] || die "toolchain missing; run 'bash build.sh toolchain' first"
 python3 "$ROOT_DIR/tools/source_lock.py" fetch busybox
 
@@ -39,8 +40,8 @@ cat >"$ROOTFS_DIR/etc/os-release" <<EOF
 NAME="Synveil"
 ID=synveil
 PRETTY_NAME="Synveil bootstrap"
-VERSION="0.1.0-dev"
-VERSION_ID="0.1.0-dev"
+VERSION="$SYNVEIL_VERSION"
+VERSION_ID="$SYNVEIL_VERSION"
 HOME_URL="https://github.com/magicmantheace/Synveil"
 EOF
 
