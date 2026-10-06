@@ -5,6 +5,15 @@ on:
   push:
     branches: [main]
     paths:
+      - VERSION
+      - build.sh
+      - Makefile
+      - build/**
+      - tools/source_lock.py
+      - tools/build_manifest.py
+      - tests/lint-bootstrap.sh
+      - tests/inspect-image.sh
+      - tests/smoke-boot.sh
       - .github/workflows/bootstrap-smoke.yml
 
 permissions:
