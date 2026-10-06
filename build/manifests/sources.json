@@ -10,6 +10,11 @@
       "digest": {
         "algorithm": "sha256",
         "value": "f410638061a165c12f42ab871d2f3fcd525515359b5faeee80969cff84524df9"
+      },
+      "git_fallback": {
+        "repository": "https://github.com/gregkh/linux.git",
+        "ref": "refs/tags/v6.18.55",
+        "commit": "725bd2f3c81d54edccb66fead01d4c0c222e2231"
       }
     },
     "binutils": {
@@ -19,6 +24,11 @@
       "digest": {
         "algorithm": "sha512",
         "value": "a5c65e56e400ed3fb8906a995dbb93eb5bea54b16344244653d7f44ef29ceb60270da263b19d25302c37759784e14fcb4b9421b29e0e2c7f450bd99f6bb4595c"
+      },
+      "git_fallback": {
+        "repository": "https://github.com/gnutools/binutils-gdb.git",
+        "ref": "refs/tags/binutils-2_46_1",
+        "commit": "5e56594815854de5eca35c7c04b11705d0f19c02"
       }
     },
     "gcc": {
@@ -28,6 +38,11 @@
       "digest": {
         "algorithm": "sha512",
         "value": "c51c30ca7422d0cbecf504b2e0f33c3aca31e0f90a76b65217f465163fa6fa17b3f5de39e145c47e5bab90ac0ce7fff3b03c8d553ae36e01faaea5a50f8648d1"
+      },
+      "git_fallback": {
+        "repository": "https://github.com/gcc-mirror/gcc.git",
+        "ref": "refs/tags/releases/gcc-16.2.0",
+        "commit": "78d4ac73dd391005b895a6148cd9831e28e1208b"
       }
     },
     "glibc": {
@@ -37,6 +52,11 @@
       "digest": {
         "algorithm": "sha256",
         "value": "37f600f2bef3c5e8300147059568b2a2e40a7ad6ccc65ce942556d49429cc667"
+      },
+      "git_fallback": {
+        "repository": "https://github.com/gnutools/glibc.git",
+        "ref": "refs/tags/glibc-2.44",
+        "commit": "c3a3a9808ad3ab4a3336836833f83288b672ccbf"
       }
     },
     "busybox": {
@@ -46,6 +66,11 @@
       "digest": {
         "algorithm": "sha256",
         "value": "34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2"
+      },
+      "git_fallback": {
+        "repository": "https://github.com/vda-linux/busybox_mirror.git",
+        "ref": "refs/tags/1_38_0",
+        "commit": "fc71374dfccd46448c62947269a35f1420d7ee28"
       }
     }
   }
