@@ -12,7 +12,7 @@ This roadmap is ordered by dependency. Phase numbers describe architectural matu
 - [x] Define initial security boundary
 - [x] Define bootstrap strategy
 - [x] Establish repository rules
-- [ ] Select project license
+- [x] Select project license: MPL-2.0 core; explicitly scoped Apache-2.0 SDKs/libraries
 - [x] Add build/release versioning convention
 - [x] Add architecture-decision-record format
 
