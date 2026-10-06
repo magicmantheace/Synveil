@@ -1,0 +1,44 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH
+umask 022
+
+mkdir -p /dev /proc /sys /run /tmp
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+
+exec </dev/console >/dev/console 2>&1
+
+echo "[synveil-init] starting bootstrap userspace"
+
+mount -t proc proc /proc || {
+    echo "[synveil-init] failed to mount /proc"
+    exec /bin/sh
+}
+mount -t sysfs sysfs /sys || {
+    echo "[synveil-init] failed to mount /sys"
+    exec /bin/sh
+}
+mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs /run || true
+mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp || true
+
+hostname synveil 2>/dev/null || true
+
+echo
+echo "Synveil bootstrap"
+echo "Linux: $(uname -r)"
+echo "Machine: $(uname -m)"
+echo "SYNVEIL_BOOT_OK"
+echo
+
+if grep -qw 'synveil.autopoweroff=1' /proc/cmdline 2>/dev/null; then
+    echo "[synveil-init] autopoweroff requested"
+    poweroff -f
+fi
+
+echo "Recovery/bootstrap shell. Type 'poweroff -f' to stop."
+if command -v setsid >/dev/null 2>&1 && command -v cttyhack >/dev/null 2>&1; then
+    exec setsid cttyhack /bin/sh
+fi
+exec /bin/sh
