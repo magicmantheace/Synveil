@@ -13,8 +13,8 @@ This roadmap is ordered by dependency. Phase numbers describe architectural matu
 - [x] Define bootstrap strategy
 - [x] Establish repository rules
 - [ ] Select project license
-- [ ] Add build/release versioning convention
-- [ ] Add architecture-decision-record format
+- [x] Add build/release versioning convention
+- [x] Add architecture-decision-record format
 
 **Exit:** architecture and repository rules are sufficient to begin bootstrap implementation without relying on chat history.
 
