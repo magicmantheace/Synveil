@@ -22,9 +22,9 @@ This roadmap is ordered by dependency. Phase numbers describe architectural matu
 
 **Goal:** generate a minimal Synveil system from pinned upstream source.
 
-- [ ] Add top-level build entry point
-- [ ] Create source manifest format
-- [ ] Pin Linux/binutils/compiler/glibc/BusyBox inputs and hashes
+- [x] Add top-level build entry point
+- [x] Create source manifest format
+- [x] Pin Linux/binutils/compiler/glibc/BusyBox inputs and hashes
 - [ ] Build isolated target toolchain
 - [ ] Build minimal rootfs
 - [ ] Build QEMU-oriented kernel
