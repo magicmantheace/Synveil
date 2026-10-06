@@ -88,9 +88,9 @@ The bootstrap is documented in [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md).
 
 ## Project status
 
-**Phase 0 — architecture and bootstrap foundation.**
+**Phase 1 — from-source boot.**
 
-The repository is being initialized before implementation begins. The roadmap is maintained in [ROADMAP.md](ROADMAP.md).
+The bootstrap build system is being validated toward the first reproducible x86_64 UEFI/QEMU boot. The roadmap is maintained in [ROADMAP.md](ROADMAP.md).
 
 ## Licensing
 
