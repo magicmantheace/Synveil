@@ -123,7 +123,7 @@ out/synveil-x86_64.efi
 
 ### image
 
-Creates a FAT32 EFI System Partition image and copies the kernel to:
+Creates a GPT disk image containing a FAT32 EFI System Partition and copies the kernel to:
 
 ```text
 EFI/BOOT/BOOTX64.EFI
