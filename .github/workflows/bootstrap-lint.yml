@@ -1,0 +1,19 @@
+name: Bootstrap lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Synveil
+        uses: actions/checkout@v6
+      - name: Validate bootstrap sources
+        run: bash build.sh lint
