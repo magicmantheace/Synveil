@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = [
+    "src/veil-protocol",
+    "src/veil-core",
+    "src/synctl",
+]
+
+[workspace.package]
+version = "0.1.0-dev"
+edition = "2024"
+rust-version = "1.99"
+license = "MPL-2.0"
+repository = "https://github.com/magicmantheace/Synveil"
+
+[workspace.dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.149"
+veil-protocol = { path = "src/veil-protocol" }
