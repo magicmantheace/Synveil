@@ -3,7 +3,23 @@ name: Bootstrap lint
 on:
   push:
     branches: [main]
+    paths:
+      - VERSION
+      - build.sh
+      - Makefile
+      - build/**
+      - tools/**
+      - tests/**
+      - .github/workflows/bootstrap-lint.yml
   pull_request:
+    paths:
+      - VERSION
+      - build.sh
+      - Makefile
+      - build/**
+      - tools/**
+      - tests/**
+      - .github/workflows/bootstrap-lint.yml
   workflow_dispatch:
 
 permissions:
