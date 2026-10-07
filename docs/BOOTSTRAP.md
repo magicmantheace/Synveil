@@ -51,7 +51,7 @@ Track exact versions and cryptographic hashes for at least:
 - GCC or chosen bootstrap compiler,
 - glibc,
 - BusyBox bootstrap userspace,
-- UEFI/bootloader dependency selected during implementation.
+- any external early-boot dependency selected during implementation (Phase 1 currently uses Linux's EFI stub and therefore has no separate bootloader source).
 
 Never silently download "latest."
 
@@ -124,7 +124,7 @@ Commit the effective kernel config or a reproducible fragment strategy.
 
 ## Stage 5 — bootable image
 
-Select and pin a UEFI-compatible boot path.
+Phase 1 uses the pinned Linux kernel's built-in EFI stub directly, as recorded in ADR 0002. The generated GPT disk contains a FAT EFI System Partition with the kernel installed at the removable-media fallback path `EFI/BOOT/BOOTX64.EFI`. No separate Phase 1 bootloader source is required.
 
 First success criterion:
 
