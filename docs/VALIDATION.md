@@ -1,0 +1,96 @@
+# Validation Policy
+
+Synveil distinguishes between **implemented**, **validated**, and **complete**.
+
+A roadmap item may have code in the repository without being considered complete when its defining behavior has not yet been exercised.
+
+## Evidence classes
+
+### Static validation
+
+Examples:
+
+- shell syntax checks,
+- Python compilation,
+- JSON/schema validation,
+- formatting,
+- source-lock structural checks.
+
+Static validation proves that source is structurally usable. It does not prove runtime behavior.
+
+### Build validation
+
+The component is successfully built from the committed inputs in a clean or adequately isolated environment.
+
+Build evidence should record:
+
+- Synveil Git commit,
+- source versions/pins,
+- target,
+- toolchain identity,
+- artifact hashes,
+- relevant build logs.
+
+### Runtime validation
+
+The built artifact actually performs its defining behavior.
+
+Examples:
+
+- an image reaches Synveil `/init`,
+- `veil-core` accepts a status request,
+- policy denies a forbidden action,
+- rollback restores a baseline state.
+
+### System validation
+
+Multiple components operate together through the intended architecture.
+
+This is the strongest form of evidence for roadmap phase exit criteria.
+
+## Phase 1 validation contract
+
+Phase 1 is complete only when one committed Synveil revision demonstrates the following in one reproducible pipeline:
+
+1. bootstrap scripts pass static validation;
+2. all source inputs are materialized from the committed source lock;
+3. the target cross/bootstrap toolchain builds;
+4. glibc is installed into the isolated target sysroot;
+5. the target compiler successfully links a target program against that sysroot;
+6. BusyBox builds for the target;
+7. Synveil's root filesystem and `/init` are generated;
+8. the pinned Linux kernel builds with the committed Synveil configuration;
+9. the EFI-stub kernel is placed in a GPT disk's EFI System Partition;
+10. image inspection finds `EFI/BOOT/BOOTX64.EFI`;
+11. OVMF boots the image in QEMU;
+12. Synveil `/init` emits `SYNVEIL_BOOT_OK` on the serial console;
+13. `out/manifests/build.json` records the build and artifact identity;
+14. validation logs/manifests are retained as CI evidence.
+
+Only after this evidence exists should the corresponding Phase 1 roadmap items be checked complete.
+
+## Phase 2 validation direction
+
+Phase 2 will require runtime evidence that:
+
+- native Synveil code launches in the booted image;
+- `veil-core` owns a local IPC endpoint;
+- `synctl status` obtains a versioned structured response;
+- malformed requests fail safely;
+- the system remains recoverable when `veil-core` is absent or crashes.
+
+Exact tests will be committed with Phase 2 implementation.
+
+## AI-related validation
+
+No AI planner result is accepted as validation of deterministic system behavior.
+
+For example, a planner saying that an action "would be safe" does not validate policy enforcement. Tests must request the action and demonstrate the deterministic policy result.
+
+Likewise, explanations are validated against transaction evidence rather than judged solely by natural-language plausibility.
+
+## Roadmap updates
+
+Roadmap checkboxes should normally be updated in the same commit as, or after, the evidence that justifies completion.
+
+If an implementation exists but validation is blocked by infrastructure, leave the item unchecked and document the blocker instead of overstating project maturity.
