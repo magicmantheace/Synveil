@@ -106,11 +106,7 @@ fn serve_connection(stream: UnixStream) -> io::Result<()> {
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut writer = stream;
 
-    loop {
-        let Some(line) = read_bounded_line(&mut reader)? else {
-            break;
-        };
-
+    while let Some(line) = read_bounded_line(&mut reader)? {
         let response = match decode_request(&line) {
             Ok(request) => {
                 log_event(
