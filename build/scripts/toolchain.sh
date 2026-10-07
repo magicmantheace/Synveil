@@ -92,6 +92,7 @@ BUILD_TRIPLET="$("$GLIBC_SRC/scripts/config.guess")"
     READELF="$TARGET-readelf" \
     "$GLIBC_SRC/configure" \
         --prefix=/usr \
+        --libdir=/usr/lib64 \
         --host="$TARGET" \
         --build="$BUILD_TRIPLET" \
         --with-headers="$SYSROOT/usr/include" \
@@ -105,10 +106,13 @@ BUILD_TRIPLET="$("$GLIBC_SRC/scripts/config.guess")"
 
 log "validating glibc installation"
 for required in \
-    "$SYSROOT/usr/lib/crt1.o" \
-    "$SYSROOT/usr/lib/crti.o" \
-    "$SYSROOT/usr/lib/crtn.o" \
-    "$SYSROOT/usr/lib/libc.so"
+    "$SYSROOT/usr/lib64/crt1.o" \
+    "$SYSROOT/usr/lib64/Scrt1.o" \
+    "$SYSROOT/usr/lib64/crti.o" \
+    "$SYSROOT/usr/lib64/crtn.o" \
+    "$SYSROOT/usr/lib64/libc.so" \
+    "$SYSROOT/usr/lib64/libc.a" \
+    "$SYSROOT/lib64/ld-linux-x86-64.so.2"
 do
     [[ -e "$required" ]] || die "glibc install missing required target file: $required"
 done

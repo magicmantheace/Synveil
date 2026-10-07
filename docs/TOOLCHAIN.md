@@ -50,6 +50,14 @@ glibc is configured against these headers, not the host's kernel headers.
 
 glibc is then cross-built into the Synveil sysroot.
 
+The x86_64 ABI uses `/usr/lib64` for development libraries and startup objects,
+and `/lib64/ld-linux-x86-64.so.2` for the runtime loader. The glibc configure
+command explicitly selects `/usr/lib64`; installation validation checks this
+layout before the compiler link probe. These paths are relative to the isolated
+sysroot, never the build host. Both dynamic and static libc inputs are required
+because the compiler probe links dynamically and the bootstrap BusyBox links
+statically.
+
 Because the bootstrap GCC intentionally has no target libstdc++, glibc is built with an empty make-time `CXX` variable. glibc's support build therefore selects its C-only bootstrap helper rather than attempting to link against a C++ runtime that cannot exist yet.
 
 After installation, the bootstrap compiler must successfully link a target C executable against the new sysroot.
