@@ -12,7 +12,8 @@ Before changing architecture or implementation:
 2. Read `README.md`.
 3. Read `ROADMAP.md`.
 4. Read the relevant documents under `docs/`.
-5. Inspect existing implementation and tests before changing behavior.
+5. For roadmap completion or validation claims, read `docs/VALIDATION.md`.
+6. Inspect existing implementation and tests before changing behavior.
 
 Do not silently replace an accepted architectural decision. If a decision must change, document why and update all affected design documents in the same work.
 
@@ -109,6 +110,8 @@ Early development prioritizes fast feedback:
 5. longer system tests only when the change warrants them.
 
 A bootable-image change should eventually have an automated QEMU smoke test.
+
+Implementation existing in Git is not, by itself, validation. Roadmap items should only be checked complete when the evidence defined in `docs/VALIDATION.md` exists.
 
 ## Roadmap discipline
 
