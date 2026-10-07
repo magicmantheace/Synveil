@@ -40,14 +40,18 @@ prepare_source() {
 
     if [[ -d "$archive/.git" ]]; then
         mkdir -p "$destination"
-        git -C "$archive" archive --format=tar HEAD | tar -xf - -C "$destination"
+        git -C "$archive" archive --format=tar HEAD | tar --no-same-owner -xf - -C "$destination" \
+            || die "could not materialize Git source for $name"
         printf '%s\n' "$destination"
         return 0
     fi
 
     temp="$(mktemp -d "$WORK_DIR/src/.extract.XXXXXX")"
 
-    tar -xf "$archive" -C "$temp"
+    tar --no-same-owner -xf "$archive" -C "$temp" || {
+        rm -rf "$temp"
+        die "could not extract source archive for $name"
+    }
     shopt -s nullglob dotglob
     entries=("$temp"/*)
     shopt -u nullglob dotglob
