@@ -9,7 +9,8 @@ INITRAMFS="$OUT_DIR/synveil-initramfs.cpio"
 [[ -f "$INITRAMFS" ]] || die "initramfs missing; run 'bash build.sh rootfs' first"
 
 python3 "$ROOT_DIR/tools/source_lock.py" fetch linux
-LINUX_SRC="$(prepare_source linux)"
+# Header installation mutates its source tree; keep the kernel source separate.
+LINUX_SRC="$(prepare_source linux linux-kernel)"
 KERNEL_BUILD="$WORK_DIR/kernel-build"
 
 rm -rf "$KERNEL_BUILD"

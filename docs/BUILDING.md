@@ -131,6 +131,10 @@ out/synveil-rootfs.tar.zst
 
 Builds the pinned upstream Linux source with a QEMU-focused configuration and embeds the normalized root-owned `newc` initramfs archive into the kernel.
 
+Kernel compilation uses a separate materialized source directory from Linux UAPI
+header installation, so generated header state cannot contaminate the kernel's
+out-of-tree build.
+
 The x86 Linux EFI stub means the resulting `bzImage` is also a UEFI-loadable executable.
 
 Artifact:
