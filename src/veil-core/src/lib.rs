@@ -45,10 +45,7 @@ pub fn serve_path(path: &Path, max_connections: Option<usize>) -> io::Result<()>
             Ok(stream) => {
                 accepted += 1;
                 if let Err(error) = serve_connection(stream) {
-                    log_event(
-                        "connection_error",
-                        json!({ "error": error.to_string() }),
-                    );
+                    log_event("connection_error", json!({ "error": error.to_string() }));
                 }
             }
             Err(error) => {
@@ -126,10 +123,7 @@ fn serve_connection(stream: UnixStream) -> io::Result<()> {
                 dispatch(request)
             }
             Err(error) => {
-                log_event(
-                    "request_rejected",
-                    json!({ "code": error.code.as_str() }),
-                );
+                log_event("request_rejected", json!({ "code": error.code.as_str() }));
                 Response::failure("", error)
             }
         };
@@ -299,14 +293,20 @@ mod tests {
         assert!(response.ok);
         assert_eq!(response.id, "roundtrip-1");
 
-        server.join().expect("server thread").expect("server result");
+        server
+            .join()
+            .expect("server thread")
+            .expect("server result");
         let _ = fs::remove_dir(path.parent().expect("test socket parent"));
     }
 
     fn test_socket_path() -> std::path::PathBuf {
         let id = NEXT_TEST_ID.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir()
-            .join(format!("synveil-veil-core-test-{}-{id}", std::process::id()))
+            .join(format!(
+                "synveil-veil-core-test-{}-{id}",
+                std::process::id()
+            ))
             .join("veil-core.sock")
     }
 
