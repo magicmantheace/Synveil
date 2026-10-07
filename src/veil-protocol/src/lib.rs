@@ -7,6 +7,8 @@ use std::io::{self, BufRead};
 
 pub const CORE_SCHEMA_V1: &str = "synveil.core/v1";
 pub const MAX_MESSAGE_BYTES: usize = 64 * 1024;
+pub const MAX_ID_BYTES: usize = 128;
+pub const MAX_METHOD_BYTES: usize = 64;
 pub const BUILD_VERSION: &str = env!("SYNVEIL_BUILD_VERSION");
 pub const BUILD_REVISION: Option<&str> = option_env!("SYNVEIL_BUILD_REVISION");
 
@@ -138,21 +140,21 @@ pub fn decode_request(bytes: &[u8]) -> Result<Request, ProtocolError> {
     if request.schema != CORE_SCHEMA_V1 {
         return Err(ProtocolError::new(
             ErrorCode::UnsupportedSchema,
-            format!("unsupported protocol schema: {}", request.schema),
+            "unsupported protocol schema",
         ));
     }
 
-    if request.id.trim().is_empty() {
+    if request.id.trim().is_empty() || request.id.len() > MAX_ID_BYTES {
         return Err(ProtocolError::new(
             ErrorCode::MalformedMessage,
-            "request id must not be empty",
+            "request id must contain 1 to 128 bytes",
         ));
     }
 
-    if request.method.trim().is_empty() {
+    if request.method.trim().is_empty() || request.method.len() > MAX_METHOD_BYTES {
         return Err(ProtocolError::new(
             ErrorCode::MalformedMessage,
-            "request method must not be empty",
+            "request method must contain 1 to 64 bytes",
         ));
     }
 
@@ -199,8 +201,14 @@ pub fn decode_response(bytes: &[u8]) -> Result<Response, ProtocolError> {
     Ok(response)
 }
 
-pub fn encode_line<T: Serialize>(message: &T) -> Result<Vec<u8>, serde_json::Error> {
-    let mut bytes = serde_json::to_vec(message)?;
+pub fn encode_line<T: Serialize>(message: &T) -> Result<Vec<u8>, ProtocolError> {
+    let mut bytes = serde_json::to_vec(message).map_err(|_| {
+        ProtocolError::new(
+            ErrorCode::InternalFailure,
+            "could not encode protocol message",
+        )
+    })?;
+    enforce_size(&bytes)?;
     bytes.push(b'\n');
     Ok(bytes)
 }
@@ -357,5 +365,25 @@ mod tests {
                 ErrorCode::MalformedMessage
             );
         }
+    }
+
+    #[test]
+    fn rejects_unbounded_identifiers_and_outgoing_frames() {
+        for request in [
+            Request::new("x".repeat(MAX_ID_BYTES + 1), "status", json!({})),
+            Request::new("one", "x".repeat(MAX_METHOD_BYTES + 1), json!({})),
+        ] {
+            let bytes = serde_json::to_vec(&request).unwrap();
+            assert_eq!(
+                decode_request(&bytes).unwrap_err().code,
+                ErrorCode::MalformedMessage
+            );
+        }
+        assert_eq!(
+            encode_line(&"x".repeat(MAX_MESSAGE_BYTES))
+                .unwrap_err()
+                .code,
+            ErrorCode::MessageTooLarge
+        );
     }
 }

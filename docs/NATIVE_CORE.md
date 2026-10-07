@@ -68,6 +68,8 @@ Constraints for the first implementation:
 - invalid UTF-8 or invalid JSON is rejected;
 - connections are local only;
 - no request may cause generic shell execution.
+- correlation IDs contain 1 to 128 bytes; method names contain 1 to 64 bytes;
+- outgoing frames obey the same 64 KiB limit as incoming frames.
 
 The first implementation should close a connection that exceeds the message limit rather than buffering without bound.
 

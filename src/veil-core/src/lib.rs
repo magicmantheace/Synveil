@@ -23,7 +23,7 @@ pub fn dispatch(request: Request) -> Response {
             request.id,
             ProtocolError::new(
                 ErrorCode::UnknownMethod,
-                format!("method is not registered: {}", request.method),
+                "requested method is not registered",
             ),
         ),
     }
