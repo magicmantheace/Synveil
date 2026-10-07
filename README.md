@@ -105,4 +105,5 @@ Third-party components retain their upstream licenses. See [docs/LICENSING.md](d
 - [Security model](docs/SECURITY_MODEL.md)
 - [Source provenance](docs/SOURCE_PROVENANCE.md)
 - [Validation policy](docs/VALIDATION.md)
+- [Native core bring-up](docs/NATIVE_CORE.md)
 - [Roadmap](ROADMAP.md)
