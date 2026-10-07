@@ -1,0 +1,244 @@
+# Native Core Bring-Up Contract
+
+Status: **implementation-ready design for Phase 2; code begins only after Phase 1 validation**
+
+This document defines the smallest useful native Synveil control service and CLI boundary.
+
+It deliberately does not define actions, AI planning, long-term memory, or the final supervisor. Those belong to later roadmap phases.
+
+## Components
+
+The initial Rust workspace is expected to contain three responsibilities:
+
+```text
+veil-protocol
+  shared wire types and schema validation helpers
+
+veil-core
+  deterministic local control service
+
+synctl
+  human/developer command-line client
+```
+
+Exact crate paths may change during implementation, but these boundaries should remain clear.
+
+## First capability
+
+The first supported operation is read-only status.
+
+```sh
+synctl status
+```
+
+It must prove that:
+
+1. native Synveil code is present in the generated rootfs;
+2. `veil-core` starts independently of the AI stack;
+3. a local client can reach it through a structured IPC endpoint;
+4. request and response versions are explicit;
+5. malformed input fails safely;
+6. failure of `veil-core` does not prevent recovery access to the machine.
+
+No privileged mutation is introduced in Phase 2's first slice.
+
+## IPC endpoint
+
+Initial endpoint:
+
+```text
+/run/synveil/veil-core.sock
+```
+
+The runtime directory is ephemeral and recreated on boot.
+
+The initial transport is a local Unix domain stream socket.
+
+JSON is acceptable for bring-up because it is inspectable, testable, and keeps the protocol independent of Rust type layout. A later encoding change must preserve explicit schema/version semantics.
+
+## Framing
+
+Each protocol message is one UTF-8 JSON object followed by a newline.
+
+Constraints for the first implementation:
+
+- one request per line;
+- one response per request;
+- maximum message size enforced before parsing;
+- invalid UTF-8 or invalid JSON is rejected;
+- connections are local only;
+- no request may cause generic shell execution.
+
+The first implementation should close a connection that exceeds the message limit rather than buffering without bound.
+
+## Request envelope
+
+Conceptual request:
+
+```json
+{
+  "schema": "synveil.core/v1",
+  "id": "01J...",
+  "method": "status",
+  "params": {}
+}
+```
+
+Required fields:
+
+- `schema` — protocol schema identifier;
+- `id` — caller-provided correlation ID;
+- `method` — registered operation name;
+- `params` — method-specific object.
+
+Unknown methods must return a structured error.
+
+Unknown required schema versions must be rejected rather than guessed.
+
+## Successful response envelope
+
+Conceptual response:
+
+```json
+{
+  "schema": "synveil.core/v1",
+  "id": "01J...",
+  "ok": true,
+  "result": {
+    "service": "veil-core",
+    "version": "0.1.0-dev",
+    "protocol": "synveil.core/v1",
+    "state": "ready"
+  }
+}
+```
+
+The first status result should contain only deterministic service/build information. It should not fabricate health claims about components it cannot actually inspect.
+
+## Error response envelope
+
+Conceptual response:
+
+```json
+{
+  "schema": "synveil.core/v1",
+  "id": "01J...",
+  "ok": false,
+  "error": {
+    "code": "unknown_method",
+    "message": "requested method is not registered"
+  }
+}
+```
+
+Stable machines should consume `code`, not parse the human-readable `message`.
+
+Initial error classes should distinguish at least:
+
+- malformed message,
+- unsupported schema,
+- unknown method,
+- invalid parameters,
+- internal service failure.
+
+## Lifecycle
+
+For the first Phase 2 image:
+
+1. bootstrap init mounts required virtual filesystems;
+2. init creates `/run/synveil`;
+3. init launches `veil-core`;
+4. core creates its socket;
+5. init may report whether native core reached ready state;
+6. the recovery/bootstrap shell remains available even if core exits.
+
+A core crash must not create an init crash loop that prevents console access.
+
+Permanent service supervision and a production PID 1 remain separate roadmap work.
+
+## Privilege boundary
+
+During first bring-up, `veil-core` may need to run as root because later phases will introduce narrowly scoped privileged capabilities.
+
+That does **not** grant the protocol arbitrary root authority.
+
+Phase 2 exposes only registered methods. There is no `exec`, `shell`, `run_command`, or equivalent generic privileged method.
+
+The socket should initially be root-owned with restrictive permissions. Multi-user authorization and a dedicated control group can be introduced when required by the action/policy phase.
+
+## Protocol library rule
+
+Wire compatibility must not exist only as Rust structs.
+
+The protocol identifier and envelope semantics in this document are part of the contract. Rust types implement that contract; they do not define it implicitly through serialization accidents.
+
+Persistent or externally consumed schema changes require an explicit version decision.
+
+## Logging
+
+Phase 2 should emit structured service events for:
+
+- service start,
+- socket ready,
+- accepted request method,
+- rejected request category,
+- clean shutdown,
+- fatal internal error.
+
+Do not log full arbitrary request payloads by default; future methods may contain sensitive data.
+
+Early logs may be newline-delimited JSON written to the console or a dedicated file, provided the format is explicit and testable.
+
+## Build identity
+
+`veil-core` and `synctl` should expose:
+
+- Synveil version from `VERSION`;
+- source Git revision when available at build time;
+- protocol version;
+- component name.
+
+The build system, not an LLM, supplies these values.
+
+## Recovery behavior
+
+The following failure modes must leave a usable recovery shell:
+
+- binary missing;
+- binary not executable;
+- core exits immediately;
+- socket cannot be created;
+- malformed client request;
+- client disconnects mid-request.
+
+Recovery cannot depend on `veil-core` answering successfully.
+
+## Initial tests
+
+Before the first Phase 2 roadmap items are marked complete, tests should cover:
+
+- protocol serialization/deserialization;
+- valid status request;
+- unsupported schema rejection;
+- unknown method rejection;
+- malformed JSON rejection;
+- oversized-message rejection;
+- multiple sequential client requests;
+- core clean shutdown;
+- init continuing when core startup fails;
+- `synctl status` against the core inside QEMU.
+
+## Deliberately deferred
+
+Do not add these merely because the protocol could support them:
+
+- system mutation methods;
+- AI/model endpoints;
+- arbitrary command execution;
+- package operations;
+- telemetry history;
+- persistent memory;
+- remote TCP listeners;
+- plugin execution.
+
+The first native core is intentionally boring. Its job is to establish a trustworthy deterministic boundary on which the interesting parts of Synveil can later depend.
