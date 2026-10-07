@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::env;
+use std::io;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use veil_core::{DEFAULT_SOCKET_PATH, serve_path};
@@ -32,7 +33,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     while let Some(argument) = arguments.next() {
         match argument.to_string_lossy().as_ref() {
             "--socket" => {
-                let value = arguments.next().ok_or("--socket requires a path")?;
+                let value = arguments.next().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "--socket requires a path")
+                })?;
                 socket = PathBuf::from(value);
             }
             "--once" => max_connections = Some(1),
@@ -40,7 +43,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Usage: veil-core [--socket PATH] [--once]");
                 return Ok(());
             }
-            other => return Err(format!("unknown argument: {other}").into()),
+            other => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("unknown argument: {other}"),
+                )
+                .into());
+            }
         }
     }
 
