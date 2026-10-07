@@ -1,0 +1,57 @@
+name: Native core host checks
+
+on:
+  push:
+    branches:
+      - phase2/native-core-bootstrap
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - src/**
+      - .github/workflows/native-core-host.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out Synveil
+        uses: actions/checkout@v6
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --no-self-update
+          rustup override set 1.99.0
+          rustc --version --verbose
+          cargo --version
+
+      - name: Resolve dependency lock
+        run: |
+          if [[ ! -f Cargo.lock ]]; then
+            cargo generate-lockfile
+          fi
+          echo "----- BEGIN CARGO LOCK -----"
+          cat Cargo.lock
+          echo "----- END CARGO LOCK -----"
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Test workspace
+        run: cargo test --workspace --all-targets --locked
+
+      - name: Lint workspace
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Preserve generated lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-core-cargo-lock-${{ github.sha }}
+          path: Cargo.lock
+          if-no-files-found: error
+          retention-days: 7
