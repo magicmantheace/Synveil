@@ -63,7 +63,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the detailed design.
 
 The first milestone is intentionally small:
 
-> Build a reproducible x86_64 UEFI image from source, boot it in QEMU, reach a Synveil-controlled userspace, collect basic telemetry, and execute one policy-approved reversible optimization through the full control loop.
+> Build a pinned-source x86_64 UEFI image, boot it in QEMU, and reach a Synveil-controlled bootstrap userspace without borrowing another distribution's target root filesystem.
+
+After that foundation is proven, the bootstrap sequence continues through native Synveil services, telemetry, one typed reversible action, evaluation, and finally the first bounded AI-planned optimization loop.
 
 The bootstrap is documented in [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md).
 
@@ -74,16 +76,12 @@ The bootstrap is documented in [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md).
 ├── AGENTS.md
 ├── README.md
 ├── ROADMAP.md
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── BOOTSTRAP.md
-│   ├── PRINCIPLES.md
-│   └── SECURITY_MODEL.md
-├── build/              # build-system implementation (future)
+├── docs/               # architecture, bootstrap, security and validation docs
+├── build/              # Phase 1 build system, configs and bootstrap rootfs
 ├── packages/           # package recipes/manifests (future)
-├── src/                # Synveil-native userspace components (future)
-├── tests/              # host/QEMU/integration tests (future)
-└── tools/              # developer tooling (future)
+├── src/                # Synveil-native userspace components (Phase 2+)
+├── tests/              # source/image/QEMU validation
+└── tools/              # source-lock and build-manifest tooling
 ```
 
 ## Project status
