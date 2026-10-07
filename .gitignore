@@ -4,6 +4,7 @@
 /downloads/
 /dist/
 /target/
+/.synveil-build.lock
 
 # Toolchain/build trees
 /build/work/

@@ -16,6 +16,7 @@ bash_files=(
     build/scripts/qemu.sh
     tests/smoke-boot.sh
     tests/inspect-image.sh
+    tests/source-extraction.sh
 )
 
 for file in "${bash_files[@]}"; do
@@ -27,5 +28,7 @@ python3 -m py_compile tools/source_lock.py tools/build_manifest.py
 python3 -m json.tool build/manifests/sources.json >/dev/null
 python3 tools/source_lock.py dump >/dev/null
 python3 tests/validate-source-lock.py
+bash tests/source-extraction.sh
+python3 tests/build-lock.py
 
 printf '[lint] bootstrap scripts, Python tools, and source manifest passed syntax checks\n'

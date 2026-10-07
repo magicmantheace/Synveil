@@ -35,19 +35,23 @@ prepare_source() {
     local archive temp entries
 
     archive="$(source_path "$name")"
-    rm -rf "$destination"
-    mkdir -p "$WORK_DIR/src"
+    rm -rf "$destination" || die "could not remove previous source tree for $name"
+    mkdir -p "$WORK_DIR/src" || die "could not create source work directory"
 
     if [[ -d "$archive/.git" ]]; then
-        mkdir -p "$destination"
-        git -C "$archive" archive --format=tar HEAD | tar -xf - -C "$destination"
+        mkdir -p "$destination" || die "could not create Git source directory for $name"
+        git -C "$archive" archive --format=tar HEAD | tar --no-same-owner -xf - -C "$destination" \
+            || die "could not materialize Git source for $name"
         printf '%s\n' "$destination"
         return 0
     fi
 
     temp="$(mktemp -d "$WORK_DIR/src/.extract.XXXXXX")"
 
-    tar -xf "$archive" -C "$temp"
+    tar --no-same-owner -xf "$archive" -C "$temp" || {
+        rm -rf "$temp"
+        die "could not extract source archive for $name"
+    }
     shopt -s nullglob dotglob
     entries=("$temp"/*)
     shopt -u nullglob dotglob
@@ -56,8 +60,8 @@ prepare_source() {
         die "source archive for $name did not contain exactly one top-level directory"
     }
 
-    mv "${entries[0]}" "$destination"
-    rmdir "$temp"
+    mv -T "${entries[0]}" "$destination" || die "could not install source tree for $name"
+    rmdir "$temp" || die "could not remove temporary extraction directory for $name"
     printf '%s\n' "$destination"
 }
 
