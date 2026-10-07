@@ -58,6 +58,12 @@ sysroot, never the build host. Both dynamic and static libc inputs are required
 because the compiler probe links dynamically and the bootstrap BusyBox links
 statically.
 
+The sysroot also creates the standard `/lib` and `/usr/lib` directories before
+building. GCC's x86_64 search paths traverse `lib/../lib64`; the intermediate
+directory must exist even when all target libraries live in `lib64`. Empty
+compatibility directories satisfy that path traversal without copying host
+libraries. Both dynamic and static target links are checked after installation.
+
 Because the bootstrap GCC intentionally has no target libstdc++, glibc is built with an empty make-time `CXX` variable. glibc's support build therefore selects its C-only bootstrap helper rather than attempting to link against a C++ runtime that cannot exist yet.
 
 After installation, the bootstrap compiler must successfully link a target C executable against the new sysroot.

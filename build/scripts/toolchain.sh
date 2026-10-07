@@ -18,7 +18,11 @@ mkdir -p \
     "$WORK_DIR/toolchain/gcc-stage1" \
     "$WORK_DIR/toolchain/glibc" \
     "$TOOLCHAIN_DIR" \
-    "$SYSROOT"
+    "$SYSROOT" \
+    "$SYSROOT/lib" \
+    "$SYSROOT/lib64" \
+    "$SYSROOT/usr/lib" \
+    "$SYSROOT/usr/lib64"
 
 log "building binutils $(source_version binutils)"
 (
@@ -140,7 +144,13 @@ fi
     | grep -q '/lib64/ld-linux-x86-64.so.2' \
     || die "target sanity binary does not use the expected glibc interpreter"
 
-rm -f "$WORK_DIR/toolchain/sanity.c" "$WORK_DIR/toolchain/sanity"
+# BusyBox needs a static target link as well as the dynamic compiler probe.
+"$TARGET-gcc" --sysroot="$SYSROOT" -static \
+    "$WORK_DIR/toolchain/sanity.c" -o "$WORK_DIR/toolchain/sanity-static" \
+    || die "target compiler could not link statically against the Synveil sysroot"
+"$TARGET-readelf" -h "$WORK_DIR/toolchain/sanity-static" >/dev/null
+
+rm -f "$WORK_DIR/toolchain/sanity.c" "$WORK_DIR/toolchain/sanity" "$WORK_DIR/toolchain/sanity-static"
 
 cat >"$TOOLCHAIN_DIR/SYNVEIL-TOOLCHAIN" <<EOF
 target=$TARGET
