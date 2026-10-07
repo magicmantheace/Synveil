@@ -18,7 +18,11 @@ mkdir -p \
     "$WORK_DIR/toolchain/gcc-stage1" \
     "$WORK_DIR/toolchain/glibc" \
     "$TOOLCHAIN_DIR" \
-    "$SYSROOT"
+    "$SYSROOT" \
+    "$SYSROOT/lib" \
+    "$SYSROOT/lib64" \
+    "$SYSROOT/usr/lib" \
+    "$SYSROOT/usr/lib64"
 
 log "building binutils $(source_version binutils)"
 (
@@ -104,6 +108,16 @@ BUILD_TRIPLET="$("$GLIBC_SRC/scripts/config.guess")"
     make CXX= DESTDIR="$SYSROOT" install
 )
 
+log "refreshing GCC limits after glibc installation"
+GCC_INCLUDE_DIR="$("$TARGET-gcc" -print-file-name=include)"
+[[ "$GCC_INCLUDE_DIR" == "$TOOLCHAIN_DIR"/* ]] \
+    || die "target compiler include directory is outside the Synveil toolchain"
+# GCC was built before libc headers existed, so its first limits.h is the
+# standalone variant. Use GCC's own normal header construction now that glibc
+# is installed; it must include the target libc's POSIX/GNU limits as well.
+cat "$GCC_SRC/gcc/limitx.h" "$GCC_SRC/gcc/glimits.h" "$GCC_SRC/gcc/limity.h" \
+    >"$GCC_INCLUDE_DIR/limits.h"
+
 log "validating glibc installation"
 for required in \
     "$SYSROOT/usr/lib64/crt1.o" \
@@ -119,6 +133,10 @@ done
 
 log "checking target compiler against the Synveil sysroot"
 cat >"$WORK_DIR/toolchain/sanity.c" <<'EOF'
+#define _GNU_SOURCE
+#include <limits.h>
+_Static_assert(LONG_BIT == 64, "target long width must match x86_64");
+_Static_assert(MB_LEN_MAX >= 16, "target libc limits must be included");
 int main(void) { return 0; }
 EOF
 
@@ -140,7 +158,13 @@ fi
     | grep -q '/lib64/ld-linux-x86-64.so.2' \
     || die "target sanity binary does not use the expected glibc interpreter"
 
-rm -f "$WORK_DIR/toolchain/sanity.c" "$WORK_DIR/toolchain/sanity"
+# BusyBox needs a static target link as well as the dynamic compiler probe.
+"$TARGET-gcc" --sysroot="$SYSROOT" -static \
+    "$WORK_DIR/toolchain/sanity.c" -o "$WORK_DIR/toolchain/sanity-static" \
+    || die "target compiler could not link statically against the Synveil sysroot"
+"$TARGET-readelf" -h "$WORK_DIR/toolchain/sanity-static" >/dev/null
+
+rm -f "$WORK_DIR/toolchain/sanity.c" "$WORK_DIR/toolchain/sanity" "$WORK_DIR/toolchain/sanity-static"
 
 cat >"$TOOLCHAIN_DIR/SYNVEIL-TOOLCHAIN" <<EOF
 target=$TARGET

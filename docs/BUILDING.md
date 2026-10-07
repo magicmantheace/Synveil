@@ -113,6 +113,10 @@ The stage-1 GCC is C-only and deliberately does not build target libstdc++. Duri
 
 Builds a static BusyBox against the Synveil sysroot and installs it into a purpose-built root filesystem under `build/work/rootfs`.
 
+The bootstrap disables BusyBox's `tc` applet, whose legacy CBQ definitions are
+absent from the pinned Linux headers. Traffic-control tooling is not required
+for the bootstrap console or recovery shell.
+
 Synveil supplies its own `/init`. BusyBox exists only to provide bring-up utilities and a recovery shell.
 
 Artifacts:
@@ -126,6 +130,10 @@ out/synveil-rootfs.tar.zst
 ### kernel
 
 Builds the pinned upstream Linux source with a QEMU-focused configuration and embeds the normalized root-owned `newc` initramfs archive into the kernel.
+
+Kernel compilation uses a separate materialized source directory from Linux UAPI
+header installation, so generated header state cannot contaminate the kernel's
+out-of-tree build.
 
 The x86 Linux EFI stub means the resulting `bzImage` is also a UEFI-loadable executable.
 

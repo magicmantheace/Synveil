@@ -16,6 +16,14 @@ result="$(prepare_source fixture)"
 cmp "$fixture/input/package/file" "$result/file"
 [[ "$(stat -c %u "$result/file")" == "$(id -u)" ]]
 
+# Repeated extraction replaces stale generated files and empty directories.
+mkdir -p "$result/arch/include/generated"
+printf 'stale\n' >"$result/stale"
+result="$(prepare_source fixture)"
+[[ ! -e "$result/stale" && ! -d "$result/arch" ]]
+isolated="$(prepare_source fixture fixture-kernel)"
+[[ "$isolated" != "$result" && -f "$isolated/file" && -f "$result/file" ]]
+
 # A failed extraction must remain a failure inside command substitution.
 printf 'not an archive\n' >"$fixture_archive"
 if (prepare_source fixture) >"$fixture/result" 2>"$fixture/error"; then
@@ -29,4 +37,4 @@ if (prepare_source fixture) >"$fixture/result" 2>"$fixture/error"; then
     die "multiple source roots were accepted"
 fi
 [[ ! -s "$fixture/result" ]]
-printf '[source-extraction] ownership, corrupt archive, and source-root checks passed\n'
+printf '[source-extraction] ownership, replacement, isolation, and archive checks passed\n'

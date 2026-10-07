@@ -31,7 +31,7 @@ source_version() {
 
 prepare_source() {
     local name="$1"
-    local destination="$WORK_DIR/src/$name"
+    local destination="$WORK_DIR/src/${2:-$name}"
     local archive temp entries
 
     archive="$(source_path "$name")"
