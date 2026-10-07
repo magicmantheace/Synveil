@@ -2,11 +2,12 @@
 
 use serde_json::json;
 use std::env;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::process::ExitCode;
-use veil_protocol::{MAX_MESSAGE_BYTES, Request, decode_response, encode_line};
+use std::time::Duration;
+use veil_protocol::{Request, Response, decode_response, encode_line, read_frame};
 
 const DEFAULT_SOCKET_PATH: &str = "/run/synveil/veil-core.sock";
 
@@ -37,6 +38,14 @@ fn run() -> Result<ExitCode, Box<dyn std::error::Error>> {
                 socket = PathBuf::from(value);
             }
             "--json" => json_output = true,
+            "--version" => {
+                println!(
+                    "synctl {} {}",
+                    veil_protocol::BUILD_VERSION,
+                    veil_protocol::BUILD_REVISION.unwrap_or("unknown")
+                );
+                return Ok(ExitCode::SUCCESS);
+            }
             "--help" | "-h" => {
                 print_help();
                 return Ok(ExitCode::SUCCESS);
@@ -68,26 +77,15 @@ fn run() -> Result<ExitCode, Box<dyn std::error::Error>> {
     );
 
     let mut stream = UnixStream::connect(&socket)?;
+    stream.set_read_timeout(Some(Duration::from_secs(5)))?;
+    stream.set_write_timeout(Some(Duration::from_secs(5)))?;
     stream.write_all(&encode_line(&request)?)?;
     stream.flush()?;
 
-    let mut line = Vec::new();
-    BufReader::new(stream)
-        .take((MAX_MESSAGE_BYTES + 2) as u64)
-        .read_until(b'\n', &mut line)?;
-
-    if line.len() > MAX_MESSAGE_BYTES + 1 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "core response exceeded protocol size limit",
-        )
-        .into());
-    }
-    if line.last() == Some(&b'\n') {
-        line.pop();
-    }
-
+    let line = read_frame(&mut BufReader::new(stream))?
+        .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "core returned no response"))?;
     let response = decode_response(&line)?;
+    validate_correlation(&response, &request.id)?;
 
     if json_output {
         println!("{}", serde_json::to_string_pretty(&response)?);
@@ -102,7 +100,25 @@ fn run() -> Result<ExitCode, Box<dyn std::error::Error>> {
         return Ok(ExitCode::FAILURE);
     }
 
-    Ok(ExitCode::SUCCESS)
+    Ok(response_exit_code(&response))
+}
+
+fn response_exit_code(response: &Response) -> ExitCode {
+    if response.ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+fn validate_correlation(response: &Response, id: &str) -> io::Result<()> {
+    if response.id != id {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "core response id does not match request",
+        ));
+    }
+    Ok(())
 }
 
 fn print_help() {
@@ -112,4 +128,30 @@ fn print_help() {
          Commands:\n\
            status    Query veil-core deterministic service status"
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use veil_protocol::{ErrorCode, ProtocolError};
+
+    #[test]
+    fn validates_response_correlation() {
+        let response = Response::success("expected", json!({}));
+        assert!(validate_correlation(&response, "expected").is_ok());
+        assert_eq!(
+            validate_correlation(&response, "other").unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+    }
+
+    #[test]
+    fn error_response_retains_failure_with_json_output() {
+        let response = Response::failure(
+            "expected",
+            ProtocolError::new(ErrorCode::UnknownMethod, "unknown"),
+        );
+        assert!(response_exit_code(&response) == ExitCode::FAILURE);
+        assert!(validate_correlation(&response, "expected").is_ok());
+    }
 }

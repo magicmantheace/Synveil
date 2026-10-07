@@ -39,8 +39,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 socket = PathBuf::from(value);
             }
             "--once" => max_connections = Some(1),
+            "--version" => {
+                println!(
+                    "veil-core {} {}",
+                    veil_protocol::BUILD_VERSION,
+                    veil_protocol::BUILD_REVISION.unwrap_or("unknown")
+                );
+                return Ok(());
+            }
             "--help" | "-h" => {
-                println!("Usage: veil-core [--socket PATH] [--once]");
+                println!("Usage: veil-core [--socket PATH] [--once] [--version]");
                 return Ok(());
             }
             other => {
@@ -58,7 +66,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::json!({
             "component": "veil-core",
             "event": "start",
-            "version": env!("CARGO_PKG_VERSION"),
+            "version": veil_protocol::BUILD_VERSION,
+            "git_revision": veil_protocol::BUILD_REVISION,
             "protocol": veil_protocol::CORE_SCHEMA_V1,
         })
     );

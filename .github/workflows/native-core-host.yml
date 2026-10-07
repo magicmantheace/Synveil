@@ -7,6 +7,8 @@ on:
     paths:
       - Cargo.toml
       - Cargo.lock
+      - rust-toolchain.toml
+      - VERSION
       - src/**
       - .github/workflows/native-core-host.yml
   workflow_dispatch:
@@ -34,11 +36,9 @@ jobs:
           rustc --version --verbose
           cargo --version
 
-      - name: Resolve dependency lock
+      - name: Show committed dependency lock
         run: |
-          if [[ ! -f Cargo.lock ]]; then
-            cargo generate-lockfile
-          fi
+          test -f Cargo.lock
           echo "----- BEGIN CARGO LOCK -----"
           cat Cargo.lock
           echo "----- END CARGO LOCK -----"

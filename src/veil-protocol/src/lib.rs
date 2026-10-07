@@ -3,16 +3,18 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt;
+use std::io::{self, BufRead};
 
 pub const CORE_SCHEMA_V1: &str = "synveil.core/v1";
 pub const MAX_MESSAGE_BYTES: usize = 64 * 1024;
+pub const BUILD_VERSION: &str = env!("SYNVEIL_BUILD_VERSION");
+pub const BUILD_REVISION: Option<&str> = option_env!("SYNVEIL_BUILD_REVISION");
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Request {
     pub schema: String,
     pub id: String,
     pub method: String,
-    #[serde(default = "empty_object")]
     pub params: Value,
 }
 
@@ -213,8 +215,36 @@ fn enforce_size(bytes: &[u8]) -> Result<(), ProtocolError> {
     Ok(())
 }
 
-fn empty_object() -> Value {
-    Value::Object(Default::default())
+/// Read one newline-terminated frame without buffering beyond the wire limit.
+/// EOF is clean only between frames, never in the middle of a message.
+pub fn read_frame(reader: &mut impl BufRead) -> io::Result<Option<Vec<u8>>> {
+    let mut frame = Vec::new();
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            return if frame.is_empty() {
+                Ok(None)
+            } else {
+                Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "unterminated protocol frame",
+                ))
+            };
+        }
+        let newline = available.iter().position(|byte| *byte == b'\n');
+        let count = newline.unwrap_or(available.len());
+        if frame.len() + count > MAX_MESSAGE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "protocol frame exceeds size limit",
+            ));
+        }
+        frame.extend_from_slice(&available[..count]);
+        reader.consume(count + usize::from(newline.is_some()));
+        if newline.is_some() {
+            return Ok(Some(frame));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -274,5 +304,58 @@ mod tests {
         });
         let error = decode_response(invalid.to_string().as_bytes()).expect_err("shape rejected");
         assert_eq!(error.code, ErrorCode::MalformedMessage);
+    }
+
+    #[test]
+    fn framing_preserves_sequential_messages_across_small_buffers() {
+        let mut reader = io::BufReader::with_capacity(2, io::Cursor::new(b"one\ntwo\n"));
+        assert_eq!(read_frame(&mut reader).unwrap(), Some(b"one".to_vec()));
+        assert_eq!(read_frame(&mut reader).unwrap(), Some(b"two".to_vec()));
+        assert_eq!(read_frame(&mut reader).unwrap(), None);
+    }
+
+    #[test]
+    fn framing_requires_a_terminating_newline() {
+        let mut reader = io::Cursor::new(b"{\"ok\":true}");
+        assert_eq!(
+            read_frame(&mut reader).unwrap_err().kind(),
+            io::ErrorKind::UnexpectedEof
+        );
+    }
+
+    #[test]
+    fn framing_accepts_exact_limit_and_rejects_one_byte_more() {
+        let mut bytes = vec![b'x'; MAX_MESSAGE_BYTES];
+        bytes.push(b'\n');
+        assert_eq!(
+            read_frame(&mut io::Cursor::new(&bytes))
+                .unwrap()
+                .unwrap()
+                .len(),
+            MAX_MESSAGE_BYTES
+        );
+        bytes.insert(0, b'x');
+        assert_eq!(
+            read_frame(&mut io::Cursor::new(&bytes)).unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+        bytes.pop();
+        assert_eq!(
+            read_frame(&mut io::Cursor::new(&bytes)).unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_utf8_and_missing_required_params() {
+        for message in [
+            b"\xff\n".as_slice(),
+            b"{\"schema\":\"synveil.core/v1\",\"id\":\"one\",\"method\":\"status\"}",
+        ] {
+            assert_eq!(
+                decode_request(message).unwrap_err().code,
+                ErrorCode::MalformedMessage
+            );
+        }
     }
 }

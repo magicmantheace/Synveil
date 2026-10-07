@@ -1,6 +1,6 @@
 # Native Core Bring-Up Contract
 
-Status: **implementation-ready design for Phase 2; code begins only after Phase 1 validation**
+Status: **host prototype on `phase2/native-core-bootstrap`; image integration awaits Phase 1 validation**
 
 This document defines the smallest useful native Synveil control service and CLI boundary.
 
@@ -70,6 +70,16 @@ Constraints for the first implementation:
 - no request may cause generic shell execution.
 
 The first implementation should close a connection that exceeds the message limit rather than buffering without bound.
+
+The host prototype requires newline termination even when the peer closes the
+connection. Clean EOF between frames is allowed; an incomplete frame is rejected.
+Core connections have a five-second total read deadline and at most sixteen
+requests. Both peers use bounded reads and write timeouts. `synctl` verifies
+response correlation and returns failure for an error response even in JSON mode.
+
+New runtime directories are private (0700) and the socket is 0600. A second
+core refuses to replace an active listener. Only a refused connection to an
+existing socket permits stale-socket removal; files and symlinks are preserved.
 
 ## Request envelope
 
@@ -199,6 +209,24 @@ Early logs may be newline-delimited JSON written to the console or a dedicated f
 - component name.
 
 The build system, not an LLM, supplies these values.
+
+The host prototype derives its version from `VERSION` and its revision from
+Git at build time, with an explicit `SYNVEIL_GIT_SHA` override for build systems.
+Both binaries support `--version` without connecting to a service.
+
+### Host validation
+
+```sh
+cargo fmt --all --check
+cargo test --workspace --all-targets --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+```
+
+Run the complete suite on a host permitting local Unix sockets. A restricted
+workspace may run `cargo test --workspace --all-targets --locked -- --skip
+unix_socket` for pure protocol and filesystem checks, but this is not socket
+integration evidence. Host artifacts do not satisfy the source-built image or
+QEMU requirements below.
 
 ## Recovery behavior
 
