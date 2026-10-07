@@ -27,6 +27,15 @@ EOF
 
 command="${1:-help}"
 case "$command" in
+    all|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|clean|distclean)
+        exec 9>"$ROOT_DIR/.synveil-build.lock"
+        flock -n 9 || {
+            printf '[synveil] another build command owns this checkout; wait for it to finish\n' >&2
+            exit 1
+        }
+        ;;
+esac
+case "$command" in
     lint)
         bash "$ROOT_DIR/tests/lint-bootstrap.sh"
         ;;

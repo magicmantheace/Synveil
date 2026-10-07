@@ -29,5 +29,6 @@ python3 -m json.tool build/manifests/sources.json >/dev/null
 python3 tools/source_lock.py dump >/dev/null
 python3 tests/validate-source-lock.py
 bash tests/source-extraction.sh
+python3 tests/build-lock.py
 
 printf '[lint] bootstrap scripts, Python tools, and source manifest passed syntax checks\n'

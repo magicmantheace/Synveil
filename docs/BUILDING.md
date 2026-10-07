@@ -83,6 +83,12 @@ bash build.sh all
 
 Equivalent convenience targets are available through `make`.
 
+Build commands acquire a nonblocking checkout lock. A second build or cleanup
+in the same checkout fails immediately rather than deleting source trees or
+artifacts that the first command is using. Use separate checkouts for parallel
+builds. Source extraction keeps ownership with the build user and aborts on
+materialization errors.
+
 ### toolchain
 
 Builds a cross/bootstrap environment rooted at:
