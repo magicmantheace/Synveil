@@ -97,3 +97,14 @@ The bootstrap build system is being validated toward the first reproducible x86_
 Synveil-authored operating-system and control-plane code is licensed under the **Mozilla Public License 2.0 (MPL-2.0)** by default. Selected future SDKs and integration libraries may use **Apache-2.0** when explicitly scoped.
 
 Third-party components retain their upstream licenses. See [docs/LICENSING.md](docs/LICENSING.md) and [LICENSE](LICENSE).
+
+
+## Development references
+
+- [Build Synveil](docs/BUILDING.md)
+- [Bootstrap plan](docs/BOOTSTRAP.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Security model](docs/SECURITY_MODEL.md)
+- [Source provenance](docs/SOURCE_PROVENANCE.md)
+- [Validation policy](docs/VALIDATION.md)
+- [Roadmap](ROADMAP.md)
