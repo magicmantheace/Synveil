@@ -318,7 +318,7 @@ Recovery authority belongs to the human user.
 
 The following are intentionally not locked yet:
 
-- final bootloader choice,
+- final installed-system boot manager choice,
 - final package/archive format,
 - final filesystem/snapshot strategy,
 - permanent PID 1/service supervisor design,
