@@ -64,6 +64,12 @@ directory must exist even when all target libraries live in `lib64`. Empty
 compatibility directories satisfy that path traversal without copying host
 libraries. Both dynamic and static target links are checked after installation.
 
+After glibc installs its headers, the build refreshes GCC's `limits.h` using the
+upstream `limitx.h` + `glimits.h` + `limity.h` construction. The pre-libc compiler
+initially installs a standalone header; retaining it would hide libc's GNU and
+POSIX limits from target programs. The compiler probes also check `LONG_BIT`
+and the libc multibyte limit to catch this integration failure before BusyBox.
+
 Because the bootstrap GCC intentionally has no target libstdc++, glibc is built with an empty make-time `CXX` variable. glibc's support build therefore selects its C-only bootstrap helper rather than attempting to link against a C++ runtime that cannot exist yet.
 
 After installation, the bootstrap compiler must successfully link a target C executable against the new sysroot.

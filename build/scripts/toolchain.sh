@@ -108,6 +108,16 @@ BUILD_TRIPLET="$("$GLIBC_SRC/scripts/config.guess")"
     make CXX= DESTDIR="$SYSROOT" install
 )
 
+log "refreshing GCC limits after glibc installation"
+GCC_INCLUDE_DIR="$("$TARGET-gcc" -print-file-name=include)"
+[[ "$GCC_INCLUDE_DIR" == "$TOOLCHAIN_DIR"/* ]] \
+    || die "target compiler include directory is outside the Synveil toolchain"
+# GCC was built before libc headers existed, so its first limits.h is the
+# standalone variant. Use GCC's own normal header construction now that glibc
+# is installed; it must include the target libc's POSIX/GNU limits as well.
+cat "$GCC_SRC/gcc/limitx.h" "$GCC_SRC/gcc/glimits.h" "$GCC_SRC/gcc/limity.h" \
+    >"$GCC_INCLUDE_DIR/limits.h"
+
 log "validating glibc installation"
 for required in \
     "$SYSROOT/usr/lib64/crt1.o" \
@@ -123,6 +133,10 @@ done
 
 log "checking target compiler against the Synveil sysroot"
 cat >"$WORK_DIR/toolchain/sanity.c" <<'EOF'
+#define _GNU_SOURCE
+#include <limits.h>
+_Static_assert(LONG_BIT == 64, "target long width must match x86_64");
+_Static_assert(MB_LEN_MAX >= 16, "target libc limits must be included");
 int main(void) { return 0; }
 EOF
 

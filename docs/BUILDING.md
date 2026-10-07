@@ -113,6 +113,10 @@ The stage-1 GCC is C-only and deliberately does not build target libstdc++. Duri
 
 Builds a static BusyBox against the Synveil sysroot and installs it into a purpose-built root filesystem under `build/work/rootfs`.
 
+The bootstrap disables BusyBox's `tc` applet, whose legacy CBQ definitions are
+absent from the pinned Linux headers. Traffic-control tooling is not required
+for the bootstrap console or recovery shell.
+
 Synveil supplies its own `/init`. BusyBox exists only to provide bring-up utilities and a recovery shell.
 
 Artifacts:

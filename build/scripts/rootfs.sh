@@ -26,6 +26,10 @@ log "building BusyBox $(source_version busybox)"
         printf '%s\n' 'CONFIG_STATIC=y' >> .config
     fi
 
+    # This bootstrap does not use traffic control. BusyBox's tc still references
+    # CBQ UAPI definitions removed from the pinned Linux headers.
+    sed -i 's/^CONFIG_TC=y/# CONFIG_TC is not set/' .config
+
     make ARCH=x86_64 CROSS_COMPILE="$TARGET-" oldconfig </dev/null
     make -j"$JOBS" ARCH=x86_64 CROSS_COMPILE="$TARGET-"
     make ARCH=x86_64 CROSS_COMPILE="$TARGET-" CONFIG_PREFIX="$ROOTFS_DIR" install
