@@ -13,7 +13,10 @@ on:
       - build.sh
       - build/manifests/rust-bootstrap.json
       - tools/native_preflight.py
+      - tools/native_build.py
+      - tools/native_rustc_wrapper.py
       - tests/native-preflight.py
+      - tests/native-build.py
       - .github/workflows/native-core-host.yml
   workflow_dispatch:
 
@@ -34,7 +37,9 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Test native build prerequisite checks
-        run: python3 tests/native-preflight.py
+        run: |
+          python3 tests/native-preflight.py
+          python3 tests/native-build.py
 
       - name: Install pinned Rust toolchain
         run: |

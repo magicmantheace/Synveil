@@ -12,6 +12,7 @@ Usage:
   bash build.sh lint
   bash build.sh doctor
   bash build.sh native-check
+  bash build.sh native
   bash build.sh fetch
   bash build.sh toolchain
   bash build.sh rootfs
@@ -28,7 +29,7 @@ EOF
 
 command="${1:-help}"
 case "$command" in
-    all|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|clean|distclean)
+    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|clean|distclean)
         exec 9>"$ROOT_DIR/.synveil-build.lock"
         flock -n 9 || {
             printf '[synveil] another build command owns this checkout; wait for it to finish\n' >&2
@@ -47,6 +48,12 @@ case "$command" in
         source "$ROOT_DIR/build/scripts/common.sh"
         python3 "$ROOT_DIR/tools/native_preflight.py" \
             --toolchain-dir "$TOOLCHAIN_DIR" --sysroot "$SYSROOT" --target "$TARGET" "${@:2}"
+        ;;
+    native)
+        source "$ROOT_DIR/build/scripts/common.sh"
+        python3 "$ROOT_DIR/tools/native_build.py" \
+            --toolchain-dir "$TOOLCHAIN_DIR" --sysroot "$SYSROOT" --target "$TARGET" \
+            --work-dir "$WORK_DIR" --out-dir "$OUT_DIR" "${@:2}"
         ;;
     fetch)
         python3 "$ROOT_DIR/tools/source_lock.py" fetch

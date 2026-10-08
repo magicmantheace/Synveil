@@ -36,6 +36,42 @@ record output identity before packaging. ADR 0004 remains Proposed. This source
 check has automated fixture coverage; the full installed-toolchain path still
 requires build validation.
 
+## Native compilation command
+
+After preflight prerequisites are installed, run:
+
+```sh
+bash build.sh native
+# An archive outside the default cache can be supplied explicitly:
+bash build.sh native --rust-source-archive /path/to/rust-src-nightly.tar.xz
+```
+
+This command acquires the checkout build lock and creates a fresh Cargo output
+directory under `build/work/native/` for every invocation. It rebuilds target
+`std` from the verified source using the pinned nightly and committed Cargo
+lock. Target links use Synveil GCC with static glibc and aborting panics; host
+build scripts and procedural macros link through host `cc`. The stage-1 GCC
+unwind archive is exposed as `libgcc_eh.a` through a symlink to Synveil's own
+`libgcc.a`, without borrowing host `libgcc_s`.
+
+Before publishing binaries, it inspects x86_64 ELF headers, rejects shared
+runtime dependencies, and checks linker-map inputs against the Synveil
+toolchain, sysroot, and fresh native build directory. The builder controls Rust
+flags and clears inherited compiler/library search overrides. Build work paths
+must not contain whitespace or commas.
+
+Successful audited outputs are `out/native/veil-core`, `out/native/synctl`, and
+`out/native/build.json`. The manifest records source verification, Git identity,
+Cargo lock and libgcc hashes, binary hashes, and link-map identities and inputs.
+Cargo logs and link maps remain under the fresh work directory. A failed build
+does not imply that older outputs in `out/native/` are valid for the current
+revision; callers must require a successful build exit status.
+
+The command does not package the rootfs or change boot startup, and is not yet
+part of `build.sh all`. Its orchestration and audit boundaries have automated
+test coverage; a real target build and QEMU validation remain required before
+image integration or ADR acceptance.
+
 This document defines the smallest useful native Synveil control service and CLI boundary.
 
 It deliberately does not define actions, AI planning, long-term memory, or the final supervisor. Those belong to later roadmap phases.
