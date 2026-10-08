@@ -2,6 +2,27 @@
 
 This roadmap is ordered by dependency. Phase numbers describe architectural maturity, not release versions.
 
+## First user test install — basic desktop milestone
+
+The project owner wants the first hands-on test install to include a basic
+desktop. Development builds continue to be tested automatically in QEMU.
+A minimal subset of Phases 11 and 12 moves forward once its dependencies are
+ready; full AI optimization and package management are not prerequisites.
+
+- [ ] Validate core-failure and absent-core recovery in guest tests
+- [ ] Provide persistent writable storage that survives reboot
+- [ ] Provide a documented installation path on a supported test target
+- [ ] Add display, keyboard, mouse, and required firmware/driver support
+- [ ] Establish a usable networking configuration path
+- [ ] Select and build a minimal graphical session with terminal and launcher
+- [ ] Provide basic settings for the supported display/input/network setup
+- [ ] Validate desktop startup, reboot persistence, and console fallback
+- [ ] Publish a checksummed test image and installation/test instructions
+
+The desktop remains usable without AI. These checks are an earlier test
+milestone, not completion of the entire hardware or desktop phases. See
+[the first-install contract](docs/FIRST_INSTALL.md).
+
 ## Phase 0 — Foundation
 
 **Goal:** define what Synveil is before implementation creates accidental architecture.
@@ -43,16 +64,21 @@ Validated at `4c40d41b979090cc72b370a8dad540e7f0a6f735` in the
 
 **Goal:** replace shell-script orchestration of runtime behavior with Synveil-native services.
 
-- [ ] Initialize Rust workspace
-- [ ] Implement `veil-core`
-- [ ] Define versioned local protocol
-- [ ] Implement `synctl status`
+- [x] Initialize Rust workspace
+- [x] Implement `veil-core`
+- [x] Define versioned local protocol
+- [x] Implement `synctl status`
 - [ ] Establish service lifecycle/supervision
 - [ ] Add structured logging
 - [ ] Add durable audit record format
 - [ ] Add recovery behavior when core services fail
 
 **Exit:** Synveil native code starts on boot and exposes health/status without AI.
+
+Native startup and versioned status are validated at
+`79a41c291884c40c881a89a2fc031bd33e9034de` in the
+[native image evidence record](docs/validation/native-image-79a41c2/README.md).
+Recovery, supervision, and durable audit work remain open.
 
 ## Phase 3 — Observer
 

@@ -66,6 +66,7 @@ jobs:
           python3 tests/native-rootfs.py
           python3 tests/native-startup.py
           python3 tests/native-smoke.py
+          python3 tests/native-recovery.py
 
       - name: Install and authenticate pinned Rust sources
         run: |
@@ -110,6 +111,9 @@ jobs:
         env:
           SYNVEIL_SMOKE_TIMEOUT: "60"
         run: bash build.sh native-smoke
+
+      - name: Require recovery shell after core crash
+        run: bash build.sh recovery-smoke --timeout 60
 
       - name: Preserve native build evidence
         if: always()

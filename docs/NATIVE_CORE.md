@@ -1,6 +1,6 @@
 # Native Core Bring-Up Contract
 
-Status: **native target compilation validated on `phase2/native-core-bootstrap`; integrated-image validation pending**
+Status: **native boot and status validated on `phase2/native-core-bootstrap`; recovery validation pending**
 
 ## Target build preflight
 
@@ -123,8 +123,19 @@ the existing image, and saves console evidence to `out/logs/qemu-native-smoke.lo
 The default smoke timeout is 30 seconds (`SYNVEIL_SMOKE_TIMEOUT` overrides it);
 CI allows 60 seconds. Baseline `smoke` still requires only the boot marker.
 Console fixture tests exercise the verdict without claiming a QEMU boot.
-Integrated-image core status and recovery still need QEMU evidence before
-Phase 2 can be completed.
+Integrated-image core status passed in the
+[native image validation](validation/native-image-79a41c2/README.md).
+
+`bash build.sh recovery-smoke --timeout 60` boots the existing native image,
+waits for boot and ready markers, then sends a fixed test command through the
+recovery console. It kills `veil-core`, requires the process to be gone and
+`synctl status` to fail, then writes and reads a file through the still-working
+shell. Only the exact standalone `SYNVEIL_RECOVERY_OK` line passes; terminal
+command echo cannot satisfy it. Console output is retained at
+`out/logs/qemu-recovery-smoke.log`; timeouts terminate QEMU and its wrapper.
+CI runs this as a separate guest boot after the status smoke. Its console
+fixtures validate harness behavior, not a real guest crash. Actual crash
+validation and absent-core boot evidence remain pending; Phase 2 stays open.
 
 Target-build CI now queues newer validation behind the active build so pushing
 packaging/startup work does not discard an in-progress compiler build. Its path

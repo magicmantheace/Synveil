@@ -86,11 +86,14 @@ The bootstrap is documented in [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md).
 
 ## Project status
 
-**Phase 1 validated; Phase 2 — native core bring-up is next.**
+**Phase 1 validated; native core startup and status validated in QEMU.**
 
 The pinned-source bootstrap pipeline has built and booted an x86_64 UEFI image
 in QEMU. See the [Phase 1 evidence record](docs/validation/phase1-4c40d41/README.md)
-and [ROADMAP.md](ROADMAP.md). Native core integration is not yet complete.
+and the [native image status evidence](docs/validation/native-image-79a41c2/README.md).
+Core recovery and supervision remain open. The first user test install targets
+a basic desktop; see [ROADMAP.md](ROADMAP.md) and
+[the first-install contract](docs/FIRST_INSTALL.md).
 
 ## Licensing
 

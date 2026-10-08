@@ -79,7 +79,17 @@ Phase 2 will require runtime evidence that:
 - malformed requests fail safely;
 - the system remains recoverable when `veil-core` is absent or crashes.
 
-Exact tests will be committed with Phase 2 implementation.
+Native boot/status at `79a41c2` is recorded in
+[the native image evidence](validation/native-image-79a41c2/README.md).
+`native-smoke` requires boot and successful core status in QEMU.
+`recovery-smoke` additionally boots a guest, kills its core, requires status to
+fail, and verifies shell file operations. Recovery implementation and fixture
+coverage do not close this requirement until its actual guest run passes.
+The separate absent-core boot case remains required.
+
+The [first user test-install contract](FIRST_INSTALL.md) adds desktop startup,
+persistent storage across reboot, input/network usability, and console fallback
+checks before a user-facing test image is offered.
 
 ## AI-related validation
 
