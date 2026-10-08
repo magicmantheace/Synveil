@@ -3,6 +3,12 @@
 set -Eeuo pipefail
 source "$(dirname "$0")/common.sh"
 
+NATIVE_ROOTFS="${SYNVEIL_NATIVE_ROOTFS:-0}"
+[[ "$NATIVE_ROOTFS" == 0 || "$NATIVE_ROOTFS" == 1 ]] || die "SYNVEIL_NATIVE_ROOTFS must be 0 or 1"
+if [[ "$NATIVE_ROOTFS" == 1 ]]; then
+    python3 "$ROOT_DIR/tools/package_native.py" --bundle "$OUT_DIR/native"
+fi
+
 ensure_dirs
 SYNVEIL_VERSION="$(tr -d '\n' < "$ROOT_DIR/VERSION")"
 [[ -x "$TOOLCHAIN_DIR/bin/$TARGET-gcc" ]] || die "toolchain missing; run 'bash build.sh toolchain' first"
@@ -38,6 +44,10 @@ log "building BusyBox $(source_version busybox)"
 mkdir -p     "$ROOTFS_DIR"/{dev,etc,proc,root,run,sys,tmp,var}     "$ROOTFS_DIR"/usr/{bin,sbin}     "$ROOTFS_DIR"/var/{log,tmp}
 
 install -m 0755 "$ROOT_DIR/build/rootfs/init" "$ROOTFS_DIR/init"
+if [[ "$NATIVE_ROOTFS" == 1 ]]; then
+    python3 "$ROOT_DIR/tools/package_native.py" --bundle "$OUT_DIR/native" --rootfs "$ROOTFS_DIR"
+    install -D -m 0755 "$ROOT_DIR/build/rootfs/start-core" "$ROOTFS_DIR/usr/libexec/synveil/start-core"
+fi
 chmod 1777 "$ROOTFS_DIR/tmp" "$ROOTFS_DIR/var/tmp"
 
 cat >"$ROOTFS_DIR/etc/os-release" <<EOF

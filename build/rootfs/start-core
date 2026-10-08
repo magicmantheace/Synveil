@@ -1,0 +1,41 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# Bootstrap startup only; recovery never depends on the service.
+core=/usr/sbin/veil-core
+ctl=/usr/bin/synctl
+socket=/run/synveil/veil-core.sock
+
+if [ ! -x "$core" ] || [ ! -x "$ctl" ]; then
+    echo "[synveil-init] native binaries unavailable; recovery remains available"
+    echo SYNVEIL_CORE_UNAVAILABLE
+    exit 0
+fi
+if ! command -v timeout >/dev/null 2>&1; then
+    echo "[synveil-init] bounded startup checks unavailable; recovery remains available"
+    echo SYNVEIL_CORE_UNAVAILABLE
+    exit 0
+fi
+
+"$core" --socket "$socket" &
+core_pid=$!
+attempt=0
+while [ "$attempt" -lt 5 ]; do
+    if ! kill -0 "$core_pid" 2>/dev/null; then
+        wait "$core_pid" 2>/dev/null || true
+        echo "[synveil-init] core exited during startup; recovery remains available"
+        echo SYNVEIL_CORE_UNAVAILABLE
+        exit 0
+    fi
+    if timeout -s KILL 1 "$ctl" --socket "$socket" --json status && kill -0 "$core_pid" 2>/dev/null; then
+        echo SYNVEIL_CORE_READY
+        exit 0
+    fi
+    attempt=$((attempt + 1))
+    sleep 0.1
+done
+
+kill -KILL "$core_pid" 2>/dev/null || true
+wait "$core_pid" 2>/dev/null || true
+echo "[synveil-init] core readiness failed; recovery remains available"
+echo SYNVEIL_CORE_UNAVAILABLE
+exit 0

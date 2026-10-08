@@ -17,6 +17,11 @@ on:
       - tools/native_rustc_wrapper.py
       - tests/native-preflight.py
       - tests/native-build.py
+      - tools/package_native.py
+      - tests/native-rootfs.py
+      - tests/native-startup.py
+      - build/rootfs/**
+      - build/scripts/rootfs.sh
       - .github/workflows/native-core-host.yml
   workflow_dispatch:
 
@@ -40,6 +45,8 @@ jobs:
         run: |
           python3 tests/native-preflight.py
           python3 tests/native-build.py
+          python3 tests/native-rootfs.py
+          python3 tests/native-startup.py
 
       - name: Install pinned Rust toolchain
         run: |

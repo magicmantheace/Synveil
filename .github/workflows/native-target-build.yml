@@ -10,8 +10,14 @@ on:
       - VERSION
       - src/**
       - build.sh
-      - build/**
-      - tools/native_*.py
+      - build/manifests/sources.json
+      - build/manifests/rust-bootstrap.json
+      - build/scripts/common.sh
+      - build/scripts/doctor.sh
+      - build/scripts/toolchain.sh
+      - tools/native_preflight.py
+      - tools/native_build.py
+      - tools/native_rustc_wrapper.py
       - tools/prepare_native_rust.py
       - tools/source_lock.py
       - .github/workflows/native-target-build.yml
@@ -21,7 +27,7 @@ permissions:
 
 concurrency:
   group: native-target-build-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   compile-and-audit:

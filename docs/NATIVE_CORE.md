@@ -83,6 +83,42 @@ validation; it does not build a rootfs/kernel image or test boot startup.
 used by that workflow. Unlike `native-check`, it installs the pinned rustup
 toolchain and downloads the pinned archive when it is absent from the cache.
 
+## Opt-in rootfs and startup integration
+
+On a clean checkout, build native binaries and then opt into packaging:
+
+```sh
+bash build.sh native
+SYNVEIL_NATIVE_ROOTFS=1 bash build.sh rootfs
+bash build.sh kernel
+bash build.sh image
+bash build.sh smoke
+```
+
+The rootfs builder validates the bundle before building BusyBox and again
+before installation. It requires both binaries to match their audited hashes,
+the current clean Git revision, the current Cargo lock, and the pinned Rust
+source verification. It installs `veil-core` in `/usr/sbin`, `synctl` in
+`/usr/bin`, and the native build identity at `/usr/share/synveil/native-build.json`.
+The default rootfs remains the Phase 1 bootstrap without native packaging.
+
+Native packaging also installs `/usr/libexec/synveil/start-core`. After mounting
+the virtual filesystems, `/init` runs that helper, which starts `veil-core` and
+attempts up to five status checks, each capped at one second with forced
+termination. A successful status request emits `SYNVEIL_CORE_READY`. Missing or
+failed components emit `SYNVEIL_CORE_UNAVAILABLE`; unsuccessful startup is
+terminated and `/init` continues to its recovery shell. A later core crash does
+not terminate the independent recovery shell. This is bootstrap startup, not a
+restart supervisor, and does not complete the service-lifecycle roadmap item.
+
+Packaging-integrity tests and startup failure tests use isolated fixtures. The
+existing smoke test still checks only `SYNVEIL_BOOT_OK`; integrated-image core
+status and recovery still need QEMU evidence before Phase 2 can be completed.
+
+Target-build CI now queues newer validation behind the active build so pushing
+packaging/startup work does not discard an in-progress compiler build. Its path
+filter tracks target-compilation inputs separately from rootfs changes.
+
 This document defines the smallest useful native Synveil control service and CLI boundary.
 
 It deliberately does not define actions, AI planning, long-term memory, or the final supervisor. Those belong to later roadmap phases.

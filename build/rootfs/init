@@ -25,6 +25,13 @@ mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp || true
 
 hostname synveil 2>/dev/null || true
 
+if [ -x /usr/libexec/synveil/start-core ]; then
+    /usr/libexec/synveil/start-core || {
+        echo "[synveil-init] core startup failed; continuing to recovery"
+        echo SYNVEIL_CORE_UNAVAILABLE
+    }
+fi
+
 echo
 echo "Synveil bootstrap"
 echo "Linux: $(uname -r)"
