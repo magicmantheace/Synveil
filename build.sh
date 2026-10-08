@@ -11,6 +11,7 @@ Synveil bootstrap builder
 Usage:
   bash build.sh lint
   bash build.sh doctor
+  bash build.sh native-check
   bash build.sh fetch
   bash build.sh toolchain
   bash build.sh rootfs
@@ -41,6 +42,11 @@ case "$command" in
         ;;
     doctor)
         bash "$ROOT_DIR/build/scripts/doctor.sh"
+        ;;
+    native-check)
+        source "$ROOT_DIR/build/scripts/common.sh"
+        python3 "$ROOT_DIR/tools/native_preflight.py" \
+            --toolchain-dir "$TOOLCHAIN_DIR" --sysroot "$SYSROOT" --target "$TARGET"
         ;;
     fetch)
         python3 "$ROOT_DIR/tools/source_lock.py" fetch

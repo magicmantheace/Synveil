@@ -86,9 +86,11 @@ The bootstrap is documented in [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md).
 
 ## Project status
 
-**Phase 1 — from-source boot.**
+**Phase 1 validated; Phase 2 — native core bring-up is next.**
 
-The bootstrap build system is being validated toward the first reproducible x86_64 UEFI/QEMU boot. The roadmap is maintained in [ROADMAP.md](ROADMAP.md).
+The pinned-source bootstrap pipeline has built and booted an x86_64 UEFI image
+in QEMU. See the [Phase 1 evidence record](docs/validation/phase1-4c40d41/README.md)
+and [ROADMAP.md](ROADMAP.md). Native core integration is not yet complete.
 
 ## Licensing
 

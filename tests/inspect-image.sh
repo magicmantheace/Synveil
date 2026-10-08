@@ -11,7 +11,9 @@ require_cmd gawk
 require_cmd mtype
 
 PARTITION_INFO="$(sgdisk -i 1 "$IMAGE")"
-grep -q 'Partition GUID code:.*EF00' <<<"$PARTITION_INFO"     || die "partition 1 is not an EFI System Partition"
+# sgdisk reports the on-disk GUID here, not its EF00 command-line shorthand.
+grep -qi '^Partition GUID code: C12A7328-F81F-11D2-BA4B-00A0C93EC93B ' <<<"$PARTITION_INFO" \
+    || die "partition 1 is not an EFI System Partition"
 
 FIRST_SECTOR="$(gawk '/First sector:/ {print $3}' <<<"$PARTITION_INFO")"
 [[ "$FIRST_SECTOR" =~ ^[0-9]+$ ]] || die "could not determine EFI partition offset"

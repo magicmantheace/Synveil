@@ -1,0 +1,13 @@
+{
+  "schema": "synveil.rust-bootstrap/v1",
+  "channel": "nightly-2026-10-01",
+  "rustc_release": "1.101.0-nightly",
+  "rustc_commit_prefix": "21b707e3f",
+  "host": "x86_64-unknown-linux-gnu",
+  "rust_target": "x86_64-unknown-linux-gnu",
+  "c_target": "x86_64-synveil-linux-gnu",
+  "rust_src": {
+    "url": "https://static.rust-lang.org/dist/2026-10-01/rust-src-nightly.tar.xz",
+    "sha256": "c88c3e64e73461bbca1d1e49a99d62e82b2106c4a6d3122d4ed9fe520e4dbdf0"
+  }
+}

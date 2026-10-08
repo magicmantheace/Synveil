@@ -1,6 +1,30 @@
 # Native Core Bring-Up Contract
 
-Status: **host prototype on `phase2/native-core-bootstrap`; image integration awaits Phase 1 validation**
+Status: **host prototype on `phase2/native-core-bootstrap`; Phase 1 validated, image integration pending**
+
+## Target build preflight
+
+`bash build.sh native-check` checks the isolated Synveil GCC/sysroot and the
+nightly Rust compiler/source metadata pinned in `build/manifests/rust-bootstrap.json`.
+It requires Python 3.11+, rustup, the existing Phase 1 toolchain, and the pinned
+nightly with its `rust-src` component. Install Rust prerequisites explicitly:
+
+```sh
+rustup toolchain install nightly-2026-10-01 --profile minimal --component rust-src
+bash build.sh native-check
+```
+
+The existing `SYNVEIL_TOOLCHAIN_DIR`, `SYNVEIL_SYSROOT`, and `SYNVEIL_TARGET`
+settings apply. The checker does not install dependencies, compile binaries,
+modify the rootfs, or change startup. The stable host-test toolchain stays pinned
+separately in `rust-toolchain.toml`.
+
+Passing preflight verifies compiler identity, installed source metadata and
+presence, target glibc files, and that GCC selects Synveil's sysroot/libgcc.
+It does not authenticate installed source bytes or prove that a target link uses
+only source-built libraries. The native builder must still verify the pinned
+source archive against installed sources, rebuild std, audit actual link inputs,
+and record output identity before packaging. ADR 0004 remains Proposed.
 
 This document defines the smallest useful native Synveil control service and CLI boundary.
 

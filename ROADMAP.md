@@ -25,16 +25,19 @@ This roadmap is ordered by dependency. Phase numbers describe architectural matu
 - [x] Add top-level build entry point
 - [x] Create source manifest format
 - [x] Pin Linux/binutils/compiler/glibc/BusyBox inputs and hashes
-- [ ] Build isolated target toolchain
-- [ ] Build minimal rootfs
-- [ ] Build QEMU-oriented kernel
-- [ ] Implement bootstrap `/init`
-- [ ] Generate bootable x86_64 image
-- [ ] Automate QEMU launch
-- [ ] Add serial-console boot smoke test
-- [ ] Produce machine-readable build manifest
+- [x] Build isolated target toolchain
+- [x] Build minimal rootfs
+- [x] Build QEMU-oriented kernel
+- [x] Implement bootstrap `/init`
+- [x] Generate bootable x86_64 image
+- [x] Automate QEMU launch
+- [x] Add serial-console boot smoke test
+- [x] Produce machine-readable build manifest
 
 **Exit:** one command can produce an image that boots to a Synveil console in QEMU.
+
+Validated at `4c40d41b979090cc72b370a8dad540e7f0a6f735` in the
+[Phase 1 evidence record](docs/validation/phase1-4c40d41/README.md).
 
 ## Phase 2 — Native deterministic core
 

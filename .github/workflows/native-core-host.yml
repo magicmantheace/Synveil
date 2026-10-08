@@ -10,6 +10,10 @@ on:
       - rust-toolchain.toml
       - VERSION
       - src/**
+      - build.sh
+      - build/manifests/rust-bootstrap.json
+      - tools/native_preflight.py
+      - tests/native-preflight.py
       - .github/workflows/native-core-host.yml
   workflow_dispatch:
 
@@ -28,6 +32,9 @@ jobs:
     steps:
       - name: Check out Synveil
         uses: actions/checkout@v6
+
+      - name: Test native build prerequisite checks
+        run: python3 tests/native-preflight.py
 
       - name: Install pinned Rust toolchain
         run: |
