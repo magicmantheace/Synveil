@@ -20,6 +20,8 @@ on:
       - tools/package_native.py
       - tests/native-rootfs.py
       - tests/native-startup.py
+      - tests/native-smoke.py
+      - tests/smoke-boot.sh
       - build/rootfs/**
       - build/scripts/rootfs.sh
       - .github/workflows/native-core-host.yml
@@ -47,6 +49,7 @@ jobs:
           python3 tests/native-build.py
           python3 tests/native-rootfs.py
           python3 tests/native-startup.py
+          python3 tests/native-smoke.py
 
       - name: Install pinned Rust toolchain
         run: |

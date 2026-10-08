@@ -21,6 +21,7 @@ Usage:
   bash build.sh manifest
   bash build.sh qemu
   bash build.sh smoke
+  bash build.sh native-smoke
   bash build.sh all
   bash build.sh clean
   bash build.sh distclean
@@ -29,7 +30,7 @@ EOF
 
 command="${1:-help}"
 case "$command" in
-    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|clean|distclean)
+    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|clean|distclean)
         exec 9>"$ROOT_DIR/.synveil-build.lock"
         flock -n 9 || {
             printf '[synveil] another build command owns this checkout; wait for it to finish\n' >&2
@@ -81,6 +82,9 @@ case "$command" in
     smoke)
         [[ -f "$ROOT_DIR/out/synveil-x86_64.img" ]] || bash "$ROOT_DIR/build/scripts/image.sh"
         bash "$ROOT_DIR/tests/smoke-boot.sh"
+        ;;
+    native-smoke)
+        SYNVEIL_SMOKE_REQUIRE_NATIVE=1 bash "$ROOT_DIR/tests/smoke-boot.sh"
         ;;
     all)
         bash "$ROOT_DIR/tests/lint-bootstrap.sh"

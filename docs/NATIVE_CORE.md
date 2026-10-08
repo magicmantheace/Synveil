@@ -1,6 +1,6 @@
 # Native Core Bring-Up Contract
 
-Status: **host prototype on `phase2/native-core-bootstrap`; Phase 1 validated, image integration pending**
+Status: **native target compilation validated on `phase2/native-core-bootstrap`; integrated-image validation pending**
 
 ## Target build preflight
 
@@ -33,8 +33,8 @@ to supply the same pinned archive from another location.
 
 The native builder must still rebuild std, audit actual target link inputs, and
 record output identity before packaging. ADR 0004 remains Proposed. This source
-check has automated fixture coverage; the full installed-toolchain path still
-requires build validation.
+check has automated fixture coverage and passed with the real installed
+toolchain in the [first native target validation](validation/native-577b5e7/README.md).
 
 ## Native compilation command
 
@@ -69,15 +69,18 @@ revision; callers must require a successful build exit status.
 
 The command does not package the rootfs or change boot startup, and is not yet
 part of `build.sh all`. Its orchestration and audit boundaries have automated
-test coverage; a real target build and QEMU validation remain required before
-image integration or ADR acceptance.
+test coverage and a successful real target build. Integrated-image QEMU
+validation remains required before ADR acceptance.
 
 The `Native target build` workflow on `phase2/native-core-bootstrap` exercises
 this command on a fresh Ubuntu runner. It explicitly installs and authenticates
 the pinned Rust source inputs before rebuilding Synveil's C toolchain, then
 compiles and audits both binaries. It retains binaries, identities, build logs,
 and link maps as `native-target-<commit>` evidence. This is target-build
-validation; it does not build a rootfs/kernel image or test boot startup.
+validation was first recorded separately. The workflow now also builds an
+opt-in native rootfs, kernel, and GPT image, records the image manifest, and
+runs the native status smoke test. Logs and image identities are retained even
+when a later step fails; a queued workflow is not boot validation.
 
 `python3 tools/prepare_native_rust.py` is the explicit dependency-install step
 used by that workflow. Unlike `native-check`, it installs the pinned rustup
@@ -92,7 +95,7 @@ bash build.sh native
 SYNVEIL_NATIVE_ROOTFS=1 bash build.sh rootfs
 bash build.sh kernel
 bash build.sh image
-bash build.sh smoke
+bash build.sh native-smoke
 ```
 
 The rootfs builder validates the bundle before building BusyBox and again
@@ -112,12 +115,20 @@ not terminate the independent recovery shell. This is bootstrap startup, not a
 restart supervisor, and does not complete the service-lifecycle roadmap item.
 
 Packaging-integrity tests and startup failure tests use isolated fixtures. The
-existing smoke test still checks only `SYNVEIL_BOOT_OK`; integrated-image core
-status and recovery still need QEMU evidence before Phase 2 can be completed.
+`native-smoke` command requires standalone `SYNVEIL_CORE_READY` and
+`SYNVEIL_BOOT_OK` console lines and rejects `SYNVEIL_CORE_UNAVAILABLE`.
+The ready marker is emitted only after `synctl --json status` succeeds while
+its core process is alive. The command holds the checkout build lock, boots
+the existing image, and saves console evidence to `out/logs/qemu-native-smoke.log`.
+The default smoke timeout is 30 seconds (`SYNVEIL_SMOKE_TIMEOUT` overrides it);
+CI allows 60 seconds. Baseline `smoke` still requires only the boot marker.
+Console fixture tests exercise the verdict without claiming a QEMU boot.
+Integrated-image core status and recovery still need QEMU evidence before
+Phase 2 can be completed.
 
 Target-build CI now queues newer validation behind the active build so pushing
 packaging/startup work does not discard an in-progress compiler build. Its path
-filter tracks target-compilation inputs separately from rootfs changes.
+filter includes compilation, packaging, kernel, image, and smoke-test inputs.
 
 This document defines the smallest useful native Synveil control service and CLI boundary.
 

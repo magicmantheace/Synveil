@@ -15,6 +15,15 @@ on:
       - build/scripts/common.sh
       - build/scripts/doctor.sh
       - build/scripts/toolchain.sh
+      - build/scripts/rootfs.sh
+      - build/scripts/kernel.sh
+      - build/scripts/image.sh
+      - build/scripts/qemu.sh
+      - build/rootfs/**
+      - build/config/**
+      - tests/**
+      - tools/package_native.py
+      - tools/build_manifest.py
       - tools/native_preflight.py
       - tools/native_build.py
       - tools/native_rustc_wrapper.py
@@ -54,6 +63,9 @@ jobs:
           bash build.sh lint
           python3 tests/native-preflight.py
           python3 tests/native-build.py
+          python3 tests/native-rootfs.py
+          python3 tests/native-startup.py
+          python3 tests/native-smoke.py
 
       - name: Install and authenticate pinned Rust sources
         run: |
@@ -84,6 +96,21 @@ jobs:
           }, indent=2))
           PY
 
+      - name: Build native rootfs and boot image
+        env:
+          SYNVEIL_NATIVE_ROOTFS: "1"
+        run: |
+          set -o pipefail
+          bash build.sh rootfs 2>&1 | tee out/logs/native-rootfs.log
+          bash build.sh kernel 2>&1 | tee out/logs/native-kernel.log
+          bash build.sh image 2>&1 | tee out/logs/native-image.log
+          bash build.sh manifest
+
+      - name: Require native core status in QEMU
+        env:
+          SYNVEIL_SMOKE_TIMEOUT: "60"
+        run: bash build.sh native-smoke
+
       - name: Preserve native build evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -94,6 +121,7 @@ jobs:
           path: |
             out/native/
             out/logs/
+            out/manifests/
             build/toolchain/out/SYNVEIL-TOOLCHAIN
             build/work/native/build-*/maps/
             build/work/native/build-*/cargo-build.log
