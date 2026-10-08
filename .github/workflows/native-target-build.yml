@@ -1,0 +1,93 @@
+name: Native target build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [phase2/native-core-bootstrap]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - VERSION
+      - src/**
+      - build.sh
+      - build/**
+      - tools/native_*.py
+      - tools/prepare_native_rust.py
+      - tools/source_lock.py
+      - .github/workflows/native-target-build.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-target-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-and-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      SYNVEIL_JOBS: "4"
+      SYNVEIL_SOURCE_TRANSPORT: git
+
+    steps:
+      - name: Check out Synveil
+        uses: actions/checkout@v6
+
+      - name: Install bootstrap host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential bison flex texinfo gawk python3 xz-utils bzip2 cpio zstd \
+            dosfstools mtools gdisk qemu-system-x86 ovmf \
+            libgmp-dev libmpfr-dev libmpc-dev libisl-dev libelf-dev libssl-dev bc rsync
+
+      - name: Validate build tooling
+        run: |
+          bash build.sh lint
+          python3 tests/native-preflight.py
+          python3 tests/native-build.py
+
+      - name: Install and authenticate pinned Rust sources
+        run: |
+          python3 tools/prepare_native_rust.py
+
+      - name: Build isolated Synveil toolchain
+        run: |
+          mkdir -p out/logs
+          set -o pipefail
+          bash build.sh toolchain 2>&1 | tee out/logs/native-toolchain.log
+
+      - name: Compile and audit native binaries
+        run: |
+          set -o pipefail
+          bash build.sh native 2>&1 | tee out/logs/native-driver.log
+
+      - name: Show native artifact identity
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('out/native/build.json').read_text())
+          print(json.dumps({
+              'schema': data['schema'], 'git_commit': data['git_commit'],
+              'git_dirty': data['git_dirty'],
+              'artifacts': {name: {'sha256': item['sha256'], 'bytes': item['bytes']}
+                            for name, item in data['artifacts'].items()}
+          }, indent=2))
+          PY
+
+      - name: Preserve native build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-target-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/native/
+            out/logs/
+            build/toolchain/out/SYNVEIL-TOOLCHAIN
+            build/work/native/build-*/maps/
+            build/work/native/build-*/cargo-build.log

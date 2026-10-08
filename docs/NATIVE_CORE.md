@@ -72,6 +72,17 @@ part of `build.sh all`. Its orchestration and audit boundaries have automated
 test coverage; a real target build and QEMU validation remain required before
 image integration or ADR acceptance.
 
+The `Native target build` workflow on `phase2/native-core-bootstrap` exercises
+this command on a fresh Ubuntu runner. It explicitly installs and authenticates
+the pinned Rust source inputs before rebuilding Synveil's C toolchain, then
+compiles and audits both binaries. It retains binaries, identities, build logs,
+and link maps as `native-target-<commit>` evidence. This is target-build
+validation; it does not build a rootfs/kernel image or test boot startup.
+
+`python3 tools/prepare_native_rust.py` is the explicit dependency-install step
+used by that workflow. Unlike `native-check`, it installs the pinned rustup
+toolchain and downloads the pinned archive when it is absent from the cache.
+
 This document defines the smallest useful native Synveil control service and CLI boundary.
 
 It deliberately does not define actions, AI planning, long-term memory, or the final supervisor. Those belong to later roadmap phases.
