@@ -22,11 +22,28 @@ COMMAND = (
     "[ \"$(cat /tmp/recovery-check/probe)\" = shell-alive ] && "
     "printf '\\n%s%s\\n' SYNVEIL_ RECOVERY_OK; fi; fi\n"
 )
+SCENARIOS = {
+    "crash": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
+              b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_RECOVERY_OK", COMMAND),
+    "absent": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_UNAVAILABLE"},
+               b"SYNVEIL_CORE_READY", b"SYNVEIL_ABSENT_OK",
+               "if [ ! -e /usr/sbin/veil-core ] && ! pidof veil-core; then "
+               "printf '%s' shell-alive > /tmp/absent-probe && "
+               "[ \"$(cat /tmp/absent-probe)\" = shell-alive ] && "
+               "printf '\\n%s%s\\n' SYNVEIL_ ABSENT_OK; fi\n"),
+    "protocol": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
+                 b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_PROTOCOL_OK",
+                 "if timeout -s KILL 10 /usr/libexec/synveil-test/protocol-probe && "
+                 "timeout -s KILL 2 /usr/bin/synctl --json status; then "
+                 "printf '\\n%s%s\\n' SYNVEIL_ PROTOCOL_OK; fi\n"),
+}
 
 
-def smoke(timeout_seconds):
+def smoke(timeout_seconds, case="crash"):
+    required, forbidden, marker, command = SCENARIOS[case]
     out = Path(os.environ.get("SYNVEIL_OUT_DIR", ROOT / "out"))
-    log = out / "logs/qemu-recovery-smoke.log"
+    log = out / "logs" / ("qemu-recovery-smoke.log" if case == "crash"
+                          else f"qemu-{case}-smoke.log")
     log.parent.mkdir(parents=True, exist_ok=True)
     process = subprocess.Popen(
         ["bash", str(ROOT / "build/scripts/qemu.sh")],
@@ -57,14 +74,14 @@ def smoke(timeout_seconds):
                     seen.add(line.rstrip(b"\r"))
                     if len(seen) > 4096:
                         seen = {value for value in seen if value.startswith(b"SYNVEIL_")}
-                if b"SYNVEIL_CORE_UNAVAILABLE" in seen:
+                if forbidden in seen:
                     return False
-                if not sent and {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"} <= seen:
-                    seen.discard(b"SYNVEIL_RECOVERY_OK")
-                    process.stdin.write(COMMAND.encode())
+                if not sent and required <= seen:
+                    seen.discard(marker)
+                    process.stdin.write(command.encode())
                     process.stdin.flush()
                     sent = True
-                if sent and b"SYNVEIL_RECOVERY_OK" in seen:
+                if sent and marker in seen:
                     return True
                 if len(pending) > 65536:
                     return False
@@ -86,13 +103,14 @@ def smoke(timeout_seconds):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--case", choices=SCENARIOS, default="crash")
     parser.add_argument("--timeout", type=float,
                         default=float(os.environ.get("SYNVEIL_SMOKE_TIMEOUT", "60")))
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error("timeout must be positive")
-    passed = smoke(args.timeout)
-    print("[synveil] QEMU core-crash recovery smoke " + ("passed" if passed else "failed"))
+    passed = smoke(args.timeout, args.case)
+    print(f"[synveil] QEMU {args.case} smoke " + ("passed" if passed else "failed"))
     return 0 if passed else 1
 
 

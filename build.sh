@@ -23,6 +23,7 @@ Usage:
   bash build.sh smoke
   bash build.sh native-smoke
   bash build.sh recovery-smoke
+  bash build.sh guest-fixture --case absent|protocol
   bash build.sh all
   bash build.sh clean
   bash build.sh distclean
@@ -31,7 +32,7 @@ EOF
 
 command="${1:-help}"
 case "$command" in
-    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|recovery-smoke|clean|distclean)
+    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|recovery-smoke|guest-fixture|clean|distclean)
         exec 9>"$ROOT_DIR/.synveil-build.lock"
         flock -n 9 || {
             printf '[synveil] another build command owns this checkout; wait for it to finish\n' >&2
@@ -89,6 +90,9 @@ case "$command" in
         ;;
     recovery-smoke)
         python3 "$ROOT_DIR/tests/smoke-recovery.py" "${@:2}"
+        ;;
+    guest-fixture)
+        python3 "$ROOT_DIR/tests/build-guest-fixture.py" "${@:2}"
         ;;
     all)
         bash "$ROOT_DIR/tests/lint-bootstrap.sh"

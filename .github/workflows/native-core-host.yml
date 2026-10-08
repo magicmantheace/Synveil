@@ -22,6 +22,10 @@ on:
       - tests/native-startup.py
       - tests/native-smoke.py
       - tests/native-recovery.py
+      - tests/native-protocol-probe.py
+      - tests/native-guest-fixture.py
+      - tests/protocol-probe.c
+      - tests/build-guest-fixture.py
       - tests/smoke-recovery.py
       - tests/smoke-boot.sh
       - build/rootfs/**
@@ -53,6 +57,8 @@ jobs:
           python3 tests/native-startup.py
           python3 tests/native-smoke.py
           python3 tests/native-recovery.py
+          python3 tests/native-protocol-probe.py
+          python3 tests/native-guest-fixture.py
 
       - name: Install pinned Rust toolchain
         run: |

@@ -83,9 +83,14 @@ Native boot/status at `79a41c2` is recorded in
 [the native image evidence](validation/native-image-79a41c2/README.md).
 `native-smoke` requires boot and successful core status in QEMU.
 `recovery-smoke` additionally boots a guest, kills its core, requires status to
-fail, and verifies shell file operations. Recovery implementation and fixture
-coverage do not close this requirement until its actual guest run passes.
-The separate absent-core boot case remains required.
+fail, and verifies shell file operations. Core-crash recovery passed at `248775a` in
+[the recovery record](validation/core-crash-248775a/README.md).
+The separate absent-core boot case remains required. `guest-fixture --case absent`
+builds and boots a separate image with its core binary removed; it must prove
+boot completion, core absence, and functioning shell file operations.
+`guest-fixture --case protocol` builds a separate test image with a fixed probe
+that requires malformed/schema/method errors and healthy status afterwards.
+Both new guest cases remain pending until their real CI steps pass.
 
 The [first user test-install contract](FIRST_INSTALL.md) adds desktop startup,
 persistent storage across reboot, input/network usability, and console fallback

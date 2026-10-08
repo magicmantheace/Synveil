@@ -67,6 +67,8 @@ jobs:
           python3 tests/native-startup.py
           python3 tests/native-smoke.py
           python3 tests/native-recovery.py
+          python3 tests/native-protocol-probe.py
+          python3 tests/native-guest-fixture.py
 
       - name: Install and authenticate pinned Rust sources
         run: |
@@ -115,6 +117,16 @@ jobs:
       - name: Require recovery shell after core crash
         run: bash build.sh recovery-smoke --timeout 60
 
+      - name: Reject malformed IPC and retain healthy status in guest
+        run: |
+          set -o pipefail
+          bash build.sh guest-fixture --case protocol 2>&1 | tee out/logs/protocol-fixture.log
+
+      - name: Recover in guest with core binary absent
+        run: |
+          set -o pipefail
+          bash build.sh guest-fixture --case absent 2>&1 | tee out/logs/absent-fixture.log
+
       - name: Preserve native build evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -126,6 +138,8 @@ jobs:
             out/native/
             out/logs/
             out/manifests/
+            out/guest-fixtures/*/logs/
+            out/guest-fixtures/*/manifests/
             build/toolchain/out/SYNVEIL-TOOLCHAIN
             build/work/native/build-*/maps/
             build/work/native/build-*/cargo-build.log

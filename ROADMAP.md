@@ -78,7 +78,9 @@ Validated at `4c40d41b979090cc72b370a8dad540e7f0a6f735` in the
 Native startup and versioned status are validated at
 `79a41c291884c40c881a89a2fc031bd33e9034de` in the
 [native image evidence record](docs/validation/native-image-79a41c2/README.md).
-Recovery, supervision, and durable audit work remain open.
+Core-crash recovery passed at `248775a` in the
+[recovery evidence](docs/validation/core-crash-248775a/README.md).
+Absent-core recovery, supervision, and durable audit work remain open.
 
 ## Phase 3 — Observer
 

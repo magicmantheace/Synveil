@@ -1,6 +1,6 @@
 # Native Core Bring-Up Contract
 
-Status: **native boot and status validated on `phase2/native-core-bootstrap`; recovery validation pending**
+Status: **native boot and status validated on `phase2/native-core-bootstrap`; core-crash recovery validated; absent-core validation pending**
 
 ## Target build preflight
 
@@ -134,8 +134,29 @@ shell. Only the exact standalone `SYNVEIL_RECOVERY_OK` line passes; terminal
 command echo cannot satisfy it. Console output is retained at
 `out/logs/qemu-recovery-smoke.log`; timeouts terminate QEMU and its wrapper.
 CI runs this as a separate guest boot after the status smoke. Its console
-fixtures validate harness behavior, not a real guest crash. Actual crash
-validation and absent-core boot evidence remain pending; Phase 2 stays open.
+fixtures validate harness behavior, not a real guest crash. Actual guest crash
+recovery passed in the [core-crash record](validation/core-crash-248775a/README.md).
+Absent-core boot evidence remains pending; Phase 2 stays open.
+
+`bash build.sh guest-fixture --case absent` copies the built native rootfs to
+an isolated staging tree, removes only the copied core binary, repacks its
+initramfs, and builds a separate kernel/GPT image. Its guest must report boot
+success and core unavailability, have no core binary or running core, and
+execute shell file operations successfully. Normal rootfs and image outputs
+are preserved.
+
+`bash build.sh guest-fixture --case protocol` uses another isolated rootfs copy
+and compiles the fixed C protocol probe with Synveil GCC/static glibc. The probe
+is installed only into that test copy at `/usr/libexec/synveil-test/protocol-probe`.
+It requires framed, versioned error responses with the expected correlation
+IDs for malformed JSON, an unsupported schema, and an unregistered method.
+The guest must then obtain healthy status through `synctl`. The probe is test
+traffic, not a new runtime control API, and adds no production dependencies.
+
+Both commands hold the build lock. Variant images, console logs, and SHA-256
+identity manifests are under `out/guest-fixtures/<case>/`. CI retains the logs
+and manifests. Fresh guest validation is required before treating either new
+case as passed; host fixtures do not close the guest requirements.
 
 Target-build CI now queues newer validation behind the active build so pushing
 packaging/startup work does not discard an in-progress compiler build. Its path
