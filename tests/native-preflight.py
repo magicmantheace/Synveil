@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
 """Exercise prerequisite rejection without a compiler install or downloads."""
+import hashlib
+import io
 import json
 from pathlib import Path
 import sys
+import tarfile
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from native_preflight import verify_c_toolchain, verify_rust  # noqa: E402
+from native_preflight import verify_c_toolchain, verify_rust, verify_source_archive  # noqa: E402
 
 
 class PreflightTests(unittest.TestCase):
@@ -100,6 +103,81 @@ class PreflightTests(unittest.TestCase):
         (self.rustroot / "lib/rustlib/src/rust/library/std/Cargo.toml").unlink()
         with self.assertRaisesRegex(ValueError, "rust-src is missing"):
             self.check_rust()
+
+
+class SourceArchiveTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.library = self.root / "library"
+        self.archive = self.root / "rust-src.tar.xz"
+        self.files = {"std/Cargo.toml": b"pinned std manifest\n", "core/src/lib.rs": b"pinned core source\n"}
+        for name, contents in self.files.items():
+            p = self.library / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(contents)
+        self.write_archive()
+
+    def write_archive(self, extra=None):
+        prefix = "rust-src-nightly/rust-src/lib/rustlib/src/rust/library/"
+        with tarfile.open(self.archive, "w:xz") as package:
+            for name, contents in self.files.items():
+                entry = tarfile.TarInfo(prefix + name)
+                entry.size = len(contents)
+                package.addfile(entry, io.BytesIO(contents))
+            if extra:
+                name, kind = extra
+                entry = tarfile.TarInfo(prefix + name)
+                entry.type = kind
+                package.addfile(entry, io.BytesIO(b"") if kind == tarfile.REGTYPE else None)
+        self.sha = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+
+    def check(self):
+        return verify_source_archive(self.archive, self.library, self.sha)
+
+    def test_identical_sources(self):
+        self.assertEqual(self.check()["verified_files"], 2)
+
+    def test_archive_digest_mismatch(self):
+        self.archive.write_bytes(self.archive.read_bytes() + b"tampered")
+        with self.assertRaisesRegex(ValueError, "SHA-256"):
+            self.check()
+
+    def test_modified_installed_bytes(self):
+        (self.library / "core/src/lib.rs").write_bytes(b"modified")
+        with self.assertRaisesRegex(ValueError, "source bytes differ"):
+            self.check()
+
+    def test_missing_installed_file(self):
+        (self.library / "core/src/lib.rs").unlink()
+        with self.assertRaisesRegex(ValueError, "file set differs"):
+            self.check()
+
+    def test_extra_installed_file(self):
+        (self.library / "extra.rs").touch()
+        with self.assertRaisesRegex(ValueError, "file set differs"):
+            self.check()
+
+    def test_installed_symlink(self):
+        (self.library / "extra.rs").symlink_to(self.library / "core/src/lib.rs")
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            self.check()
+
+    def test_archive_symlink(self):
+        self.write_archive(("link.rs", tarfile.SYMTYPE))
+        with self.assertRaisesRegex(ValueError, "unsupported or duplicate"):
+            self.check()
+
+    def test_archive_path_traversal(self):
+        self.write_archive(("../outside", tarfile.REGTYPE))
+        with self.assertRaisesRegex(ValueError, "unsafe"):
+            self.check()
+
+    def test_archive_duplicate_file(self):
+        self.write_archive(("std/Cargo.toml", tarfile.REGTYPE))
+        with self.assertRaisesRegex(ValueError, "unsupported or duplicate"):
+            self.check()
 
 
 if __name__ == "__main__":

@@ -5,12 +5,16 @@ Status: **host prototype on `phase2/native-core-bootstrap`; Phase 1 validated, i
 ## Target build preflight
 
 `bash build.sh native-check` checks the isolated Synveil GCC/sysroot and the
-nightly Rust compiler/source metadata pinned in `build/manifests/rust-bootstrap.json`.
+nightly Rust compiler and source bytes pinned in `build/manifests/rust-bootstrap.json`.
 It requires Python 3.11+, rustup, the existing Phase 1 toolchain, and the pinned
 nightly with its `rust-src` component. Install Rust prerequisites explicitly:
 
 ```sh
 rustup toolchain install nightly-2026-10-01 --profile minimal --component rust-src
+mkdir -p .cache/sources/archives
+curl --fail --location \
+  https://static.rust-lang.org/dist/2026-10-01/rust-src-nightly.tar.xz \
+  --output .cache/sources/archives/rust-src-nightly-2026-10-01.tar.xz
 bash build.sh native-check
 ```
 
@@ -19,12 +23,18 @@ settings apply. The checker does not install dependencies, compile binaries,
 modify the rootfs, or change startup. The stable host-test toolchain stays pinned
 separately in `rust-toolchain.toml`.
 
-Passing preflight verifies compiler identity, installed source metadata and
-presence, target glibc files, and that GCC selects Synveil's sysroot/libgcc.
-It does not authenticate installed source bytes or prove that a target link uses
-only source-built libraries. The native builder must still verify the pinned
-source archive against installed sources, rebuild std, audit actual link inputs,
-and record output identity before packaging. ADR 0004 remains Proposed.
+Passing preflight verifies compiler identity, installed source metadata, target
+glibc files, and that GCC selects Synveil's sysroot/libgcc. It checks the archive
+SHA-256 against the pin, then compares the complete installed Rust library file
+set and every file's bytes with the archive without extracting it. Changed,
+missing, extra, or symlinked source files fail validation. The output records the
+archive identity and verified file count. Use `--rust-source-archive /path/to/archive`
+to supply the same pinned archive from another location.
+
+The native builder must still rebuild std, audit actual target link inputs, and
+record output identity before packaging. ADR 0004 remains Proposed. This source
+check has automated fixture coverage; the full installed-toolchain path still
+requires build validation.
 
 This document defines the smallest useful native Synveil control service and CLI boundary.
 

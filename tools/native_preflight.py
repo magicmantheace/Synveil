@@ -5,10 +5,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import subprocess
 import sys
+import tarfile
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +19,56 @@ PIN = ROOT / "build/manifests/rust-bootstrap.json"
 
 def run(*args: str) -> str:
     return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT).strip()
+
+
+def digest(stream) -> str:
+    value = hashlib.sha256()
+    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+        value.update(chunk)
+    return value.hexdigest()
+
+
+def verify_source_archive(archive: Path, library: Path, expected_sha256: str) -> dict:
+    """Compare every library source file without extracting the trusted archive."""
+    with archive.open("rb") as stream:
+        actual = digest(stream)
+    if actual != expected_sha256:
+        raise ValueError("Rust source archive SHA-256 does not match the pin")
+    expected = {}
+    marker = "/lib/rustlib/src/rust/library/"
+    with tarfile.open(archive, "r:xz") as package:
+        for member in package:
+            if marker not in member.name:
+                continue
+            name = member.name.split(marker, 1)[1]
+            path = PurePosixPath(name)
+            if path.is_absolute() or ".." in path.parts:
+                raise ValueError("unsafe Rust source archive path")
+            if member.isdir():
+                continue
+            if not member.isfile() or name in expected:
+                raise ValueError("unsupported or duplicate Rust source archive entry")
+            with package.extractfile(member) as stream:
+                expected[name] = digest(stream)
+    if not expected or "std/Cargo.toml" not in expected:
+        raise ValueError("Rust source archive has no standard-library payload")
+    if library.is_symlink():
+        raise ValueError("installed Rust library contains a symlink")
+    installed = {}
+    for path in library.rglob("*"):
+        if path.is_symlink():
+            raise ValueError("installed Rust library contains a symlink")
+        if path.is_file():
+            name = path.relative_to(library).as_posix()
+            with path.open("rb") as stream:
+                installed[name] = digest(stream)
+    if installed.keys() != expected.keys():
+        raise ValueError("installed Rust source file set differs from the archive")
+    for name, value in expected.items():
+        if installed[name] != value:
+            raise ValueError("installed Rust source bytes differ from the archive: " + name)
+    return {"archive": str(archive.resolve()), "sha256": actual,
+            "verified_files": len(expected)}
 
 
 def verify_rust(identity: str, sysroot: Path, pin: dict) -> dict:
@@ -68,6 +120,8 @@ def main() -> int:
     parser.add_argument("--toolchain-dir", required=True, type=Path)
     parser.add_argument("--sysroot", required=True, type=Path)
     parser.add_argument("--target", required=True)
+    parser.add_argument("--rust-source-archive", type=Path,
+                        help="verified rust-src archive (defaults to the source archive cache)")
     args = parser.parse_args()
     try:
         pin = json.loads(PIN.read_text(encoding="utf-8"))
@@ -77,10 +131,16 @@ def main() -> int:
         identity = run("rustup", "run", pin["channel"], "rustc", "--version", "--verbose")
         rust_root = Path(run("rustup", "run", pin["channel"], "rustc", "--print", "sysroot"))
         rust = verify_rust(identity, rust_root, pin)
+        archive = args.rust_source_archive or (
+            ROOT / ".cache/sources/archives" / ("rust-src-" + pin["channel"] + ".tar.xz")
+        )
+        rust["source_verification"] = verify_source_archive(
+            archive, Path(rust["source_directory"]), pin["rust_src"]["sha256"]
+        )
         print(json.dumps({"schema": "synveil.native-preflight/v1", "target": target, "rust": rust}, indent=2))
-        print("[native-check] prerequisites passed; archive/source and link audits remain required", file=sys.stderr)
+        print("[native-check] prerequisites and source bytes verified; target link audit remains required", file=sys.stderr)
         return 0
-    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as exc:
+    except (OSError, ValueError, KeyError, tarfile.TarError, subprocess.CalledProcessError) as exc:
         print("[native-check] " + str(exc), file=sys.stderr)
         return 1
 

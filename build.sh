@@ -46,7 +46,7 @@ case "$command" in
     native-check)
         source "$ROOT_DIR/build/scripts/common.sh"
         python3 "$ROOT_DIR/tools/native_preflight.py" \
-            --toolchain-dir "$TOOLCHAIN_DIR" --sysroot "$SYSROOT" --target "$TARGET"
+            --toolchain-dir "$TOOLCHAIN_DIR" --sysroot "$SYSROOT" --target "$TARGET" "${@:2}"
         ;;
     fetch)
         python3 "$ROOT_DIR/tools/source_lock.py" fetch
