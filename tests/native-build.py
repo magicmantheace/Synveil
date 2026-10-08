@@ -5,6 +5,7 @@ import contextlib
 import io
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -44,6 +45,11 @@ class NativeBuildTests(unittest.TestCase):
 
     def test_rustc_queries_unchanged(self):
         self.assertEqual(compiler_arguments(["--print", "sysroot"], {}), ["--print", "sysroot"])
+
+    def test_wrapper_executable_entrypoint(self):
+        output = subprocess.check_output([str(ROOT / "tools/native_rustc_wrapper.py"),
+                                          sys.executable, "-c", "print('WRAPPER_EXEC_OK')"], text=True)
+        self.assertEqual(output.strip(), "WRAPPER_EXEC_OK")
 
     def test_environment_controls(self):
         inherited = {"RUSTFLAGS": "-L/host", "CARGO_ENCODED_RUSTFLAGS": "host", "RUSTC": "/host/rustc",
