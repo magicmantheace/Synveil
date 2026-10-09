@@ -67,6 +67,7 @@ jobs:
           python3 tests/native-startup.py
           python3 tests/native-smoke.py
           python3 tests/native-recovery.py
+          python3 tests/qemu-lock.py
           python3 tests/native-protocol-probe.py
           python3 tests/native-guest-fixture.py
 
@@ -116,6 +117,9 @@ jobs:
 
       - name: Require recovery shell after core crash
         run: bash build.sh recovery-smoke --timeout 60
+
+      - name: Restart core and retain recovery after restart exhaustion
+        run: bash build.sh recovery-smoke --case supervision --timeout 60
 
       - name: Reject malformed IPC and retain healthy status in guest
         run: |

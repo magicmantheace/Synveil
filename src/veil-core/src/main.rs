@@ -28,6 +28,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(DEFAULT_SOCKET_PATH));
     let mut max_connections = None;
+    let mut supervised = false;
 
     let mut arguments = env::args_os().skip(1);
     while let Some(argument) = arguments.next() {
@@ -39,6 +40,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 socket = PathBuf::from(value);
             }
             "--once" => max_connections = Some(1),
+            "--supervise" => supervised = true,
             "--version" => {
                 println!(
                     "veil-core {} {}",
@@ -48,7 +50,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 return Ok(());
             }
             "--help" | "-h" => {
-                println!("Usage: veil-core [--socket PATH] [--once] [--version]");
+                println!("Usage: veil-core [--socket PATH] [--once | --supervise] [--version]");
                 return Ok(());
             }
             other => {
@@ -72,6 +74,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         })
     );
 
-    serve_path(&socket, max_connections)?;
+    if supervised {
+        if max_connections.is_some() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "--once cannot be combined with --supervise",
+            )
+            .into());
+        }
+        veil_core::supervision::supervise(&socket)?;
+    } else {
+        serve_path(&socket, max_connections)?;
+    }
     Ok(())
 }

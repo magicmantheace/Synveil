@@ -75,7 +75,7 @@ else
 fi
 
 set +e
-qemu-system-x86_64 "${QEMU_ARGS[@]}"
+qemu-system-x86_64 "${QEMU_ARGS[@]}" 9>&-
 status=$?
 set -e
 exit "$status"

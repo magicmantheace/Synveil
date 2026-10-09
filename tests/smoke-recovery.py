@@ -23,6 +23,30 @@ COMMAND = (
     "printf '\\n%s%s\\n' SYNVEIL_ RECOVERY_OK; fi; fi\n"
 )
 SCENARIOS = {
+    "supervision": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
+                    b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_SUPERVISION_OK",
+                    "supervisor=; worker=; "
+                    "for parent in $(pidof veil-core); do "
+                    "child=$(cat /proc/$parent/task/$parent/children 2>/dev/null); "
+                    "if [ -n \"$child\" ]; then supervisor=$parent; worker=$child; break; fi; done; "
+                    "restarted=; "
+                    "if [ -n \"$supervisor\" ] && kill -KILL $worker; then "
+                    "for retry in $(seq 1 40); do "
+                    "child=$(cat /proc/$supervisor/task/$supervisor/children 2>/dev/null); "
+                    "if [ -n \"$child\" ] && [ \"$child\" != \"$worker\" ] && "
+                    "timeout -s KILL 1 /usr/bin/synctl --json status; then restarted=1; break; fi; "
+                    "sleep 0.1; done; fi; "
+                    "if [ \"$restarted\" = 1 ]; then "
+                    "for round in 1 2 3; do "
+                    "child=$(cat /proc/$supervisor/task/$supervisor/children 2>/dev/null); "
+                    "[ -n \"$child\" ] && kill -KILL $child; sleep 0.5; done; "
+                    "for retry in $(seq 1 20); do "
+                    "kill -0 $supervisor 2>/dev/null || break; sleep 0.1; done; "
+                    "if ! kill -0 $supervisor 2>/dev/null && "
+                    "! timeout -s KILL 2 /usr/bin/synctl --json status; then "
+                    "printf '%s' shell-alive > /tmp/supervision-probe && "
+                    "[ \"$(cat /tmp/supervision-probe)\" = shell-alive ] && "
+                    "printf '\\n%s%s\\n' SYNVEIL_ SUPERVISION_OK; fi; fi\n"),
     "crash": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
               b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_RECOVERY_OK", COMMAND),
     "absent": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_UNAVAILABLE"},
@@ -111,6 +135,12 @@ def main():
         parser.error("timeout must be positive")
     passed = smoke(args.timeout, args.case)
     print(f"[synveil] QEMU {args.case} smoke " + ("passed" if passed else "failed"))
+    if not passed:
+        out = Path(os.environ.get("SYNVEIL_OUT_DIR", ROOT / "out"))
+        name = "recovery" if args.case == "crash" else args.case
+        path = out / f"logs/qemu-{name}-smoke.log"
+        if path.exists():
+            print(path.read_text(errors="replace")[-16000:])
     return 0 if passed else 1
 
 

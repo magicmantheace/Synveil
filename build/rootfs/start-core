@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
-# Bootstrap startup only; recovery never depends on the service.
+# Start the bounded Rust supervisor; recovery never depends on the service.
 core=/usr/sbin/veil-core
 ctl=/usr/bin/synctl
 socket=/run/synveil/veil-core.sock
@@ -16,7 +16,7 @@ if ! command -v timeout >/dev/null 2>&1; then
     exit 0
 fi
 
-"$core" --socket "$socket" &
+"$core" --supervise --socket "$socket" &
 core_pid=$!
 attempt=0
 while [ "$attempt" -lt 5 ]; do

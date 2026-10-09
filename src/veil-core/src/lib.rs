@@ -13,6 +13,7 @@ use veil_protocol::{
 };
 
 pub const DEFAULT_SOCKET_PATH: &str = "/run/synveil/veil-core.sock";
+pub mod supervision;
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_REQUESTS_PER_CONNECTION: usize = 16;
 

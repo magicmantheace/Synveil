@@ -111,8 +111,15 @@ attempts up to five status checks, each capped at one second with forced
 termination. A successful status request emits `SYNVEIL_CORE_READY`. Missing or
 failed components emit `SYNVEIL_CORE_UNAVAILABLE`; unsuccessful startup is
 terminated and `/init` continues to its recovery shell. A later core crash does
-not terminate the independent recovery shell. This is bootstrap startup, not a
-restart supervisor, and does not complete the service-lifecycle roadmap item.
+not terminate the independent recovery shell. Bootstrap now starts
+`veil-core --supervise`. Its Rust parent launches a
+worker with a fixed command and socket path, waits/reaps it, and allows at most
+three restarts after abnormal exits, with 250 ms between attempts. Normal exit
+stops supervision. Spawn failures and budget exhaustion stop the parent;
+recovery remains independent. Linux parent-death signalling kills the worker
+if its supervisor dies, including the fork/exec race. This is one bounded core
+supervisor, not a general service manager or production PID 1. Guest validation
+of the new lifecycle is required before completing that roadmap item.
 
 Packaging-integrity tests and startup failure tests use isolated fixtures. The
 `native-smoke` command requires standalone `SYNVEIL_CORE_READY` and
@@ -326,7 +333,8 @@ For the first Phase 2 image:
 
 A core crash must not create an init crash loop that prevents console access.
 
-Permanent service supervision and a production PID 1 remain separate roadmap work.
+The bounded core supervisor implements the first restart policy. General
+service management and a production PID 1 remain separate work.
 
 ## Privilege boundary
 
@@ -432,3 +440,18 @@ Do not add these merely because the protocol could support them:
 - plugin execution.
 
 The first native core is intentionally boring. Its job is to establish a trustworthy deterministic boundary on which the interesting parts of Synveil can later depend.
+
+## Supervision guest validation
+
+`bash build.sh recovery-smoke --case supervision --timeout 60` boots the native
+image, identifies the supervisor's worker through `/proc`, kills only that
+worker, and requires a different worker PID plus healthy `synctl status`.
+It then kills the remaining workers until the three-restart budget is exhausted,
+requires the parent to exit and status to fail, and verifies shell file operations.
+Only `SYNVEIL_SUPERVISION_OK` completes the test; console logs are saved as
+`out/logs/qemu-supervision-smoke.log`. The guest checks are pending CI.
+
+The [a136fb5 failure record](validation/native-a136fb5/README.md) explains why
+absent-core and malformed-IPC guest validation remain pending. Smoke/QEMU
+children do not inherit the checkout build-lock descriptor, and failed
+interactive smokes print their console tail for diagnosis.

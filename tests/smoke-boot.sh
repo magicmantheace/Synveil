@@ -18,7 +18,7 @@ rm -f "$LOG_FILE"
 
 log "booting Synveil in QEMU for up to ${TIMEOUT_SECONDS}s"
 set +e
-timeout "${TIMEOUT_SECONDS}s" bash "$ROOT_DIR/build/scripts/qemu.sh" >"$LOG_FILE" 2>&1
+timeout -k 3 "${TIMEOUT_SECONDS}s" bash "$ROOT_DIR/build/scripts/qemu.sh" 9>&- >"$LOG_FILE" 2>&1
 status=$?
 set -e
 
