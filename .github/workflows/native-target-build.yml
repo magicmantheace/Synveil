@@ -101,6 +101,7 @@ jobs:
           PY
 
       - name: Build native rootfs and boot image
+        id: native_image
         env:
           SYNVEIL_NATIVE_ROOTFS: "1"
         run: |
@@ -119,14 +120,17 @@ jobs:
         run: bash build.sh recovery-smoke --timeout 60
 
       - name: Restart core and retain recovery after restart exhaustion
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: bash build.sh recovery-smoke --case supervision --timeout 60
 
       - name: Reject malformed IPC and retain healthy status in guest
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |
           set -o pipefail
           bash build.sh guest-fixture --case protocol 2>&1 | tee out/logs/protocol-fixture.log
 
       - name: Recover in guest with core binary absent
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |
           set -o pipefail
           bash build.sh guest-fixture --case absent 2>&1 | tee out/logs/absent-fixture.log

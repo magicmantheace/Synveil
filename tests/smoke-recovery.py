@@ -25,6 +25,8 @@ COMMAND = (
 SCENARIOS = {
     "supervision": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
                     b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_SUPERVISION_OK",
+                    "is_alive() { kill -0 \"$1\" 2>/dev/null && "
+                    "! grep -q '^State:.*Z' /proc/$1/status 2>/dev/null; }; "
                     "supervisor=; worker=; "
                     "for parent in $(pidof veil-core); do "
                     "child=$(cat /proc/$parent/task/$parent/children 2>/dev/null); "
@@ -41,8 +43,8 @@ SCENARIOS = {
                     "child=$(cat /proc/$supervisor/task/$supervisor/children 2>/dev/null); "
                     "[ -n \"$child\" ] && kill -KILL $child; sleep 0.5; done; "
                     "for retry in $(seq 1 20); do "
-                    "kill -0 $supervisor 2>/dev/null || break; sleep 0.1; done; "
-                    "if ! kill -0 $supervisor 2>/dev/null && "
+                    "is_alive $supervisor || break; sleep 0.1; done; "
+                    "if ! is_alive $supervisor && "
                     "! timeout -s KILL 2 /usr/bin/synctl --json status; then "
                     "printf '%s' shell-alive > /tmp/supervision-probe && "
                     "[ \"$(cat /tmp/supervision-probe)\" = shell-alive ] && "
@@ -102,7 +104,10 @@ def smoke(timeout_seconds, case="crash"):
                     return False
                 if not sent and required <= seen:
                     seen.discard(marker)
-                    process.stdin.write(command.encode())
+                    # BusyBox's line editor caps each input line. Keep compound
+                    # test commands intact, but place shell statements on lines.
+                    script = command.replace("; ", ";\n") + "# SYNVEIL_TEST_COMMAND_END\n"
+                    process.stdin.write(script.encode())
                     process.stdin.flush()
                     sent = True
                 if sent and marker in seen:

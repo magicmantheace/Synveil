@@ -10,14 +10,7 @@ fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!(
-                "{}",
-                serde_json::json!({
-                    "component": "veil-core",
-                    "event": "fatal",
-                    "error": error.to_string(),
-                })
-            );
+            veil_core::audit::emit("fatal", serde_json::json!({ "error": error.to_string() }));
             ExitCode::FAILURE
         }
     }
@@ -63,15 +56,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    eprintln!(
-        "{}",
+    veil_core::audit::emit(
+        "start",
         serde_json::json!({
-            "component": "veil-core",
-            "event": "start",
             "version": veil_protocol::BUILD_VERSION,
             "git_revision": veil_protocol::BUILD_REVISION,
             "protocol": veil_protocol::CORE_SCHEMA_V1,
-        })
+        }),
     );
 
     if supervised {

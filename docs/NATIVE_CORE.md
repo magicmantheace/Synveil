@@ -455,3 +455,16 @@ The [a136fb5 failure record](validation/native-a136fb5/README.md) explains why
 absent-core and malformed-IPC guest validation remain pending. Smoke/QEMU
 children do not inherit the checkout build-lock descriptor, and failed
 interactive smokes print their console tail for diagnosis.
+
+## Versioned audit events
+
+All core and supervisor events now use the [audit v1 format](AUDIT.md), with
+schema, emitting PID, process-local sequence, wall-clock availability, build
+identity, event, and fields. Startup/fatal messages use the same emitter as
+service and supervisor events. The current sink remains stderr; this does
+not provide a persistent journal or complete the durable-audit roadmap item.
+
+The [fc78195 guest result](validation/supervision-fc78195/README.md) records
+passing crash recovery but a supervision timeout. Supervision tests now treat
+zombie parents as exited. Independent protocol and absent-core guest checks
+continue after other guest-test failures when the image was built successfully.

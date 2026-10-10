@@ -29,7 +29,12 @@ if mode == 'no-ready':
     sys.exit(0)
 ready = 'SYNVEIL_CORE_UNAVAILABLE' if case == 'absent' else 'SYNVEIL_CORE_READY'
 print(ready + '\\r\\nSYNVEIL_BOOT_OK', flush=True)
-command = sys.stdin.readline()
+command = ''
+while not command.endswith('# SYNVEIL_TEST_COMMAND_END\\n'):
+    line = sys.stdin.readline()
+    if not line:
+        break
+    command += line
 if mode == 'pass':
     if case == 'crash':
         assert 'kill -KILL' in command and 'synctl --json status' in command
@@ -41,6 +46,7 @@ if mode == 'pass':
     else:
         assert '/children' in command and 'restarted=1' in command
         assert 'for round in 1 2 3' in command and 'shell-alive' in command
+        assert max(map(len, command.splitlines())) < 1024
     marker = {'crash': 'RECOVERY', 'absent': 'ABSENT', 'protocol': 'PROTOCOL',
               'supervision': 'SUPERVISION'}[case]
     print('SYNVEIL_' + marker + '_OK', flush=True)

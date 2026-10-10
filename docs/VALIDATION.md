@@ -113,3 +113,15 @@ Likewise, explanations are validated against transaction evidence rather than ju
 Roadmap checkboxes should normally be updated in the same commit as, or after, the evidence that justifies completion.
 
 If an implementation exists but validation is blocked by infrastructure, leave the item unchecked and document the blocker instead of overstating project maturity.
+
+## Audit format validation
+
+The [audit v1 contract](AUDIT.md) has unit coverage for schema/build/process
+identity, ordering, unavailable time, and escaped field content. Its host
+integration test requires the actual core to answer status and emit valid
+startup, socket, request, and shutdown records. This validates the format and
+emitter; it does not establish persistent storage or a durable journal.
+
+The [fc78195 result](validation/supervision-fc78195/README.md) leaves supervision,
+protocol, and absent-core guest cases pending. Independent guest cases must not
+be skipped merely because a previous guest test failed.
