@@ -183,6 +183,7 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
                 "VIRTUAL NIC PRESENT" : "VIRTUAL NIC MISSING";
         }
         heading(screen, label, 32u, h / 3u, 2u, muted);
+        heading(screen, "BACK", w > 125u ? w - 105u : 0u, 18u, 2u, title);
         heading(screen, "ESC TO GO BACK", 32u, h * 4u / 5u, 2u, title);
         return;
     }
@@ -237,6 +238,97 @@ static int open_keyboard(void) {
     return chosen;
 }
 
+struct pointer_device {
+    int fd;
+    struct input_absinfo x;
+    struct input_absinfo y;
+    unsigned screen_x;
+    unsigned screen_y;
+};
+
+static int event_number(const char *name) {
+    if (strncmp(name, "event", 5) != 0 || name[5] == '\0') return 0;
+    for (const char *p = name + 5; *p; p++)
+        if (*p < '0' || *p > '9') return 0;
+    return 1;
+}
+
+static struct pointer_device open_pointer(void) {
+    struct pointer_device pointer = {.fd = -1};
+    DIR *directory = opendir("/dev/input");
+    if (!directory) return pointer;
+    struct dirent *item;
+    while ((item = readdir(directory)) != NULL) {
+        if (!event_number(item->d_name)) continue;
+        char path[256];
+        int len = snprintf(path, sizeof(path), "/dev/input/%s", item->d_name);
+        if (len < 0 || (size_t)len >= sizeof(path)) continue;
+        int fd = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_NOFOLLOW);
+        if (fd < 0) continue;
+        struct stat info;
+        unsigned char events[(EV_MAX + 8u) / 8u] = {0};
+        unsigned char keys[(KEY_MAX + 8u) / 8u] = {0};
+        unsigned char axes[(ABS_MAX + 8u) / 8u] = {0};
+        if (fstat(fd, &info) == 0 && S_ISCHR(info.st_mode) &&
+            ioctl(fd, EVIOCGBIT(0, sizeof(events)), events) >= 0 &&
+            event_bit(events, sizeof(events), EV_KEY) &&
+            event_bit(events, sizeof(events), EV_ABS) &&
+            ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keys)), keys) >= 0 &&
+            ioctl(fd, EVIOCGBIT(EV_ABS, sizeof(axes)), axes) >= 0 &&
+            event_bit(keys, sizeof(keys), BTN_LEFT) &&
+            event_bit(axes, sizeof(axes), ABS_X) &&
+            event_bit(axes, sizeof(axes), ABS_Y) &&
+            ioctl(fd, EVIOCGABS(ABS_X), &pointer.x) >= 0 &&
+            ioctl(fd, EVIOCGABS(ABS_Y), &pointer.y) >= 0 &&
+            pointer.x.maximum > pointer.x.minimum &&
+            pointer.y.maximum > pointer.y.minimum) {
+            pointer.fd = fd;
+            break;
+        }
+        close(fd);
+    }
+    closedir(directory);
+    return pointer;
+}
+
+static unsigned absolute_pixel(int value, int minimum, int maximum, unsigned extent) {
+    if (maximum <= minimum || extent == 0u) return 0u;
+    int64_t range = (int64_t)maximum - minimum;
+    int64_t offset = (int64_t)value - minimum;
+    if (offset <= 0) return 0u;
+    if (offset >= range) return extent - 1u;
+    return (unsigned)((uint64_t)offset * (extent - 1u) / (uint64_t)range);
+}
+
+static void menu_click(struct menu_state *state, unsigned x, unsigned y,
+                       unsigned width, unsigned height) {
+    if (state->page >= 0) {
+        if (y <= height / 11u && x >= (width > 125u ? width - 125u : 0u))
+            state->page = -1;
+        return;
+    }
+    unsigned tile_spacing = (width > 140u ? width - 64u : width) / 3u;
+    unsigned tile_width = width > 140u ? (width - 72u) / 3u : 20u;
+    if (y < height / 3u || y >= height / 3u + height / 5u) return;
+    for (unsigned i = 0; i < 3u; ++i) {
+        unsigned left = 32u + i * tile_spacing;
+        if (x >= left && x - left < tile_width) {
+            state->selected = i;
+            state->page = (int)i;
+            break;
+        }
+    }
+}
+
+static void render_cursor(const struct surface *screen, const struct pointer_device *pointer) {
+    if (pointer->fd >= 0) {
+        rectangle(screen, pointer->screen_x, pointer->screen_y, 9u, 9u,
+                  rgb(screen, 251, 210, 102));
+        rectangle(screen, pointer->screen_x + 2u, pointer->screen_y + 2u,
+                  3u, 3u, rgb(screen, 31, 52, 73));
+    }
+}
+
 static int run_menu(const struct surface *screen) {
     int keyboard = open_keyboard();
     if (keyboard < 0) {
@@ -244,29 +336,58 @@ static int run_menu(const struct surface *screen) {
         return 1;
     }
     struct menu_state state = {.selected = 0u, .page = -1, .quit = 0};
+    struct pointer_device pointer = open_pointer();
     render_menu(screen, &state);
+    render_cursor(screen, &pointer);
     puts("SYNVEIL_DESKTOP_READY");
     fflush(stdout);
     while (!state.quit) {
-        struct pollfd pfd = {.fd = keyboard, .events = POLLIN, .revents = 0};
-        int result = poll(&pfd, 1, 1000);
+        struct pollfd fds[2] = {{.fd = keyboard, .events = POLLIN},
+                                {.fd = pointer.fd, .events = POLLIN}};
+        nfds_t count = pointer.fd >= 0 ? 2u : 1u;
+        int result = poll(fds, count, 1000);
         if (result < 0) {
             if (errno == EINTR) continue;
             break;
         }
-        if (result == 0) {
-            if (state.page >= 0) render_menu(screen, &state);
-            continue;
+        if ((fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) break;
+        int redraw = result == 0 && state.page >= 0;
+        if ((fds[0].revents & POLLIN) != 0) {
+            struct input_event event;
+            if (read(keyboard, &event, sizeof(event)) == (ssize_t)sizeof(event) &&
+                event.type == EV_KEY && event.value == 1) {
+                menu_key(&state, event.code);
+                redraw = 1;
+            }
         }
-        if ((pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) break;
-        if ((pfd.revents & POLLIN) == 0) continue;
-        struct input_event event;
-        ssize_t count = read(keyboard, &event, sizeof(event));
-        if (count == (ssize_t)sizeof(event) && event.type == EV_KEY && event.value == 1) {
-            menu_key(&state, event.code);
-            if (!state.quit) render_menu(screen, &state);
+        if (pointer.fd >= 0 && (fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+            close(pointer.fd);
+            pointer.fd = -1;
+            redraw = 1;
+        } else if (pointer.fd >= 0 && (fds[1].revents & POLLIN) != 0) {
+            struct input_event event;
+            if (read(pointer.fd, &event, sizeof(event)) == (ssize_t)sizeof(event)) {
+                if (event.type == EV_ABS && event.code == ABS_X) {
+                    pointer.screen_x = absolute_pixel(event.value, pointer.x.minimum,
+                                                      pointer.x.maximum, screen->variable.xres);
+                    redraw = 1;
+                } else if (event.type == EV_ABS && event.code == ABS_Y) {
+                    pointer.screen_y = absolute_pixel(event.value, pointer.y.minimum,
+                                                      pointer.y.maximum, screen->variable.yres);
+                    redraw = 1;
+                } else if (event.type == EV_KEY && event.code == BTN_LEFT && event.value == 1) {
+                    menu_click(&state, pointer.screen_x, pointer.screen_y,
+                               screen->variable.xres, screen->variable.yres);
+                    redraw = 1;
+                }
+            }
+        }
+        if (redraw && !state.quit) {
+            render_menu(screen, &state);
+            render_cursor(screen, &pointer);
         }
     }
+    if (pointer.fd >= 0) close(pointer.fd);
     close(keyboard);
     return state.quit ? 0 : 1;
 }
@@ -300,6 +421,14 @@ static int self_test(void) {
     if (state.selected != 0u) return 1;
     menu_key(&state, KEY_ESC);
     if (!state.quit) return 1;
+    struct menu_state click_state = {.selected = 0u, .page = -1, .quit = 0};
+    menu_click(&click_state, 310u, 250u, 900u, 600u);
+    if (click_state.page != 1 || click_state.selected != 1u) return 1;
+    menu_click(&click_state, 850u, 20u, 900u, 600u);
+    if (click_state.page != -1) return 1;
+    if (absolute_pixel(-20, 0, 100, 900u) != 0u ||
+        absolute_pixel(200, 0, 100, 900u) != 899u ||
+        absolute_pixel(50, 0, 100, 900u) != 449u) return 1;
     return 0;
 }
 
