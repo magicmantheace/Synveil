@@ -339,7 +339,9 @@ static int run_menu(const struct surface *screen) {
     struct pointer_device pointer = open_pointer();
     render_menu(screen, &state);
     render_cursor(screen, &pointer);
-    puts("SYNVEIL_DESKTOP_READY");
+    // The serial recovery shell may already have printed a prompt without
+    // a newline. Begin on a new line so CI can require a standalone marker.
+    puts("\nSYNVEIL_DESKTOP_READY");
     fflush(stdout);
     while (!state.quit) {
         struct pollfd fds[2] = {{.fd = keyboard, .events = POLLIN},
