@@ -29,6 +29,8 @@ if mode == 'no-ready':
     sys.exit(0)
 ready = 'SYNVEIL_CORE_UNAVAILABLE' if case == 'absent' else 'SYNVEIL_CORE_READY'
 print(ready + '\\r\\nSYNVEIL_BOOT_OK', flush=True)
+if case == 'demo':
+    print('SYNVEIL_VT_READY\\nSYNVEIL_DESKTOP_READY', flush=True)
 command = ''
 while not command.endswith('# SYNVEIL_TEST_COMMAND_END\\n'):
     line = sys.stdin.readline()
