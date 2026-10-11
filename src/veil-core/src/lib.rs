@@ -295,6 +295,11 @@ mod tests {
             io::ErrorKind::AlreadyExists
         );
         assert!(path.exists());
+        // Drain the liveness probe before closing the listener. Otherwise a
+        // queued, unaccepted connection can make this stale-socket assertion
+        // sensitive to kernel socket teardown timing.
+        let (probe, _) = listener.accept().expect("accept liveness probe");
+        drop(probe);
         drop(listener);
         prepare_socket_path(&path).expect("stale socket is removable");
         assert!(!path.exists());
