@@ -43,6 +43,7 @@ class QemuOptionTests(unittest.TestCase):
         env.pop("SYNVEIL_QEMU_VIDEO", None)
         env.pop("SYNVEIL_QEMU_NETWORK", None)
         env.pop("SYNVEIL_QEMU_STATE_DISK", None)
+        env.pop("SYNVEIL_QEMU_QMP_SOCKET", None)
         env.update(extra or {})
         result = subprocess.run(
             ["bash", str(ROOT / "build/scripts/qemu.sh")],
@@ -77,6 +78,32 @@ class QemuOptionTests(unittest.TestCase):
         self.assertEqual(args[args.index("-display") + 1], "none")
         self.assertIn("virtio-vga", args)
         self.assertIn("-net", args)
+
+    def test_optional_qmp_requires_private_parent_and_remains_disabled_by_default(self):
+        result, args = self.invoke()
+        self.assertEqual(result.returncode, 0)
+        self.assertNotIn("-qmp", args)
+
+        private = self.work / "private"
+        private.mkdir(mode=0o700)
+        endpoint = private / "monitor.sock"
+        result, args = self.invoke({"SYNVEIL_QEMU_QMP_SOCKET": str(endpoint)})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(args[args.index("-qmp") + 1],
+                         f"unix:{endpoint},server=on,wait=off")
+
+        insecure = self.work / "public"
+        insecure.mkdir(mode=0o755)
+        result, args = self.invoke({"SYNVEIL_QEMU_QMP_SOCKET": str(insecure / "monitor.sock")})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(args, [])
+        result, args = self.invoke({"SYNVEIL_QEMU_QMP_SOCKET": "relative.sock"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(args, [])
+        endpoint.write_bytes(b"stale")
+        result, args = self.invoke({"SYNVEIL_QEMU_QMP_SOCKET": str(endpoint)})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(args, [])
 
     def test_rejects_invalid_video_before_launch(self):
         result, args = self.invoke({"SYNVEIL_QEMU_VIDEO": "yes"})

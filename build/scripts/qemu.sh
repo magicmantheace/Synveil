@@ -15,6 +15,20 @@ VIDEO="${SYNVEIL_QEMU_VIDEO:-0}"
 [[ "$VIDEO" == 0 || "$VIDEO" == 1 ]] || die "SYNVEIL_QEMU_VIDEO must be 0 or 1"
 NETWORK="${SYNVEIL_QEMU_NETWORK:-0}"
 [[ "$NETWORK" == 0 || "$NETWORK" == 1 ]] || die "SYNVEIL_QEMU_NETWORK must be 0 or 1"
+# Developer test automation only: a Unix QMP monitor is powerful and must
+# be reachable solely inside a directory owned by this user, mode 0700.
+QMP_SOCKET="${SYNVEIL_QEMU_QMP_SOCKET:-}"
+if [[ -n "$QMP_SOCKET" ]]; then
+    [[ "$QMP_SOCKET" == /* && ${#QMP_SOCKET} -le 100 ]] ||
+        die "QMP socket must be an absolute short path"
+    qmp_parent="$(dirname "$QMP_SOCKET")"
+    [[ -d "$qmp_parent" && -O "$qmp_parent" &&
+       "$(stat -c '%a' "$qmp_parent")" == 700 ]] ||
+        die "QMP socket parent must be a private owner-owned mode 0700 directory"
+    [[ ! -e "$QMP_SOCKET" && ! -L "$QMP_SOCKET" ]] ||
+        die "refusing existing QMP socket path"
+    umask 077
+fi
 STATE_DISK="${SYNVEIL_QEMU_STATE_DISK:-}"
 if [[ -n "$STATE_DISK" ]]; then
     [[ -f "$STATE_DISK" && ! -L "$STATE_DISK" ]] || die "state disk must be a regular file: $STATE_DISK"
@@ -31,6 +45,10 @@ QEMU_ARGS=(
     -drive "if=none,id=synveil_disk,file=$IMAGE,format=raw,readonly=on"
     -device "virtio-blk-pci,drive=synveil_disk,bootindex=1"
 )
+
+if [[ -n "$QMP_SOCKET" ]]; then
+    QEMU_ARGS+=(-qmp "unix:$QMP_SOCKET,server=on,wait=off")
+fi
 
 # Explicit opt-in graphics/input and user-mode network for the VM desktop target.
 # Serial-console CI remains headless, offline and recovery-capable by default.
