@@ -15,10 +15,11 @@ import signal
 import subprocess
 import tempfile
 import time
-
-from qmp_input import QMPError, settings_toggle
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from qmp_input import QMPError, settings_toggle  # noqa: E402
 BOOT = {b"SYNVEIL_BOOT_OK", b"SYNVEIL_STATE_READY",
         b"SYNVEIL_DESKTOP_READY", b"SYNVEIL_HOME_READY"}
 ERRORS = {b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_DISPLAY_UNAVAILABLE",
@@ -35,15 +36,15 @@ WRITE = (
     "umask 077; "
     "printf '%s' synveil-home-v1 > /home/synveil/roundtrip && "
     "chown 1000:1000 /home/synveil/roundtrip && "
-    "sync && printf '\\n%s%s\\n' SYNVEIL_ HOME_SEEDED\\n"
+    "sync && printf '\\n%s%s\\n' SYNVEIL_ HOME_SEEDED\n"
 )
 
 VERIFY = (
-    "i=0; while [ \\"$i\\" -lt 50 ]; do "
+    "i=0; while [ \"$i\" -lt 50 ]; do "
     "if grep -Fxq 'contrast=1' /var/lib/synveil/desktop-pref.conf && "
     "grep -Fxq 'cursor_scale=1' /var/lib/synveil/desktop-pref.conf; then "
     "sync; printf '\\n%s%s\\n' SYNVEIL_ UI_PREFS_WRITE_OK; break; fi; "
-    "i=$((i+1)); sleep 0.1; done\\n"
+    "i=$((i+1)); sleep 0.1; done\n"
 )
 
 
@@ -110,7 +111,7 @@ def round_trip(state: Path, timeout: float, phase: int, logfile: Path) -> bool:
                         settings_toggle(qmp_path, timeout=6)
                     except (QMPError, OSError, ValueError) as exc:
                         evidence.write(("[synveil-smoke] QMP input failed: " +
-                                        str(exc) + "\\n").encode())
+                                        str(exc) + "\n").encode())
                         return False
                     process.stdin.write(VERIFY.encode())
                     process.stdin.flush()
