@@ -38,10 +38,10 @@ pub fn emit(event: &str, fields: Value) {
     eprintln!("{line}");
     // Opt-in audit journal, only set by bootstrap after /var is mounted.
     // Console logging remains available even if persistent storage fails.
-    if let Some(path) = std::env::var_os("SYNVEIL_AUDIT_PATH") {
-        if let Err(error) = append_record(Path::new(&path), &line) {
-            eprintln!("[synveil-audit] persistent write failed: {error}");
-        }
+    if let Some(path) = std::env::var_os("SYNVEIL_AUDIT_PATH")
+        && let Err(error) = append_record(Path::new(&path), &line)
+    {
+        eprintln!("[synveil-audit] persistent write failed: {error}");
     }
 }
 
