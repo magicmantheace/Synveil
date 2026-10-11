@@ -8,6 +8,11 @@ LOG_FILE="$LOG_DIR/qemu-smoke.log"
 TIMEOUT_SECONDS="${SYNVEIL_SMOKE_TIMEOUT:-30}"
 REQUIRE_NATIVE="${SYNVEIL_SMOKE_REQUIRE_NATIVE:-0}"
 REQUIRE_DISPLAY="${SYNVEIL_SMOKE_REQUIRE_DISPLAY:-0}"
+REQUIRE_INPUT="${SYNVEIL_SMOKE_REQUIRE_INPUT:-0}"
+case "$REQUIRE_INPUT" in
+    0|1) ;;
+    *) die "SYNVEIL_SMOKE_REQUIRE_INPUT must be 0 or 1" ;;
+esac
 case "$REQUIRE_DISPLAY" in
     0|1) ;;
     *) die "SYNVEIL_SMOKE_REQUIRE_DISPLAY must be 0 or 1" ;;
@@ -32,6 +37,82 @@ if grep -Eq $'^SYNVEIL_BOOT_OK\r?$' "$LOG_FILE"; then
         if ! grep -Eq $'^SYNVEIL_DISPLAY_READY\r?$' "$LOG_FILE" ||
            grep -Eq $'^SYNVEIL_DISPLAY_UNAVAILABLE\r?$' "$LOG_FILE"; then
             log "virtio framebuffer was not writable in guest"
+            tail -n 120 "$LOG_FILE" >&2 || true
+            exit 1
+        fi
+    fi
+    if [[ "$REQUIRE_INPUT" == 1 ]]; then
+        if ! grep -Eq 
+        if ! grep -Eq $'^SYNVEIL_CORE_READY\r?$' "$LOG_FILE" ||
+           grep -Eq $'^SYNVEIL_CORE_UNAVAILABLE\r?$' "$LOG_FILE"; then
+            log "native core did not complete a successful status check"
+            tail -n 120 "$LOG_FILE" >&2 || true
+            exit 1
+        fi
+        log "QEMU native core status smoke passed"
+        exit 0
+    fi
+    log "QEMU smoke boot passed"
+    exit 0
+fi
+
+printf '[synveil] QEMU smoke boot failed (qemu/timeout status %s)\n' "$status" >&2
+tail -n 120 "$LOG_FILE" >&2 || true
+exit 1
+^SYNVEIL_INPUT_READY\r?
+        if ! grep -Eq $'^SYNVEIL_CORE_READY\r?$' "$LOG_FILE" ||
+           grep -Eq $'^SYNVEIL_CORE_UNAVAILABLE\r?$' "$LOG_FILE"; then
+            log "native core did not complete a successful status check"
+            tail -n 120 "$LOG_FILE" >&2 || true
+            exit 1
+        fi
+        log "QEMU native core status smoke passed"
+        exit 0
+    fi
+    log "QEMU smoke boot passed"
+    exit 0
+fi
+
+printf '[synveil] QEMU smoke boot failed (qemu/timeout status %s)\n' "$status" >&2
+tail -n 120 "$LOG_FILE" >&2 || true
+exit 1
+ "$LOG_FILE" ||
+           grep -Eq 
+        if ! grep -Eq $'^SYNVEIL_CORE_READY\r?$' "$LOG_FILE" ||
+           grep -Eq $'^SYNVEIL_CORE_UNAVAILABLE\r?$' "$LOG_FILE"; then
+            log "native core did not complete a successful status check"
+            tail -n 120 "$LOG_FILE" >&2 || true
+            exit 1
+        fi
+        log "QEMU native core status smoke passed"
+        exit 0
+    fi
+    log "QEMU smoke boot passed"
+    exit 0
+fi
+
+printf '[synveil] QEMU smoke boot failed (qemu/timeout status %s)\n' "$status" >&2
+tail -n 120 "$LOG_FILE" >&2 || true
+exit 1
+^SYNVEIL_INPUT_UNAVAILABLE\r?
+        if ! grep -Eq $'^SYNVEIL_CORE_READY\r?$' "$LOG_FILE" ||
+           grep -Eq $'^SYNVEIL_CORE_UNAVAILABLE\r?$' "$LOG_FILE"; then
+            log "native core did not complete a successful status check"
+            tail -n 120 "$LOG_FILE" >&2 || true
+            exit 1
+        fi
+        log "QEMU native core status smoke passed"
+        exit 0
+    fi
+    log "QEMU smoke boot passed"
+    exit 0
+fi
+
+printf '[synveil] QEMU smoke boot failed (qemu/timeout status %s)\n' "$status" >&2
+tail -n 120 "$LOG_FILE" >&2 || true
+exit 1
+ "$LOG_FILE"; then
+            log "guest did not detect virtual keyboard and pointer"
             tail -n 120 "$LOG_FILE" >&2 || true
             exit 1
         fi

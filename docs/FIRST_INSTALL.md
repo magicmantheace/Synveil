@@ -28,7 +28,12 @@ A small source-built C framebuffer diagnostic can be included with
 `SYNVEIL_GRAPHICS_ROOTFS=1`. When `/dev/fb0` is available and writable, it
 draws a diagnostic splash and emits `SYNVEIL_DISPLAY_READY` on serial;
 otherwise it reports `SYNVEIL_DISPLAY_UNAVAILABLE` while preserving recovery.
-This is a **graphics bring-up diagnostic**, not a graphical desktop or window
+The same opt-in image includes a source-built `synveil-input --probe`
+helper. It scans only evdev character devices and verifies keyboard and pointer
+capabilities without reading private user input events. The QEMU graphics smoke
+now requires input discovery too.
+
+This is a **graphics/input bring-up diagnostic**, not a graphical desktop or window
 manager. Automated QEMU validation is required before declaring the graphics
 device path working.
 

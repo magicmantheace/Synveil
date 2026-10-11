@@ -10,6 +10,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DisplaySourceTests(unittest.TestCase):
+    def test_input_device_classifier_and_restricted_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            executable = Path(tmp) / "synveil-input"
+            subprocess.run(
+                ["gcc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                 str(ROOT / "src/veil-display/input.c"), "-o", str(executable)],
+                check=True,
+            )
+            subprocess.run([str(executable), "--self-test"], check=True, timeout=3)
+
     def test_compiles_and_rejects_out_of_bounds_framebuffer(self):
         with tempfile.TemporaryDirectory() as tmp:
             executable = Path(tmp) / "synveil-display"

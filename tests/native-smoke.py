@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NativeSmokeTests(unittest.TestCase):
-    def run_smoke(self, console, native="1"):
+    def run_smoke(self, console, native="1", display="0", input_required="0"):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "tests").mkdir()
@@ -26,6 +26,8 @@ class NativeSmokeTests(unittest.TestCase):
                 ["bash", str(root / "tests/smoke-boot.sh")],
                 env={**os.environ, "SYNVEIL_OUT_DIR": str(root / "out"),
                      "SYNVEIL_SMOKE_REQUIRE_NATIVE": native,
+                     "SYNVEIL_SMOKE_REQUIRE_DISPLAY": display,
+                     "SYNVEIL_SMOKE_REQUIRE_INPUT": input_required,
                      "FIXTURE_CONSOLE": console},
                 capture_output=True, text=True, timeout=5,
             )
@@ -53,6 +55,17 @@ class NativeSmokeTests(unittest.TestCase):
 
     def test_baseline_boot_does_not_require_native(self):
         self.assertEqual(self.run_smoke("SYNVEIL_BOOT_OK\n", "0"), 0)
+
+    def test_graphics_input_probe_requires_both_devices(self):
+        console = "SYNVEIL_CORE_READY\nSYNVEIL_DISPLAY_READY\nSYNVEIL_BOOT_OK\n"
+        self.assertNotEqual(self.run_smoke(console, display="1", input_required="1"), 0)
+        self.assertEqual(self.run_smoke(
+            console + "SYNVEIL_INPUT_READY\n", display="1", input_required="1"), 0)
+        self.assertNotEqual(self.run_smoke(
+            console + "SYNVEIL_INPUT_UNAVAILABLE\n", display="1", input_required="1"), 0)
+
+    def test_invalid_input_requirement_fails(self):
+        self.assertNotEqual(self.run_smoke("SYNVEIL_BOOT_OK\n", input_required="yes"), 0)
 
     def test_invalid_mode_fails(self):
         self.assertNotEqual(self.run_smoke("SYNVEIL_BOOT_OK\n", "yes"), 0)

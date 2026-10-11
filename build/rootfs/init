@@ -40,6 +40,9 @@ fi
 if [ -x /usr/bin/synveil-display ]; then
     /usr/bin/synveil-display --demo || echo SYNVEIL_DISPLAY_UNAVAILABLE
 fi
+if [ -x /usr/bin/synveil-input ]; then
+    /usr/bin/synveil-input --probe || echo SYNVEIL_INPUT_UNAVAILABLE
+fi
 
 echo
 echo "Synveil bootstrap"

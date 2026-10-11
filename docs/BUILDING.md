@@ -188,8 +188,12 @@ To build the opt-in framebuffer diagnostic into the bootstrap rootfs, set
 `SYNVEIL_GRAPHICS_ROOTFS=1` while building the rootfs. Rebuild the kernel
 and image afterward. For a headless CI framebuffer probe, set
 `SYNVEIL_QEMU_VIDEO=1` and `SYNVEIL_SMOKE_REQUIRE_DISPLAY=1` when calling
-`bash build.sh native-smoke`. This checks framebuffer creation and pixel
-writes, not a compositor or desktop.
+`bash build.sh native-smoke`. This checks framebuffer creation and pixel writes. The same opt-in
+graphics rootfs also includes `synveil-input --probe`, which checks that Linux
+evdev has exposed at least one keyboard and pointer. With
+`SYNVEIL_SMOKE_REQUIRE_INPUT=1`, the QEMU smoke test requires both input
+devices as well as the framebuffer. Neither check provides a compositor or
+an interactive desktop.
 
 The chosen frontend must be present in the installed QEMU build; check
 `qemu-system-x86_64 -display help`. Network access uses QEMU's user-mode
