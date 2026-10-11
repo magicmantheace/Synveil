@@ -2,8 +2,8 @@
 
 use serde_json::{Value, json};
 use std::io::{BufReader, Write};
-use std::os::unix::net::UnixStream;
 use std::os::unix::fs::PermissionsExt;
+use std::os::unix::net::UnixStream;
 use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -90,7 +90,10 @@ fn running_core_emits_versioned_status_lifecycle_records() {
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
-    assert_eq!(persisted, records, "journal must match console event stream");
+    assert_eq!(
+        persisted, records,
+        "journal must match console event stream"
+    );
     assert_eq!(
         std::fs::metadata(&journal).unwrap().permissions().mode() & 0o777,
         0o600,
