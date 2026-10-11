@@ -1,0 +1,17 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# Opt-in QEMU state volume; no guest-side formatting or disk discovery.
+state=/dev/vdb
+if [ ! -b "$state" ]; then
+    echo "[synveil-state] expected state device missing; booting without persistence"
+    exit 1
+fi
+mkdir -p /var
+if ! mount -t ext4 -o nosuid,nodev,noatime "$state" /var; then
+    echo "[synveil-state] ext4 mount failed; recovery remains available"
+    exit 1
+fi
+mkdir -p /var/log/synveil /var/lib/synveil /var/tmp || exit 1
+chmod 0700 /var/log/synveil /var/lib/synveil || exit 1
+chmod 1777 /var/tmp || exit 1
+echo SYNVEIL_STATE_READY

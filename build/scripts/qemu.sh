@@ -6,6 +6,10 @@ source "$(dirname "$0")/common.sh"
 IMAGE="$OUT_DIR/synveil-x86_64.img"
 [[ -f "$IMAGE" ]] || die "image missing; run 'bash build.sh image' first"
 require_cmd qemu-system-x86_64
+STATE_DISK="${SYNVEIL_QEMU_STATE_DISK:-}"
+if [[ -n "$STATE_DISK" ]]; then
+    [[ -f "$STATE_DISK" && ! -L "$STATE_DISK" ]] || die "state disk must be a regular file: $STATE_DISK"
+fi
 
 QEMU_ARGS=(
     -machine q35
@@ -19,6 +23,14 @@ QEMU_ARGS=(
     -drive "if=none,id=synveil_disk,file=$IMAGE,format=raw,readonly=on"
     -device "virtio-blk-pci,drive=synveil_disk,bootindex=1"
 )
+
+# State is a second, separately writable disk; EFI remains read-only.
+if [[ -n "$STATE_DISK" ]]; then
+    QEMU_ARGS+=(
+        -drive "if=none,id=synveil_state,file=$STATE_DISK,format=raw,readonly=off"
+        -device "virtio-blk-pci,drive=synveil_state"
+    )
+fi
 
 if [[ -r /dev/kvm && "${SYNVEIL_QEMU_TCG:-0}" != 1 ]]; then
     QEMU_ARGS+=(-accel kvm)
