@@ -16,18 +16,30 @@ import subprocess
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-BOOT = {b"SYNVEIL_BOOT_OK", b"SYNVEIL_STATE_READY", b"SYNVEIL_DESKTOP_READY"}
-ERRORS = {b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_DISPLAY_UNAVAILABLE"}
+BOOT = {b"SYNVEIL_BOOT_OK", b"SYNVEIL_STATE_READY",
+        b"SYNVEIL_DESKTOP_READY", b"SYNVEIL_HOME_READY"}
+ERRORS = {b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_DISPLAY_UNAVAILABLE",
+          b"SYNVEIL_HOME_UNAVAILABLE"}
 MARKER = b"SYNVEIL_UI_PREFS_WRITE_OK"
 LOADED = b"SYNVEIL_SETTINGS_LOADED"
+HOME = b"SYNVEIL_UI_PREFS_HOME_OK"
 
 # Split the marker in shell output so console echo cannot satisfy the probe.
 WRITE = (
     "umask 077; "
     "printf 'synveil.desktop/v1\\ncontrast=1\\ncursor_scale=1\\n' "
     "> /var/lib/synveil/desktop-pref.conf && "
+    "printf '%s' synveil-home-v1 > /home/synveil/roundtrip && "
+    "chown 1000:1000 /home/synveil/roundtrip && "
     "sync && "
     "printf '\\n%s%s\\n' SYNVEIL_ UI_PREFS_WRITE_OK\n"
+)
+
+
+READ_HOME = (
+    "if [ \"$(cat /home/synveil/roundtrip)\" = synveil-home-v1 ] && "
+    "[ \"$(stat -c %u:%g /home/synveil/roundtrip)\" = 1000:1000 ]; then "
+    "printf '\\n%s%s\\n' SYNVEIL_ UI_PREFS_HOME_OK; fi\n"
 )
 
 
@@ -66,7 +78,11 @@ def round_trip(state: Path, timeout: float, phase: int, logfile: Path) -> bool:
                         seen = {s for s in seen if s.startswith(b"SYNVEIL_")}
                 if seen & ERRORS:
                     return False
-                if phase == 2 and required <= seen:
+                if phase == 2 and not issued and required <= seen:
+                    process.stdin.write(READ_HOME.encode())
+                    process.stdin.flush()
+                    issued = True
+                if phase == 2 and issued and HOME in seen:
                     return True
                 if phase == 1 and not issued and required <= seen:
                     process.stdin.write(WRITE.encode())
@@ -110,7 +126,7 @@ def main() -> int:
             print(f"[synveil] UI preferences QEMU {name} failed: {log}")
             print(log.read_text(errors="replace")[-14000:])
             return 1
-    print("[synveil] UI settings loaded successfully from ext4 across QEMU boots")
+    print("[synveil] UI settings and non-root home survived two QEMU boots")
     return 0
 
 
