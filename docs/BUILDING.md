@@ -184,6 +184,13 @@ SYNVEIL_QEMU_DISPLAY=gtk SYNVEIL_QEMU_NETWORK=1 bash build.sh qemu
 ```
 
 `SYNVEIL_QEMU_DISPLAY` accepts `none` (default), `gtk`, and `sdl`.
+To build the opt-in framebuffer diagnostic into the bootstrap rootfs, set
+`SYNVEIL_GRAPHICS_ROOTFS=1` while building the rootfs. Rebuild the kernel
+and image afterward. For a headless CI framebuffer probe, set
+`SYNVEIL_QEMU_VIDEO=1` and `SYNVEIL_SMOKE_REQUIRE_DISPLAY=1` when calling
+`bash build.sh native-smoke`. This checks framebuffer creation and pixel
+writes, not a compositor or desktop.
+
 The chosen frontend must be present in the installed QEMU build; check
 `qemu-system-x86_64 -display help`. Network access uses QEMU's user-mode
 network backend and is disabled by default. This provides hardware support,

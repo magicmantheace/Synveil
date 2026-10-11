@@ -24,6 +24,14 @@ before an installation path is presented for user testing.
 
 ## QEMU graphical hardware foundation
 
+A small source-built C framebuffer diagnostic can be included with
+`SYNVEIL_GRAPHICS_ROOTFS=1`. When `/dev/fb0` is available and writable, it
+draws a diagnostic splash and emits `SYNVEIL_DISPLAY_READY` on serial;
+otherwise it reports `SYNVEIL_DISPLAY_UNAVAILABLE` while preserving recovery.
+This is a **graphics bring-up diagnostic**, not a graphical desktop or window
+manager. Automated QEMU validation is required before declaring the graphics
+device path working.
+
 The development boot launcher can explicitly opt in to a virtio VGA device,
 USB keyboard/tablet and user-mode networking. The kernel configuration now
 requests the matching DRM/input drivers. A host-side test verifies option

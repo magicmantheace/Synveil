@@ -17,6 +17,7 @@ ready; full AI optimization and package management are not prerequisites.
   - Opt-in QEMU graphical/input device wiring and kernel options are implemented; guest device/desktop validation remains open.
 - [ ] Establish a usable networking configuration path
 - [ ] Select and build a minimal graphical session with terminal and launcher
+  - Opt-in source-built C framebuffer splash/probe added for first graphics-device validation; compositor, terminal, launcher remain unimplemented.
 - [ ] Provide basic settings for the supported display/input/network setup
 - [ ] Validate desktop startup, reboot persistence, and console fallback
 - [ ] Publish a checksummed test image and installation/test instructions

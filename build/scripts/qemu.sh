@@ -11,6 +11,8 @@ case "$DISPLAY_BACKEND" in
     none|gtk|sdl) ;;
     *) die "SYNVEIL_QEMU_DISPLAY must be none, gtk, or sdl" ;;
 esac
+VIDEO="${SYNVEIL_QEMU_VIDEO:-0}"
+[[ "$VIDEO" == 0 || "$VIDEO" == 1 ]] || die "SYNVEIL_QEMU_VIDEO must be 0 or 1"
 NETWORK="${SYNVEIL_QEMU_NETWORK:-0}"
 [[ "$NETWORK" == 0 || "$NETWORK" == 1 ]] || die "SYNVEIL_QEMU_NETWORK must be 0 or 1"
 STATE_DISK="${SYNVEIL_QEMU_STATE_DISK:-}"
@@ -32,7 +34,7 @@ QEMU_ARGS=(
 
 # Explicit opt-in graphics/input and user-mode network for the VM desktop target.
 # Serial-console CI remains headless, offline and recovery-capable by default.
-if [[ "$DISPLAY_BACKEND" != none ]]; then
+if [[ "$DISPLAY_BACKEND" != none || "$VIDEO" == 1 ]]; then
     QEMU_ARGS+=(
         -device virtio-vga
         -device qemu-xhci

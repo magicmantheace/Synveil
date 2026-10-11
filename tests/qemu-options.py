@@ -40,6 +40,7 @@ class QemuOptionTests(unittest.TestCase):
             "SYNVEIL_TEST_QEMU_ARGS": str(self.args_file),
         }
         env.pop("SYNVEIL_QEMU_DISPLAY", None)
+        env.pop("SYNVEIL_QEMU_VIDEO", None)
         env.pop("SYNVEIL_QEMU_NETWORK", None)
         env.pop("SYNVEIL_QEMU_STATE_DISK", None)
         env.update(extra or {})
@@ -69,6 +70,18 @@ class QemuOptionTests(unittest.TestCase):
         self.assertIn("user,id=synveil_net", args)
         self.assertIn("virtio-net-pci,netdev=synveil_net", args)
         self.assertNotIn("-net", args)
+
+    def test_headless_graphics_probe_can_use_virtual_video(self):
+        result, args = self.invoke({"SYNVEIL_QEMU_VIDEO": "1"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(args[args.index("-display") + 1], "none")
+        self.assertIn("virtio-vga", args)
+        self.assertIn("-net", args)
+
+    def test_rejects_invalid_video_before_launch(self):
+        result, args = self.invoke({"SYNVEIL_QEMU_VIDEO": "yes"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(args, [])
 
     def test_rejects_invalid_display_before_launch(self):
         result, args = self.invoke({"SYNVEIL_QEMU_DISPLAY": "remote"})
