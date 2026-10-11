@@ -192,8 +192,11 @@ and image afterward. For a headless CI framebuffer probe, set
 graphics rootfs also includes `synveil-input --probe`, which checks that Linux
 evdev has exposed at least one keyboard and pointer. With
 `SYNVEIL_SMOKE_REQUIRE_INPUT=1`, the QEMU smoke test requires both input
-devices as well as the framebuffer. Neither check provides a compositor or
-an interactive desktop.
+devices as well as the framebuffer. Neither check provides a compositor or a finished desktop.
+When booted with `SYNVEIL_QEMU_DISPLAY=gtk` and the graphics rootfs enabled,
+you may manually start `synveil-display --menu` from the recovery shell for
+a basic keyboard-driven status/storage/network display. This early menu is
+read-only and still lacks a graphical terminal and general application launcher.
 
 The chosen frontend must be present in the installed QEMU build; check
 `qemu-system-x86_64 -display help`. Network access uses QEMU's user-mode

@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 // A source-built framebuffer diagnostic. Not a desktop or a privileged agent.
 #define _POSIX_C_SOURCE 200809L
+#include <dirent.h>
 #include <errno.h>
+#include <linux/input.h>
+#include <poll.h>
 #include <fcntl.h>
 #include <linux/fb.h>
 #include <stdint.h>
@@ -10,6 +13,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 struct surface {
@@ -119,6 +123,152 @@ static void paint(const struct surface *screen) {
               rgb(screen, 74, 157, 196));
 }
 
+// Deliberately tiny read-only framebuffer launcher prototype. Terminal and
+// privileged system actions are not exposed through this UI.
+struct menu_state {
+    unsigned selected;
+    int page;       // -1: launcher; 0-2: read-only detail
+    int quit;
+};
+
+static void menu_key(struct menu_state *state, unsigned code) {
+    if (code == KEY_ESC) {
+        if (state->page >= 0) state->page = -1;
+        else state->quit = 1;
+    } else if (code == KEY_BACKSPACE) {
+        state->page = -1;
+    } else if (state->page < 0) {
+        if (code == KEY_LEFT || code == KEY_A) state->selected = (state->selected + 2u) % 3u;
+        else if (code == KEY_RIGHT || code == KEY_D) state->selected = (state->selected + 1u) % 3u;
+        else if (code == KEY_ENTER) state->page = (int)state->selected;
+    }
+}
+
+static int mounted_state(void) {
+    FILE *mounts = fopen("/proc/mounts", "r");
+    if (!mounts) return 0;
+    char line[512];
+    int found = 0;
+    while (fgets(line, sizeof(line), mounts)) {
+        if (strstr(line, " /var ext4 ") != NULL) {
+            found = 1;
+            break;
+        }
+    }
+    fclose(mounts);
+    return found;
+}
+
+static void render_menu(const struct surface *screen, const struct menu_state *state) {
+    unsigned w = screen->variable.xres;
+    unsigned h = screen->variable.yres;
+    uint32_t background = rgb(screen, 12, 21, 34);
+    uint32_t title = rgb(screen, 219, 237, 244);
+    uint32_t muted = rgb(screen, 134, 171, 190);
+    uint32_t highlight = rgb(screen, 62, 148, 187);
+    rectangle(screen, 0, 0, w, h, background);
+    rectangle(screen, 0, 0, w, h / 11u, rgb(screen, 21, 51, 78));
+    heading(screen, "SYNVEIL", 24u, 18u, 3u, title);
+    if (state->page >= 0) {
+        const char *pages[] = {"STATUS", "STORAGE", "NETWORK"};
+        heading(screen, pages[state->page], 32u, h / 5u, 3u, title);
+        const char *label = "";
+        if (state->page == 0) {
+            label = access("/run/synveil/veil-core.sock", F_OK) == 0 ?
+                "CORE SOCKET PRESENT" : "CORE SOCKET MISSING";
+        } else if (state->page == 1) {
+            label = mounted_state() ? "STATE DISK MOUNTED" : "STATE DISK MISSING";
+        } else {
+            label = access("/sys/class/net/eth0", F_OK) == 0 ?
+                "VIRTUAL NIC PRESENT" : "VIRTUAL NIC MISSING";
+        }
+        heading(screen, label, 32u, h / 3u, 2u, muted);
+        heading(screen, "ESC TO GO BACK", 32u, h * 4u / 5u, 2u, title);
+        return;
+    }
+    heading(screen, "SYSTEM LAUNCHER", 32u, h / 5u, 3u, title);
+    const char *pages[] = {"STATUS", "STORAGE", "NETWORK"};
+    for (unsigned i = 0; i < 3u; ++i) {
+        unsigned x = 32u + i * ((w > 140u ? w - 64u : w) / 3u);
+        unsigned tile = w > 140u ? (w - 72u) / 3u : 20u;
+        rectangle(screen, x, h / 3u, tile, h / 5u,
+                  i == state->selected ? highlight : rgb(screen, 34, 61, 78));
+        heading(screen, pages[i], x + 6u, h / 3u + 18u, 2u, title);
+    }
+    heading(screen, "LEFT RIGHT ENTER", 32u, h * 4u / 5u, 2u, muted);
+    heading(screen, "ESC TO EXIT", 32u, h * 4u / 5u + 24u, 2u, muted);
+}
+
+static int event_bit(const unsigned char *bits, size_t count, unsigned bit) {
+    return bit / 8u < count && (bits[bit / 8u] & (1u << (bit % 8u))) != 0;
+}
+
+static int open_keyboard(void) {
+    DIR *directory = opendir("/dev/input");
+    if (directory == NULL) return -1;
+    struct dirent *item;
+    int chosen = -1;
+    while ((item = readdir(directory)) != NULL) {
+        if (strncmp(item->d_name, "event", 5) != 0) continue;
+        const char *digit = item->d_name + 5;
+        if (*digit == '\0') continue;
+        int valid = 1;
+        for (const char *p = digit; *p; p++)
+            if (*p < '0' || *p > '9') valid = 0;
+        if (!valid) continue;
+        char path[256];
+        int len = snprintf(path, sizeof(path), "/dev/input/%s", item->d_name);
+        if (len < 0 || (size_t)len >= sizeof(path)) continue;
+        int fd = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_NOFOLLOW);
+        if (fd < 0) continue;
+        struct stat info;
+        unsigned char bits[(KEY_MAX + 8u) / 8u] = {0};
+        if (fstat(fd, &info) == 0 && S_ISCHR(info.st_mode) &&
+            ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(bits)), bits) >= 0 &&
+            event_bit(bits, sizeof(bits), KEY_ENTER) &&
+            event_bit(bits, sizeof(bits), KEY_LEFT) &&
+            event_bit(bits, sizeof(bits), KEY_RIGHT)) {
+            chosen = fd;
+            break;
+        }
+        close(fd);
+    }
+    closedir(directory);
+    return chosen;
+}
+
+static int run_menu(const struct surface *screen) {
+    int keyboard = open_keyboard();
+    if (keyboard < 0) {
+        fputs("[synveil-display] evdev keyboard unavailable\n", stderr);
+        return 1;
+    }
+    struct menu_state state = {.selected = 0u, .page = -1, .quit = 0};
+    render_menu(screen, &state);
+    while (!state.quit) {
+        struct pollfd pfd = {.fd = keyboard, .events = POLLIN, .revents = 0};
+        int result = poll(&pfd, 1, 1000);
+        if (result < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+        if (result == 0) {
+            if (state.page >= 0) render_menu(screen, &state);
+            continue;
+        }
+        if ((pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) break;
+        if ((pfd.revents & POLLIN) == 0) continue;
+        struct input_event event;
+        ssize_t count = read(keyboard, &event, sizeof(event));
+        if (count == (ssize_t)sizeof(event) && event.type == EV_KEY && event.value == 1) {
+            menu_key(&state, event.code);
+            if (!state.quit) render_menu(screen, &state);
+        }
+    }
+    close(keyboard);
+    return state.quit ? 0 : 1;
+}
+
 static int self_test(void) {
     struct surface screen;
     memset(&screen, 0, sizeof(screen));
@@ -137,14 +287,26 @@ static int self_test(void) {
     if (!valid_layout(&screen) || rgb(&screen, 255, 0, 0) != 0x00ff0000u) return 1;
     screen.fixed.smem_len--;
     if (valid_layout(&screen)) return 1;
+    struct menu_state state = {.selected = 0u, .page = -1, .quit = 0};
+    menu_key(&state, KEY_RIGHT);
+    if (state.selected != 1u) return 1;
+    menu_key(&state, KEY_ENTER);
+    if (state.page != 1) return 1;
+    menu_key(&state, KEY_ESC);
+    if (state.page != -1 || state.quit) return 1;
+    menu_key(&state, KEY_LEFT);
+    if (state.selected != 0u) return 1;
+    menu_key(&state, KEY_ESC);
+    if (!state.quit) return 1;
     return 0;
 }
 
 int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "--self-test") == 0) return self_test();
     if (argc != 2 || (strcmp(argv[1], "--probe") != 0 &&
-                      strcmp(argv[1], "--demo") != 0)) {
-        fputs("usage: synveil-display --probe|--demo|--self-test\n", stderr);
+                      strcmp(argv[1], "--demo") != 0 &&
+                      strcmp(argv[1], "--menu") != 0)) {
+        fputs("usage: synveil-display --probe|--demo|--menu|--self-test\n", stderr);
         return 2;
     }
     int fd = open("/dev/fb0", O_RDWR | O_CLOEXEC);
@@ -168,9 +330,11 @@ int main(int argc, char **argv) {
         fprintf(stderr, "[synveil-display] mmap failed: %s\n", strerror(errno));
         return 1;
     }
+    int result = 0;
     if (strcmp(argv[1], "--demo") == 0) paint(&screen);
+    else if (strcmp(argv[1], "--menu") == 0) result = run_menu(&screen);
     else rectangle(&screen, 0, 0, 1, 1, rgb(&screen, 13, 20, 36));
     munmap(screen.mapped, screen.length);
-    puts("SYNVEIL_DISPLAY_READY");
-    return 0;
+    if (result == 0) puts("SYNVEIL_DISPLAY_READY");
+    return result;
 }

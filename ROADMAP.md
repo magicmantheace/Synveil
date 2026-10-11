@@ -18,7 +18,7 @@ ready; full AI optimization and package management are not prerequisites.
 - [ ] Establish a usable networking configuration path
   - QEMU eth0 DHCP bootstrap and guest smoke check implemented; guest validation and settings UI remain open.
 - [ ] Select and build a minimal graphical session with terminal and launcher
-  - Opt-in source-built C framebuffer splash/probe added for first graphics-device validation; compositor, terminal, launcher remain unimplemented.
+  - Opt-in framebuffer splash and manual keyboard-driven read-only launcher prototype added; compositor and terminal remain unimplemented.
 - [ ] Provide basic settings for the supported display/input/network setup
 - [ ] Validate desktop startup, reboot persistence, and console fallback
 - [ ] Publish a checksummed test image and installation/test instructions

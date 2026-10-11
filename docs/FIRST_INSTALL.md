@@ -33,7 +33,13 @@ helper. It scans only evdev character devices and verifies keyboard and pointer
 capabilities without reading private user input events. The QEMU graphics smoke
 now requires input discovery too.
 
-This is a **graphics/input bring-up diagnostic**, not a graphical desktop or window
+A manually started `synveil-display --menu` session now provides a
+read-only framebuffer launcher prototype. Arrow keys select Status, Storage
+and Network views; Enter opens a view, Escape goes back or exits.
+It intentionally does not run a graphical terminal or perform privileged
+changes. The serial recovery shell stays independent.
+
+This is a **graphics/input bring-up and menu prototype**, not a graphical desktop or window
 manager. Automated QEMU validation is required before declaring the graphics
 device path working.
 
