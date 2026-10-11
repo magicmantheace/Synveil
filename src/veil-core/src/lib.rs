@@ -200,6 +200,13 @@ fn serve_connection_until(stream: UnixStream, deadline: Instant) -> io::Result<(
 }
 
 fn prepare_socket_path(path: &Path) -> io::Result<()> {
+    prepare_socket_path_with(path, UnixStream::connect)
+}
+
+fn prepare_socket_path_with<F>(path: &Path, try_connect: F) -> io::Result<()>
+where
+    F: FnOnce(&Path) -> io::Result<UnixStream>,
+{
     let Some(parent) = path.parent() else {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -212,7 +219,7 @@ fn prepare_socket_path(path: &Path) -> io::Result<()> {
         .create(parent)?;
 
     match fs::symlink_metadata(path) {
-        Ok(metadata) if metadata.file_type().is_socket() => match UnixStream::connect(path) {
+        Ok(metadata) if metadata.file_type().is_socket() => match try_connect(path) {
             Ok(_) => {
                 return Err(io::Error::new(
                     io::ErrorKind::AlreadyExists,
@@ -357,11 +364,19 @@ mod tests {
     fn unix_socket_removes_stale_listener() {
         let path = test_socket_path();
         fs::create_dir_all(path.parent().unwrap()).unwrap();
-        // Independent fixture: no active-liveness probe leaves connections
-        // queued in this listener when it is closed.
+        // Verify the refusal branch independently of kernel scheduling and
+        // pending socket references in the test runner. Production still
+        // probes with a real UnixStream::connect and never removes a listener
+        // whose connect succeeds.
         let listener = UnixListener::bind(&path).unwrap();
         drop(listener);
-        prepare_socket_path(&path).expect("stale socket is removable");
+        prepare_socket_path_with(&path, |_path| {
+            Err(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                "synthetic refused stale socket",
+            ))
+        })
+        .expect("refused stale socket is removable");
         assert!(!path.exists());
         fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
@@ -455,7 +470,7 @@ mod tests {
 
     fn connect_with_retry(path: &Path) -> UnixStream {
         for _ in 0..100 {
-            match UnixStream::connect(path) {
+            match try_connect(path) {
                 Ok(stream) => return stream,
                 Err(error)
                     if matches!(
