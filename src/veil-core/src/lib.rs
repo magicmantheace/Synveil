@@ -14,6 +14,7 @@ use veil_protocol::{
 
 pub const DEFAULT_SOCKET_PATH: &str = "/run/synveil/veil-core.sock";
 pub mod audit;
+pub mod observer;
 pub mod supervision;
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_REQUESTS_PER_CONNECTION: usize = 16;
@@ -21,6 +22,7 @@ const MAX_REQUESTS_PER_CONNECTION: usize = 16;
 pub fn dispatch(request: Request) -> Response {
     match request.method.as_str() {
         "status" => status(request),
+        "observe" => observe(request),
         _ => Response::failure(
             request.id,
             ProtocolError::new(
@@ -71,6 +73,32 @@ pub fn serve_path(path: &Path, max_connections: Option<usize>) -> io::Result<()>
     }
     log_event("shutdown", json!({}));
     Ok(())
+}
+
+fn observe(request: Request) -> Response {
+    if request
+        .params
+        .as_object()
+        .is_some_and(|parameters| !parameters.is_empty())
+    {
+        return Response::failure(
+            request.id,
+            ProtocolError::new(
+                ErrorCode::InvalidParameters,
+                "observe does not accept parameters",
+            ),
+        );
+    }
+    match observer::sample() {
+        Ok(value) => Response::success(request.id, value),
+        Err(_) => Response::failure(
+            request.id,
+            ProtocolError::new(
+                ErrorCode::InternalFailure,
+                "could not read kernel CPU/memory observations",
+            ),
+        ),
+    }
 }
 
 fn status(request: Request) -> Response {
@@ -233,6 +261,28 @@ mod tests {
         assert_eq!(result["service"], "veil-core");
         assert_eq!(result["protocol"], CORE_SCHEMA_V1);
         assert_eq!(result["state"], "ready");
+    }
+
+    #[test]
+    fn observe_rejects_parameters() {
+        let response = dispatch(Request::new("observe-bad", "observe", json!({"shell": true})));
+        assert!(!response.ok);
+        assert_eq!(
+            response.error.expect("protocol error").code,
+            ErrorCode::InvalidParameters
+        );
+    }
+
+    #[test]
+    fn observe_reports_kernel_values_when_procfs_available() {
+        if Path::new("/proc/meminfo").is_file() && Path::new("/proc/stat").is_file() {
+            let response = dispatch(Request::new("observe-1", "observe", json!({})));
+            assert!(response.ok, "read-only kernel observation should succeed");
+            let result = response.result.expect("observation result");
+            assert_eq!(result["schema"], "synveil.observe/v1");
+            assert!(result["memory"]["total_bytes"].as_u64().unwrap() > 0);
+            assert!(result["cpu"]["total_ticks"].as_u64().unwrap() > 0);
+        }
     }
 
     #[test]

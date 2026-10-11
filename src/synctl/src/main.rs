@@ -62,7 +62,7 @@ fn run() -> Result<ExitCode, Box<dyn std::error::Error>> {
     }
 
     let command = command.unwrap_or_else(|| "status".to_owned());
-    if command != "status" {
+    if command != "status" && command != "observe" {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("unknown command: {command}"),
@@ -72,7 +72,7 @@ fn run() -> Result<ExitCode, Box<dyn std::error::Error>> {
 
     let request = Request::new(
         format!("synctl-{}", std::process::id()),
-        "status",
+        &command,
         json!({}),
     );
 
@@ -123,10 +123,11 @@ fn validate_correlation(response: &Response, id: &str) -> io::Result<()> {
 
 fn print_help() {
     println!(
-        "Usage: synctl [--socket PATH] [--json] [status]\n\
+        "Usage: synctl [--socket PATH] [--json] [status|observe]\n\
          \n\
          Commands:\n\
-           status    Query veil-core deterministic service status"
+           status    Query veil-core deterministic service status\n\
+           observe   Read kernel CPU, memory, and uptime snapshot"
     );
 }
 

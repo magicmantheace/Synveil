@@ -89,7 +89,9 @@ Absent-core recovery, supervision, and durable audit work remain open.
 **Goal:** give Synveil a structured view of its machine.
 
 - [ ] CPU metrics
+  - Read-only cumulative CPU counters and logical count implemented; live utilization sampling remains open.
 - [ ] memory/pressure metrics
+  - Read-only MemTotal/MemAvailable snapshot implemented; pressure metrics remain open.
 - [ ] process lifecycle and resource metrics
 - [ ] disk/I/O metrics
 - [ ] network metrics
@@ -98,6 +100,7 @@ Absent-core recovery, supervision, and durable audit work remain open.
 - [ ] ephemeral telemetry storage
 - [ ] historical aggregation
 - [ ] `synctl observe`
+  - First CPU/memory/uptime snapshot command implemented; QEMU runtime validation and additional metrics remain open.
 
 **Exit:** the system can describe current workload and resource pressure through structured APIs without parsing human CLI output.
 
