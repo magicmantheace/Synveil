@@ -199,7 +199,14 @@ a basic status/storage/network display. In the QEMU graphics configuration,
 the USB tablet supports a visible pointer: move the pointer to a tile and
 left-click to open it; click **BACK** in the top-right to return. Keyboard
 navigation remains Left/Right, Enter and Escape. If no tablet is found, the
-keyboard-only menu remains usable.
+keyboard-only menu remains usable. The Status panel now reads local CPU thread
+count, available memory and uptime; Storage reports ext4 free space, and
+Network shows the actual assigned eth0 IPv4 address when available.
+A fifth **Settings** tile controls a bright/high-contrast color scheme
+(Left/Right) and small/large cursor (Up/Down). Pointer clicks can toggle
+these options too. These are local in-memory display preferences: they do not
+change kernel display modes, system network configuration, permissions or
+persistent user policy. They reset on reboot.
 
 To start the read-only framebuffer menu automatically on boot, enable
 `SYNVEIL_DESKTOP_AUTOSTART=1` **and**

@@ -69,8 +69,13 @@ read-only framebuffer launcher prototype. Arrow keys select Status, Storage
 and Network views; Enter opens a view, Escape goes back or exits. An attached
 QEMU USB tablet also supplies absolute pointer motion and left-click
 navigation; missing mouse input does not block keyboard recovery.
-It intentionally does not run a graphical terminal or perform privileged
-changes. The serial recovery shell stays independent.
+The menu now has Status, Storage, Network, Terminal and Settings. Its
+read-only panels report actual local CPU/memory/uptime, state-volume free
+space and network IPv4. Display settings adjust only current-session
+contrast and pointer size; the guest still lacks persistent settings,
+display modes, an authenticated account and a production network UI.
+No AI can request or authorize actions from this menu. The serial recovery
+shell stays independent.
 
 This is a **graphics/input bring-up and menu prototype**, not a graphical desktop or window
 manager. The [810f66d guest run](validation/native-810f66d/README.md) did validate
