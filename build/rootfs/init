@@ -47,6 +47,9 @@ fi
 if [ -x /usr/bin/synveil-input ]; then
     /usr/bin/synveil-input --probe || echo SYNVEIL_INPUT_UNAVAILABLE
 fi
+if [ -x /usr/bin/synveil-vt ]; then
+    /usr/bin/synveil-vt --probe || echo SYNVEIL_VT_UNAVAILABLE
+fi
 
 echo
 echo "Synveil bootstrap"

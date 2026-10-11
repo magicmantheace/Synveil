@@ -10,6 +10,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DisplaySourceTests(unittest.TestCase):
+    def test_developer_virtual_terminal_requires_explicit_manual_launch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            executable = Path(tmp) / "synveil-vt"
+            subprocess.run(
+                ["gcc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                 str(ROOT / "src/veil-display/vt.c"), "-o", str(executable)],
+                check=True,
+            )
+            subprocess.run([str(executable), "--self-test"], check=True, timeout=3)
+            # Neither a bare shell request nor an unconfirmed request is valid.
+            result = subprocess.run([str(executable), "--developer-terminal"],
+                                    capture_output=True, text=True, timeout=3)
+            self.assertNotEqual(result.returncode, 0)
+
     def test_input_device_classifier_and_restricted_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             executable = Path(tmp) / "synveil-input"

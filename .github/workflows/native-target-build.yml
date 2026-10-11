@@ -148,6 +148,7 @@ jobs:
           SYNVEIL_QEMU_VIDEO: "1"
           SYNVEIL_SMOKE_REQUIRE_DISPLAY: "1"
           SYNVEIL_SMOKE_REQUIRE_INPUT: "1"
+          SYNVEIL_SMOKE_REQUIRE_VT: "1"
         run: bash build.sh native-smoke
 
       - name: Validate opt-in QEMU DHCP configuration

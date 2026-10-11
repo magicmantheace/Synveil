@@ -56,6 +56,8 @@ if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
         "$ROOT_DIR/src/veil-display/main.c" -o "$ROOTFS_DIR/usr/bin/synveil-display"
     "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \
         "$ROOT_DIR/src/veil-display/input.c" -o "$ROOTFS_DIR/usr/bin/synveil-input"
+    "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \
+        "$ROOT_DIR/src/veil-display/vt.c" -o "$ROOTFS_DIR/usr/bin/synveil-vt"
 fi
 if [[ "$NETWORK_ROOTFS" == 1 ]]; then
     install -D -m 0755 "$ROOT_DIR/build/rootfs/configure-network" "$ROOTFS_DIR/usr/libexec/synveil/configure-network"

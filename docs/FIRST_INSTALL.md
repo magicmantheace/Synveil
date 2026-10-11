@@ -39,6 +39,14 @@ helper. It scans only evdev character devices and verifies keyboard and pointer
 capabilities without reading private user input events. The QEMU graphics smoke
 now requires input discovery too.
 
+A source-built `synveil-vt` tool now implements an actual kernel VT1
+terminal for the VM framebuffer. It is deliberately **not boot-launched**:
+its unauthenticated root shell requires the local developer to pass two
+explicit flags from the already privileged serial recovery shell. It is
+unsuitable for a user install until there is login/authentication and a
+non-root graphical session. A fast host self-test checks the CLI boundary;
+the guest must expose real framebuffer and VT device nodes.
+
 A manually started `synveil-display --menu` session now provides a
 read-only framebuffer launcher prototype. Arrow keys select Status, Storage
 and Network views; Enter opens a view, Escape goes back or exits.

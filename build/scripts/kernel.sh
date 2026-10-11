@@ -29,7 +29,8 @@ make -C "$LINUX_SRC"     O="$KERNEL_BUILD"     ARCH=x86     CROSS_COMPILE="$TARG
 # /dev/fb0 interface consumed by the bootstrap display and terminal.
 required_graphics=(
     DRM VIRTIO_PCI DRM_VIRTIO_GPU DRM_FBDEV_EMULATION
-    DRM_CLIENT_DEFAULT_FBDEV FB_DEVICE INPUT_EVDEV USB_HID USB_XHCI_HCD
+    DRM_CLIENT_DEFAULT_FBDEV FB_DEVICE VT VT_CONSOLE FRAMEBUFFER_CONSOLE
+    INPUT_EVDEV USB_HID USB_XHCI_HCD
 )
 for option in "${required_graphics[@]}"; do
     if ! grep -qx "CONFIG_${option}=y" "$KERNEL_BUILD/.config"; then

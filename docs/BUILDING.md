@@ -195,7 +195,19 @@ evdev has exposed at least one keyboard and pointer. With
 devices as well as the framebuffer. Neither check provides a compositor or a finished desktop.
 When booted with `SYNVEIL_QEMU_DISPLAY=gtk` and the graphics rootfs enabled,
 you may manually start `synveil-display --menu` from the recovery shell for
-a basic keyboard-driven status/storage/network display. This early menu is
+a basic keyboard-driven status/storage/network display.
+
+A separate source-built `synveil-vt` tool can launch an actual kernel-backed
+interactive shell on framebuffer VT1. This is a **developer test VM only**
+entrypoint with no login/authentication, and is **never started by init**.
+Run it explicitly from the serial recovery shell:
+```sh
+synveil-vt --developer-terminal --i-understand-root-shell
+```
+The command activates tty1 and starts an interactive root shell there; the
+serial recovery console remains independent. The kernel's fbcon renders the
+terminal rather than an incomplete homegrown terminal emulator. Do not expose
+this unauthenticated feature in a production or network-reachable image. This early menu is
 read-only and still lacks a graphical terminal and general application launcher.
 
 The chosen frontend must be present in the installed QEMU build; check
