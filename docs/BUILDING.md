@@ -245,6 +245,31 @@ enable network access by itself.
 The kernel config enables the matching DRM virtio GPU, input event and USB HID
 drivers, but actual device readiness still requires QEMU guest validation.
 
+### Private QEMU desktop bundle (developer-only)
+
+After building a graphics-enabled, desktop-autostart rootfs (including the
+non-root demo account), rebuilding its kernel/image and generating the
+`out/manifests/build.json` for the **same committed revision**, you can
+prepare a disposable virtual installation target:
+
+```sh
+bash build.sh vm-bundle --dest "$PWD/out/dev-vm" --size-mib 256
+SYNVEIL_REPO_ROOT="$PWD" ./out/dev-vm/run-vm.sh
+```
+
+This tool verifies the EFI image hash against the committed build manifest,
+requires the resolved framebuffer/input kernel options and packaged desktop
+binaries, and creates the destination **exclusively** (never overwrites
+an existing VM or state disk). The EFI image is read-only, while the ext4
+state disk is a separate, writable developer volume. The launcher defaults to
+a GTK display and **no network access**.
+
+This is not a physical disk installer or a validated user release. A stale or
+incomplete build is rejected. The demo shell is unprivileged but intentionally
+unauthenticated; use this only for a disposable, isolated development VM. No
+hardware disk selection, firmware support outside QEMU, encryption, secure
+boot, or production user-login process exists yet.
+
 ### Optional QEMU persistent state
 
 This is an isolated developer/VM feature, **not an installer or persistent system

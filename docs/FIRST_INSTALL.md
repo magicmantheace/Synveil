@@ -90,6 +90,16 @@ and real driver readiness remain unvalidated. A separate opt-in
 IPv4 lease callback for QEMU `eth0`. Live QEMU DHCP validation remains
 required; this is not a production network manager.
 
+## Private VM packaging prerequisite
+
+`bash build.sh vm-bundle` now packages an already-built QEMU EFI image with
+a separate preformatted ext4 state disk, read-only boot image, checksums,
+build identity, and a launcher. It refuses incomplete desktop builds, stale
+or dirty build manifests, invalid kernels, or existing output destinations.
+This enables a controlled, **developer-only VM setup** once the full guest
+image passes validation; it is not a physical installer, user release, or
+authenticated graphical login.
+
 ## Controlled QEMU persistence prototype
 
 `SYNVEIL_PERSISTENCE_ROOTFS=1` optionally includes a mount helper for a

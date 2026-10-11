@@ -26,6 +26,7 @@ Usage:
   bash build.sh guest-fixture --case absent|protocol
   bash build.sh state-disk [--path PATH] [--size-mib N]
   bash build.sh persistence-smoke [--timeout SECONDS]
+  bash build.sh vm-bundle [--dest PATH] [--size-mib N]
   bash build.sh all
   bash build.sh clean
   bash build.sh distclean
@@ -34,7 +35,7 @@ EOF
 
 command="${1:-help}"
 case "$command" in
-    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|recovery-smoke|guest-fixture|state-disk|persistence-smoke|clean|distclean)
+    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|recovery-smoke|guest-fixture|state-disk|persistence-smoke|vm-bundle|clean|distclean)
         exec 9>"$ROOT_DIR/.synveil-build.lock"
         flock -n 9 || {
             printf '[synveil] another build command owns this checkout; wait for it to finish\n' >&2
@@ -80,7 +81,12 @@ case "$command" in
         python3 "$ROOT_DIR/tools/build_manifest.py"
         ;;
     qemu)
-        [[ -f "$ROOT_DIR/out/synveil-x86_64.img" ]] || bash "$ROOT_DIR/build/scripts/image.sh"
+        # Respect a private VM bundle's SYNVEIL_OUT_DIR; never regenerate it.
+        source "$ROOT_DIR/build/scripts/common.sh"
+        [[ -f "$OUT_DIR/synveil-x86_64.img" ]] || {
+            printf '[synveil] QEMU boot image missing: %s\n' "$OUT_DIR/synveil-x86_64.img" >&2
+            exit 1
+        }
         bash "$ROOT_DIR/build/scripts/qemu.sh"
         ;;
     smoke)
@@ -101,6 +107,9 @@ case "$command" in
         ;;
     persistence-smoke)
         python3 "$ROOT_DIR/tests/smoke-persistence.py" "${@:2}"
+        ;;
+    vm-bundle)
+        python3 "$ROOT_DIR/tools/vm_bundle.py" "${@:2}"
         ;;
     all)
         bash "$ROOT_DIR/tests/lint-bootstrap.sh"
