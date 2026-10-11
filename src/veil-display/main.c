@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 // A source-built framebuffer diagnostic. Not a desktop or a privileged agent.
 #define _POSIX_C_SOURCE 200809L
+#include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
 #include <linux/input.h>
+#include <net/if.h>
+#include <netinet/in.h>
 #include <poll.h>
 #include <fcntl.h>
 #include <linux/fb.h>
@@ -14,6 +17,8 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -89,11 +94,29 @@ static const uint8_t letters[26][7] = {
     {17,17,10,4,4,4,4}, {31,1,2,4,8,16,31}
 };
 
+static const uint8_t digits[10][7] = {
+    {14,17,19,21,25,17,14}, {4,12,4,4,4,4,14},
+    {14,17,1,2,4,8,31}, {30,1,1,14,1,1,30},
+    {2,6,10,18,31,2,2}, {31,16,30,1,1,17,14},
+    {6,8,16,30,17,17,14}, {31,1,2,4,8,8,8},
+    {14,17,17,14,17,17,14}, {14,17,17,15,1,2,12}
+};
+static const uint8_t dot_glyph[7] = {0,0,0,0,0,6,6};
+static const uint8_t colon_glyph[7] = {0,4,4,0,4,4,0};
+
+static const uint8_t *glyph_for(unsigned char c) {
+    if (c >= 'A' && c <= 'Z') return letters[c - 'A'];
+    if (c >= '0' && c <= '9') return digits[c - '0'];
+    if (c == '.') return dot_glyph;
+    if (c == ':') return colon_glyph;
+    return NULL;
+}
+
 static void heading(const struct surface *screen, const char *message,
                     unsigned x, unsigned y, unsigned scale, uint32_t color) {
     for (const unsigned char *cursor = (const unsigned char *)message; *cursor; cursor++) {
-        if (*cursor >= 'A' && *cursor <= 'Z') {
-            const uint8_t *glyph = letters[*cursor - 'A'];
+        const uint8_t *glyph = glyph_for(*cursor);
+        if (glyph != NULL) {
             for (unsigned gy = 0; gy < 7; gy++) {
                 for (unsigned gx = 0; gx < 5; gx++) {
                     if ((glyph[gy] & (1u << (4u - gx))) != 0u) {
@@ -477,6 +500,8 @@ static int self_test(void) {
     demo.launch = 0;
     menu_click(&demo, 60u, 310u, 900u, 600u);
     if (!demo.launch) return 1;
+    if (glyph_for('4') == NULL || glyph_for('.') == NULL ||
+        glyph_for('N') == NULL || glyph_for('@') != NULL) return 1;
     if (absolute_pixel(-20, 0, 100, 900u) != 0u ||
         absolute_pixel(200, 0, 100, 900u) != 899u ||
         absolute_pixel(50, 0, 100, 900u) != 449u) return 1;
