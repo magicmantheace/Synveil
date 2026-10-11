@@ -45,6 +45,9 @@ fixed executable. The graphical launcher cannot request a root shell.
 The separate root-debug mode is only reachable with deliberate privileged
 serial-console flags. The demo account has no password login and must not
 be mistaken for secure multi-user authentication. Its home is ephemeral.
+A dedicated guest test now requires a VT1 shell with UID/GID 1000,
+`NoNewPrivs=1` and `/dev/tty1` stdin before claiming the demo terminal
+works. That test is implemented but not yet validated in QEMU.
 
 A source-built `synveil-vt` tool now implements an actual kernel VT1
 terminal for the VM framebuffer. It is deliberately **not boot-launched**:

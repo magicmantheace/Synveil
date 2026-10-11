@@ -23,6 +23,22 @@ COMMAND = (
     "printf '\\n%s%s\\n' SYNVEIL_ RECOVERY_OK; fi; fi\n"
 )
 SCENARIOS = {
+    "demo": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY",
+              b"SYNVEIL_VT_READY", b"SYNVEIL_DESKTOP_READY"},
+             b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_DEMO_OK",
+             "if [ -x /usr/bin/synveil-vt ] && "
+             "grep -q '^synveil:x:1000:1000:' /etc/passwd; then "
+             "/usr/bin/synveil-vt --demo-terminal >/tmp/demo-terminal.log 2>&1 & "
+             "for retry in $(seq 1 30); do "
+             "for status in /proc/[0-9]*/status; do "
+             "if grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' \"$status\" && "
+             "grep -Eq '^Gid:[[:space:]]*1000' \"$status\" && "
+             "grep -Eq '^NoNewPrivs:[[:space:]]*1$' \"$status\"; then "
+             "pid=$(basename $(dirname \"$status\")); "
+             "if [ \"$(readlink /proc/$pid/fd/0)\" = /dev/tty1 ]; then "
+             "printf '\\n%s%s\\n' SYNVEIL_ DEMO_OK; "
+             "break 2; fi; fi; done; "
+             "sleep 0.1; done; fi\n"),
     "supervision": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
                     b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_SUPERVISION_OK",
                     "is_alive() { kill -0 \"$1\" 2>/dev/null && "

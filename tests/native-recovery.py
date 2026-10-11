@@ -43,6 +43,9 @@ if mode == 'pass':
         assert '! -e /usr/sbin/veil-core' in command and 'shell-alive' in command
     elif case == 'protocol':
         assert 'protocol-probe' in command and 'synctl --json status' in command
+    elif case == 'demo':
+        assert 'synveil-vt --demo-terminal' in command
+        assert 'NoNewPrivs' in command and '/dev/tty1' in command
     elif case == 'observe':
         assert 'synctl --json observe' in command
         assert 'synveil.observe/v1' in command
@@ -51,7 +54,7 @@ if mode == 'pass':
         assert 'for round in 1 2 3' in command and 'shell-alive' in command
         assert max(map(len, command.splitlines())) < 1024
     marker = {'crash': 'RECOVERY', 'absent': 'ABSENT', 'protocol': 'PROTOCOL',
-              'observe': 'OBSERVE',
+              'observe': 'OBSERVE', 'demo': 'DEMO',
               'supervision': 'SUPERVISION'}[case]
     print('SYNVEIL_' + marker + '_OK', flush=True)
 elif mode == 'echo':
@@ -105,6 +108,12 @@ elif mode == 'timeout':
 
     def test_observe_echo_cannot_pass(self):
         self.assertNotEqual(self.fixture("echo", "observe")[0], 0)
+
+    def test_non_root_demo_terminal_passes_only_strict_identity(self):
+        self.assertEqual(self.fixture("pass", "demo")[0], 0)
+
+    def test_demo_echo_cannot_pass(self):
+        self.assertNotEqual(self.fixture("echo", "demo")[0], 0)
 
     def test_supervision_recovery_passes(self):
         self.assertEqual(self.fixture("pass", "supervision")[0], 0)

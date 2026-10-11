@@ -153,6 +153,12 @@ jobs:
           SYNVEIL_SMOKE_REQUIRE_DESKTOP: "1"
         run: bash build.sh native-smoke
 
+      - name: Verify non-root VT demo terminal identity in guest
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        env:
+          SYNVEIL_QEMU_VIDEO: "1"
+        run: bash build.sh recovery-smoke --case demo --timeout 60
+
       - name: Validate opt-in QEMU DHCP configuration
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         env:
