@@ -21,12 +21,18 @@ ready; full AI optimization and package management are not prerequisites.
 - [ ] Provide a documented installation path on a supported test target
   - A guarded private QEMU boot/state bundle with SHA256 verification and
     an offline launcher is implemented; user-facing validation is still open.
-- [ ] Add display, keyboard, mouse, and required firmware/driver support
-  - Opt-in QEMU graphical/input device wiring and kernel options are implemented; guest device/desktop validation remains open.
+- [x] Add display, keyboard, mouse, and required firmware/driver support
+  - The specific QEMU virtio GPU/USB keyboard and tablet passed framebuffer,
+    evdev input and VT guest checks in [d875da39](docs/validation/native-d875da39/README.md);
+    physical hardware support is still open.
 - [ ] Establish a usable networking configuration path
-  - QEMU eth0 DHCP bootstrap and guest smoke check implemented; guest validation and settings UI remain open.
+  - QEMU eth0 DHCP guest check passed in
+    [d875da39](docs/validation/native-d875da39/README.md);
+    network settings UI and real hardware remain open.
 - [ ] Select and build a minimal graphical session with terminal and launcher
-  - Framebuffer menu with keyboard/tablet clicks, optional autostart and a fixed-command non-root UID 1000 demo terminal implemented; authenticated login, a full compositor and a safe installed-system session remain open.
+  - QEMU framebuffer menu/autostart and fixed UID 1000 terminal guest
+    checks passed at [d875da39](docs/validation/native-d875da39/README.md);
+    authenticated login, full compositor and physical install remain open.
 - [ ] Provide basic settings for the supported display/input/network setup
   - High-contrast/pointer-size controls now save a private versioned
     record when the QEMU ext4 state volume is mounted; host tests cover

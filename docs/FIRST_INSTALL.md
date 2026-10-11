@@ -52,7 +52,7 @@ across reboot. A failed bind or restrictive remount leaves serial recovery
 available and cannot silently claim durable home storage.
 A dedicated guest test now requires a VT1 shell with UID/GID 1000,
 `NoNewPrivs=1` and `/dev/tty1` stdin before claiming the demo terminal
-works. That test is implemented but not yet validated in QEMU.
+works. That exact UID 1000/no-new-privileges/tty1 guest check passed in the [d875da39 full native QEMU run](validation/native-d875da39/README.md). This is not a secure authenticated production login.
 
 A source-built `synveil-vt` tool now implements an actual kernel VT1
 terminal for the VM framebuffer. It is deliberately **not boot-launched**:
@@ -94,15 +94,18 @@ manager. The [810f66d guest run](validation/native-810f66d/README.md) did valida
 `SYNVEIL_DISPLAY_READY`, `SYNVEIL_INPUT_READY` and `SYNVEIL_VT_READY`.
 The desktop menu also emitted its readiness marker, but the marker followed
 the serial prompt without a newline and failed the strict smoke assertion.
-The source has since added the missing newline; a new native-image run must
-still validate that fix and the demo-terminal launch.
+The [d875da39 complete native-image run](validation/native-d875da39/README.md)
+subsequently passed desktop readiness, framebuffer/input/VT, non-root
+demo-terminal, DHCP and two-boot QEMU state checks. Changes committed
+after d875da39 still require their own validation.
 
 The development boot launcher can explicitly opt in to a virtio VGA device,
 USB keyboard/tablet and user-mode networking. The kernel configuration now
 requests the matching DRM/input drivers. A host-side test verifies option
 selection and ensures that the normal serial CI path stays headless and offline.
-This is only a VM hardware configuration: graphical session, user settings,
-and real driver readiness remain unvalidated. A separate opt-in
+The controlled QEMU virtual graphics/input hardware and developer menu
+passed full guest smoke checks at d875da39; hardware outside QEMU
+and the newer persistent settings/home changes remain unvalidated. A separate opt-in
 `SYNVEIL_NETWORK_ROOTFS=1` installs a bounded BusyBox DHCP helper and strict
 IPv4 lease callback for QEMU `eth0`. Live QEMU DHCP validation remains
 required; this is not a production network manager.

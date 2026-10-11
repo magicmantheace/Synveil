@@ -108,6 +108,12 @@ The host unit test separately checks the menu's atomic file writer and
 rejects corrupted, symlinked or permissively owned inputs. Neither new
 test is considered complete until its workflow execution succeeds.
 
+The [d875da39 full native QEMU run](validation/native-d875da39/README.md)
+passed its build pipeline and all guest gates: core recovery, observer,
+framebuffer/input/desktop readiness, UID 1000 terminal, DHCP, and two
+independent ext4 boots. This validates a *developer VM*, not a physical
+installer, authenticated user desktop, or subsequent commits.
+
 The [first user test-install contract](FIRST_INSTALL.md) adds desktop startup,
 persistent storage across reboot, input/network usability, and console fallback
 checks before a user-facing test image is offered.
