@@ -24,9 +24,14 @@ if [ -d /home/synveil ]; then
        chmod 0700 /var/lib/synveil/home &&
        chown 1000:1000 /var/lib/synveil/home/synveil &&
        chmod 0700 /var/lib/synveil/home/synveil &&
-       mount -o bind /var/lib/synveil/home/synveil /home/synveil &&
-       mount -o remount,bind,nosuid,nodev /home/synveil; then
-        echo SYNVEIL_HOME_READY
+       mount -o bind /var/lib/synveil/home/synveil /home/synveil; then
+        if mount -o remount,bind,nosuid,nodev /home/synveil; then
+            echo SYNVEIL_HOME_READY
+        else
+            # Never retain a bind mount if its restrictive flags failed.
+            umount /home/synveil || true
+            echo SYNVEIL_HOME_UNAVAILABLE
+        fi
     else
         echo "[synveil-state] persistent demo home unavailable; console recovery remains"
         echo SYNVEIL_HOME_UNAVAILABLE
