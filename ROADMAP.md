@@ -14,8 +14,10 @@ ready; full AI optimization and package management are not prerequisites.
     checks passed at [810f66d](docs/validation/native-810f66d/README.md).
 - [ ] Provide persistent writable storage that survives reboot
   - QEMU /var state disk survived independent write/reboot/read in the
-    [partial guest evidence](docs/validation/persistence-2e1e54c/README.md);
-    installed-system root storage, mount identities and installer remain open.
+    [partial guest evidence](docs/validation/persistence-2e1e54c/README.md).
+    A private demo-user home can now bind-mount from that state disk; its
+    own two-boot check is implemented but pending. Installed-system root
+    storage, trusted mount identity and installer remain open.
 - [ ] Provide a documented installation path on a supported test target
   - A guarded private QEMU boot/state bundle with SHA256 verification and
     an offline launcher is implemented; user-facing validation is still open.

@@ -206,7 +206,11 @@ A fifth **Settings** tile controls a bright/high-contrast color scheme
 (Left/Right) and small/large cursor (Up/Down). Pointer clicks can toggle
 these options too. With the opt-in QEMU ext4 state volume mounted under `/var`,
 the launcher now saves the contrast and pointer-size selections in a
-private versioned file using atomic replace and `fsync`. The startup
+private versioned file using atomic replace and `fsync`. The same opt-in
+state disk houses `/home/synveil` as a bind mount backed by
+`/var/lib/synveil/home/synveil`, with a root-private parent and an
+owner-private UID 1000 directory. With no state disk, the demo home remains
+ephemeral. A failed mount or remount cannot block the serial recovery shell. The startup
 menu loads it on the next boot, rejecting malformed records. Without
 the state disk, these preferences remain session-only. These UI settings
 do not change display modes, networking, permissions or AI authorization.
@@ -216,7 +220,9 @@ starts two separate VM processes on the same ext4 state disk: the serial
 recovery shell stages a known, private versioned preference record in the
 first boot, then the actual graphical launcher must emit
 `SYNVEIL_SETTINGS_LOADED` on the next boot. This proves cross-boot loading
-of the real menu, but does not simulate a user's actual pointer click.
+of the real menu, and also checks a private demo-home file retains its
+contents and UID/GID 1000 across the two independent QEMU boots. It does
+not simulate a user's actual pointer click.
 The new guest test must pass before this behavior is marked validated.
 
 To start the read-only framebuffer menu automatically on boot, enable
