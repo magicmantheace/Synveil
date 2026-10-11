@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# QEMU-only DHCP helper; recovery is independent of networking.
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH
+if [ ! -d /sys/class/net/eth0 ] || ! command -v udhcpc >/dev/null 2>&1; then
+    echo "[synveil-network] eth0/udhcpc unavailable"
+    exit 1
+fi
+if ! command -v timeout >/dev/null 2>&1 || ! command -v ip >/dev/null 2>&1; then
+    echo "[synveil-network] required network tools unavailable"
+    exit 1
+fi
+if timeout -s KILL 8 udhcpc -i eth0 -n -q -t 3 -T 1 \
+    -s /usr/libexec/synveil/udhcpc-script >/dev/null 2>&1 &&
+   ip -4 addr show dev eth0 | grep -q 'inet '; then
+    echo SYNVEIL_NETWORK_READY
+    exit 0
+fi
+echo "[synveil-network] DHCP failed to assign IPv4"
+exit 1
