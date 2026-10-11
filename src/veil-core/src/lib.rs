@@ -265,7 +265,11 @@ mod tests {
 
     #[test]
     fn observe_rejects_parameters() {
-        let response = dispatch(Request::new("observe-bad", "observe", json!({"shell": true})));
+        let response = dispatch(Request::new(
+            "observe-bad",
+            "observe",
+            json!({"shell": true}),
+        ));
         assert!(!response.ok);
         assert_eq!(
             response.error.expect("protocol error").code,

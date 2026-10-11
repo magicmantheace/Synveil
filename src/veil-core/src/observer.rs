@@ -3,7 +3,6 @@
 use serde_json::{Value, json};
 use std::fs;
 use std::io;
-use std::path::Path;
 
 const OBSERVE_SCHEMA_V1: &str = "synveil.observe/v1";
 
@@ -72,7 +71,8 @@ fn parse_cpu_stat(input: &str) -> io::Result<(u64, u64, usize)> {
     let logical = lines
         .filter_map(|line| {
             let label = line.split_whitespace().next()?;
-            label.strip_prefix("cpu")
+            label
+                .strip_prefix("cpu")
                 .filter(|suffix| !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit()))
         })
         .count();
@@ -149,7 +149,12 @@ mod tests {
         ] {
             assert!(parse_sample(mem, STAT, "1 0").is_err());
         }
-        for stat in ["", "cpu a b c d\ncpu0 1\n", "cpu 1 2 3\ncpu0 1\n", "cpu 1 1 1 1\n"] {
+        for stat in [
+            "",
+            "cpu a b c d\ncpu0 1\n",
+            "cpu 1 2 3\ncpu0 1\n",
+            "cpu 1 1 1 1\n",
+        ] {
             assert!(parse_sample(MEMINFO, stat, "1 0").is_err());
         }
         for uptime in ["", "NaN 0", "-1.1 0", "Infinity 0"] {
