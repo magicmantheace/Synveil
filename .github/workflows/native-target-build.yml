@@ -120,6 +120,9 @@ jobs:
           SYNVEIL_SMOKE_TIMEOUT: "60"
         run: bash build.sh native-smoke
 
+      - name: Verify structured read-only observer in guest
+        run: bash build.sh recovery-smoke --case observe --timeout 60
+
       - name: Require recovery shell after core crash
         run: bash build.sh recovery-smoke --timeout 60
 

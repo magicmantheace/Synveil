@@ -57,6 +57,13 @@ SCENARIOS = {
                "printf '%s' shell-alive > /tmp/absent-probe && "
                "[ \"$(cat /tmp/absent-probe)\" = shell-alive ] && "
                "printf '\\n%s%s\\n' SYNVEIL_ ABSENT_OK; fi\n"),
+    "observe": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
+                b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_OBSERVE_OK",
+                "if timeout -s KILL 2 /usr/bin/synctl --json observe > /tmp/synveil-observe.json && "
+                "grep -Fq 'synveil.observe/v1' /tmp/synveil-observe.json && "
+                "grep -Fq 'total_bytes' /tmp/synveil-observe.json && "
+                "grep -Fq 'total_ticks' /tmp/synveil-observe.json; then "
+                "printf '\\n%s%s\\n' SYNVEIL_ OBSERVE_OK; fi\n"),
     "protocol": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
                  b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_PROTOCOL_OK",
                  "if timeout -s KILL 10 /usr/libexec/synveil-test/protocol-probe && "

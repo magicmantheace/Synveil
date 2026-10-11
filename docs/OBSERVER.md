@@ -42,3 +42,10 @@ The kernel remains the source of truth; the service does not persist metrics,
 infer user intent, call an AI model, or change policy. Additional metrics,
 normalized event streams, historical aggregation, privacy boundaries, and
 guest smoke evidence remain Phase 3 work.
+
+A dedicated `bash build.sh recovery-smoke --case observe --timeout 60`
+scenario now boots the native image, requests `synctl --json observe`,
+checks the schema and expected CPU/memory field names, and requires
+`SYNVEIL_OBSERVE_OK` on the serial console. A host fixture rejects echoed
+commands as evidence. The observer task is not marked complete until the
+actual QEMU guest test passes.

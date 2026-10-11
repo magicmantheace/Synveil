@@ -43,11 +43,15 @@ if mode == 'pass':
         assert '! -e /usr/sbin/veil-core' in command and 'shell-alive' in command
     elif case == 'protocol':
         assert 'protocol-probe' in command and 'synctl --json status' in command
+    elif case == 'observe':
+        assert 'synctl --json observe' in command
+        assert 'synveil.observe/v1' in command
     else:
         assert '/children' in command and 'restarted=1' in command
         assert 'for round in 1 2 3' in command and 'shell-alive' in command
         assert max(map(len, command.splitlines())) < 1024
     marker = {'crash': 'RECOVERY', 'absent': 'ABSENT', 'protocol': 'PROTOCOL',
+              'observe': 'OBSERVE',
               'supervision': 'SUPERVISION'}[case]
     print('SYNVEIL_' + marker + '_OK', flush=True)
 elif mode == 'echo':
@@ -95,6 +99,12 @@ elif mode == 'timeout':
 
     def test_protocol_echo_cannot_pass(self):
         self.assertNotEqual(self.fixture("echo", "protocol")[0], 0)
+
+    def test_observe_ipc_passes(self):
+        self.assertEqual(self.fixture("pass", "observe")[0], 0)
+
+    def test_observe_echo_cannot_pass(self):
+        self.assertNotEqual(self.fixture("echo", "observe")[0], 0)
 
     def test_supervision_recovery_passes(self):
         self.assertEqual(self.fixture("pass", "supervision")[0], 0)
