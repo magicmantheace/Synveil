@@ -154,6 +154,8 @@ struct menu_state {
     int page;       // -1: launcher; 0-2: read-only, 3: demo terminal
     int quit;
     int launch;
+    int high_contrast;
+    unsigned cursor_scale;  // 0: normal, 1: large
 };
 
 static void menu_key(struct menu_state *state, unsigned code) {
@@ -165,9 +167,18 @@ static void menu_key(struct menu_state *state, unsigned code) {
     } else if (state->page == 3 && code == KEY_ENTER) {
         // Explicit second action: selection alone never launches a shell.
         state->launch = 1;
+    } else if (state->page == 4) {
+        if (code == KEY_LEFT || code == KEY_RIGHT ||
+            code == KEY_A || code == KEY_D) {
+            state->high_contrast = !state->high_contrast;
+        } else if (code == KEY_UP) {
+            state->cursor_scale = 1u;
+        } else if (code == KEY_DOWN) {
+            state->cursor_scale = 0u;
+        }
     } else if (state->page < 0) {
-        if (code == KEY_LEFT || code == KEY_A) state->selected = (state->selected + 3u) % 4u;
-        else if (code == KEY_RIGHT || code == KEY_D) state->selected = (state->selected + 1u) % 4u;
+        if (code == KEY_LEFT || code == KEY_A) state->selected = (state->selected + 4u) % 5u;
+        else if (code == KEY_RIGHT || code == KEY_D) state->selected = (state->selected + 1u) % 5u;
         else if (code == KEY_ENTER) state->page = (int)state->selected;
     }
 }
@@ -253,16 +264,30 @@ static void show_runtime_details(const struct surface *screen, int page,
 static void render_menu(const struct surface *screen, const struct menu_state *state) {
     unsigned w = screen->variable.xres;
     unsigned h = screen->variable.yres;
-    uint32_t background = rgb(screen, 12, 21, 34);
-    uint32_t title = rgb(screen, 219, 237, 244);
-    uint32_t muted = rgb(screen, 134, 171, 190);
-    uint32_t highlight = rgb(screen, 62, 148, 187);
+    uint32_t background = state->high_contrast ?
+        rgb(screen, 245, 248, 250) : rgb(screen, 12, 21, 34);
+    uint32_t title = state->high_contrast ?
+        rgb(screen, 9, 22, 31) : rgb(screen, 219, 237, 244);
+    uint32_t muted = state->high_contrast ?
+        rgb(screen, 29, 53, 67) : rgb(screen, 134, 171, 190);
+    uint32_t highlight = state->high_contrast ?
+        rgb(screen, 232, 171, 28) : rgb(screen, 62, 148, 187);
     rectangle(screen, 0, 0, w, h, background);
     rectangle(screen, 0, 0, w, h / 11u, rgb(screen, 21, 51, 78));
     heading(screen, "SYNVEIL", 24u, 18u, 3u, title);
     if (state->page >= 0) {
-        const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL"};
+        const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL", "SETTINGS"};
         heading(screen, pages[state->page], 32u, h / 5u, 3u, title);
+        if (state->page == 4) {
+            heading(screen, state->high_contrast ? "BRIGHT COLORS" : "DARK COLORS",
+                    32u, h / 3u, 2u, muted);
+            heading(screen, "LEFT RIGHT TO CHANGE", 32u, h / 3u + 35u, 2u, muted);
+            heading(screen, state->cursor_scale ? "LARGE POINTER" : "SMALL POINTER",
+                    32u, h / 2u + 10u, 2u, muted);
+            heading(screen, "UP DOWN TO CHANGE", 32u, h / 2u + 45u, 2u, muted);
+            heading(screen, "BACK", w > 125u ? w - 105u : 0u, 18u, 2u, title);
+            return;
+        }
         if (state->page == 3) {
             heading(screen, "NON ROOT DEMO", 32u, h / 3u, 2u, muted);
             rectangle(screen, 32u, h / 2u - 10u, 250u, 50u, highlight);
@@ -288,10 +313,10 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
         return;
     }
     heading(screen, "SYSTEM LAUNCHER", 32u, h / 5u, 3u, title);
-    const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL"};
-    for (unsigned i = 0; i < 4u; ++i) {
-        unsigned x = 32u + i * ((w > 140u ? w - 64u : w) / 4u);
-        unsigned tile = w > 140u ? (w - 72u) / 4u : 20u;
+    const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL", "SETTINGS"};
+    for (unsigned i = 0; i < 5u; ++i) {
+        unsigned x = 32u + i * ((w > 140u ? w - 64u : w) / 5u);
+        unsigned tile = w > 140u ? (w - 72u) / 5u : 20u;
         rectangle(screen, x, h / 3u, tile, h / 5u,
                   i == state->selected ? highlight : rgb(screen, 34, 61, 78));
         unsigned scale = tile >= 120u ? 2u : 1u;
@@ -409,13 +434,18 @@ static void menu_click(struct menu_state *state, unsigned x, unsigned y,
         } else if (state->page == 3 && x >= 32u && x < 282u &&
                    y >= height / 2u - 10u && y < height / 2u + 40u) {
             state->launch = 1;
+        } else if (state->page == 4 && x >= 32u && x < width / 2u) {
+            if (y >= height / 3u && y < height / 3u + 80u)
+                state->high_contrast = !state->high_contrast;
+            if (y >= height / 2u && y < height / 2u + 90u)
+                state->cursor_scale = !state->cursor_scale;
         }
         return;
     }
-    unsigned tile_spacing = (width > 140u ? width - 64u : width) / 4u;
-    unsigned tile_width = width > 140u ? (width - 72u) / 4u : 20u;
+    unsigned tile_spacing = (width > 140u ? width - 64u : width) / 5u;
+    unsigned tile_width = width > 140u ? (width - 72u) / 5u : 20u;
     if (y < height / 3u || y >= height / 3u + height / 5u) return;
-    for (unsigned i = 0; i < 4u; ++i) {
+    for (unsigned i = 0; i < 5u; ++i) {
         unsigned left = 32u + i * tile_spacing;
         if (x >= left && x - left < tile_width) {
             state->selected = i;
@@ -425,12 +455,17 @@ static void menu_click(struct menu_state *state, unsigned x, unsigned y,
     }
 }
 
-static void render_cursor(const struct surface *screen, const struct pointer_device *pointer) {
+static void render_cursor(const struct surface *screen, const struct pointer_device *pointer,
+                          const struct menu_state *state) {
     if (pointer->fd >= 0) {
-        rectangle(screen, pointer->screen_x, pointer->screen_y, 9u, 9u,
-                  rgb(screen, 251, 210, 102));
+        unsigned size = state->cursor_scale ? 16u : 9u;
+        rectangle(screen, pointer->screen_x, pointer->screen_y, size, size,
+                  state->high_contrast ? rgb(screen, 25, 75, 150) :
+                                         rgb(screen, 251, 210, 102));
         rectangle(screen, pointer->screen_x + 2u, pointer->screen_y + 2u,
-                  3u, 3u, rgb(screen, 31, 52, 73));
+                  state->cursor_scale ? 9u : 3u, state->cursor_scale ? 9u : 3u,
+                  state->high_contrast ? rgb(screen, 245, 248, 250) :
+                                         rgb(screen, 31, 52, 73));
     }
 }
 
@@ -459,7 +494,7 @@ static int run_menu(const struct surface *screen) {
     struct menu_state state = {.selected = 0u, .page = -1, .quit = 0};
     struct pointer_device pointer = open_pointer();
     render_menu(screen, &state);
-    render_cursor(screen, &pointer);
+    render_cursor(screen, &pointer, &state);
     // The serial recovery shell may already have printed a prompt without
     // a newline. Begin on a new line so CI can require a standalone marker.
     puts("\nSYNVEIL_DESKTOP_READY");
@@ -514,7 +549,7 @@ static int run_menu(const struct surface *screen) {
         }
         if (redraw && !state.quit) {
             render_menu(screen, &state);
-            render_cursor(screen, &pointer);
+            render_cursor(screen, &pointer, &state);
         }
     }
     if (pointer.fd >= 0) close(pointer.fd);
@@ -564,6 +599,15 @@ static int self_test(void) {
     demo.launch = 0;
     menu_click(&demo, 60u, 310u, 900u, 600u);
     if (!demo.launch) return 1;
+    struct menu_state settings = {.selected = 4u, .page = -1, .quit = 0};
+    menu_key(&settings, KEY_ENTER);
+    if (settings.page != 4 || settings.high_contrast || settings.cursor_scale) return 1;
+    menu_key(&settings, KEY_RIGHT);
+    menu_key(&settings, KEY_UP);
+    if (!settings.high_contrast || settings.cursor_scale != 1u) return 1;
+    menu_click(&settings, 50u, 220u, 900u, 600u);
+    menu_click(&settings, 50u, 330u, 900u, 600u);
+    if (settings.high_contrast || settings.cursor_scale) return 1;
     if (glyph_for('4') == NULL || glyph_for('.') == NULL ||
         glyph_for('N') == NULL || glyph_for('@') != NULL) return 1;
     if (absolute_pixel(-20, 0, 100, 900u) != 0u ||
