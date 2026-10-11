@@ -42,6 +42,11 @@ if [ -x /usr/libexec/synveil/configure-network ]; then
 fi
 
 if [ -x /usr/bin/synveil-display ]; then
+    # The build normalizes initramfs owners to root. Set the disposable
+    # account's writable home only at boot; no shell runs as root via GUI.
+    if [ -d /home/synveil ]; then
+        chown 1000:1000 /home/synveil && chmod 0700 /home/synveil
+    fi
     /usr/bin/synveil-display --demo || echo SYNVEIL_DISPLAY_UNAVAILABLE
 fi
 if [ -x /usr/bin/synveil-input ]; then

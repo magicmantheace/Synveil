@@ -14,6 +14,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 struct surface {
@@ -127,8 +128,9 @@ static void paint(const struct surface *screen) {
 // privileged system actions are not exposed through this UI.
 struct menu_state {
     unsigned selected;
-    int page;       // -1: launcher; 0-2: read-only detail
+    int page;       // -1: launcher; 0-2: read-only, 3: demo terminal
     int quit;
+    int launch;
 };
 
 static void menu_key(struct menu_state *state, unsigned code) {
@@ -137,9 +139,12 @@ static void menu_key(struct menu_state *state, unsigned code) {
         else state->quit = 1;
     } else if (code == KEY_BACKSPACE) {
         state->page = -1;
+    } else if (state->page == 3 && code == KEY_ENTER) {
+        // Explicit second action: selection alone never launches a shell.
+        state->launch = 1;
     } else if (state->page < 0) {
-        if (code == KEY_LEFT || code == KEY_A) state->selected = (state->selected + 2u) % 3u;
-        else if (code == KEY_RIGHT || code == KEY_D) state->selected = (state->selected + 1u) % 3u;
+        if (code == KEY_LEFT || code == KEY_A) state->selected = (state->selected + 3u) % 4u;
+        else if (code == KEY_RIGHT || code == KEY_D) state->selected = (state->selected + 1u) % 4u;
         else if (code == KEY_ENTER) state->page = (int)state->selected;
     }
 }
@@ -170,8 +175,16 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
     rectangle(screen, 0, 0, w, h / 11u, rgb(screen, 21, 51, 78));
     heading(screen, "SYNVEIL", 24u, 18u, 3u, title);
     if (state->page >= 0) {
-        const char *pages[] = {"STATUS", "STORAGE", "NETWORK"};
+        const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL"};
         heading(screen, pages[state->page], 32u, h / 5u, 3u, title);
+        if (state->page == 3) {
+            heading(screen, "NON ROOT DEMO", 32u, h / 3u, 2u, muted);
+            rectangle(screen, 32u, h / 2u - 10u, 250u, 50u, highlight);
+            heading(screen, "OPEN TERMINAL", 40u, h / 2u + 5u, 2u, title);
+            heading(screen, "ENTER TO OPEN", 32u, h * 3u / 5u, 2u, muted);
+            heading(screen, "BACK", w > 125u ? w - 105u : 0u, 18u, 2u, title);
+            return;
+        }
         const char *label = "";
         if (state->page == 0) {
             label = access("/run/synveil/veil-core.sock", F_OK) == 0 ?
@@ -188,13 +201,14 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
         return;
     }
     heading(screen, "SYSTEM LAUNCHER", 32u, h / 5u, 3u, title);
-    const char *pages[] = {"STATUS", "STORAGE", "NETWORK"};
-    for (unsigned i = 0; i < 3u; ++i) {
-        unsigned x = 32u + i * ((w > 140u ? w - 64u : w) / 3u);
-        unsigned tile = w > 140u ? (w - 72u) / 3u : 20u;
+    const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL"};
+    for (unsigned i = 0; i < 4u; ++i) {
+        unsigned x = 32u + i * ((w > 140u ? w - 64u : w) / 4u);
+        unsigned tile = w > 140u ? (w - 72u) / 4u : 20u;
         rectangle(screen, x, h / 3u, tile, h / 5u,
                   i == state->selected ? highlight : rgb(screen, 34, 61, 78));
-        heading(screen, pages[i], x + 6u, h / 3u + 18u, 2u, title);
+        unsigned scale = tile >= 120u ? 2u : 1u;
+        heading(screen, pages[i], x + 6u, h / 3u + 18u, scale, title);
     }
     heading(screen, "LEFT RIGHT ENTER", 32u, h * 4u / 5u, 2u, muted);
     heading(screen, "ESC TO EXIT", 32u, h * 4u / 5u + 24u, 2u, muted);
@@ -303,14 +317,18 @@ static unsigned absolute_pixel(int value, int minimum, int maximum, unsigned ext
 static void menu_click(struct menu_state *state, unsigned x, unsigned y,
                        unsigned width, unsigned height) {
     if (state->page >= 0) {
-        if (y <= height / 11u && x >= (width > 125u ? width - 125u : 0u))
+        if (y <= height / 11u && x >= (width > 125u ? width - 125u : 0u)) {
             state->page = -1;
+        } else if (state->page == 3 && x >= 32u && x < 282u &&
+                   y >= height / 2u - 10u && y < height / 2u + 40u) {
+            state->launch = 1;
+        }
         return;
     }
-    unsigned tile_spacing = (width > 140u ? width - 64u : width) / 3u;
-    unsigned tile_width = width > 140u ? (width - 72u) / 3u : 20u;
+    unsigned tile_spacing = (width > 140u ? width - 64u : width) / 4u;
+    unsigned tile_width = width > 140u ? (width - 72u) / 4u : 20u;
     if (y < height / 3u || y >= height / 3u + height / 5u) return;
-    for (unsigned i = 0; i < 3u; ++i) {
+    for (unsigned i = 0; i < 4u; ++i) {
         unsigned left = 32u + i * tile_spacing;
         if (x >= left && x - left < tile_width) {
             state->selected = i;
@@ -327,6 +345,22 @@ static void render_cursor(const struct surface *screen, const struct pointer_dev
         rectangle(screen, pointer->screen_x + 2u, pointer->screen_y + 2u,
                   3u, 3u, rgb(screen, 31, 52, 73));
     }
+}
+
+static int launch_demo_terminal(void) {
+    // Fixed binary and arguments, never a shell command or model-provided text.
+    pid_t process = fork();
+    if (process < 0) return 1;
+    if (process == 0) {
+        execl("/usr/bin/synveil-vt", "synveil-vt", "--demo-terminal", (char *)NULL);
+        _exit(127);
+    }
+    int status = 0;
+    while (waitpid(process, &status, 0) < 0) {
+        if (errno == EINTR) continue;
+        return 1;
+    }
+    return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
 }
 
 static int run_menu(const struct surface *screen) {
@@ -384,6 +418,13 @@ static int run_menu(const struct surface *screen) {
                 }
             }
         }
+        if (state.launch) {
+            state.launch = 0;
+            if (launch_demo_terminal() != 0)
+                fputs("[synveil-display] demo terminal did not start or exited abnormally\n", stderr);
+            state.page = -1;
+            redraw = 1;
+        }
         if (redraw && !state.quit) {
             render_menu(screen, &state);
             render_cursor(screen, &pointer);
@@ -428,6 +469,14 @@ static int self_test(void) {
     if (click_state.page != 1 || click_state.selected != 1u) return 1;
     menu_click(&click_state, 850u, 20u, 900u, 600u);
     if (click_state.page != -1) return 1;
+    struct menu_state demo = {.selected = 3u, .page = -1, .quit = 0};
+    menu_key(&demo, KEY_ENTER);
+    if (demo.page != 3 || demo.launch) return 1;
+    menu_key(&demo, KEY_ENTER);
+    if (!demo.launch) return 1;
+    demo.launch = 0;
+    menu_click(&demo, 60u, 310u, 900u, 600u);
+    if (!demo.launch) return 1;
     if (absolute_pixel(-20, 0, 100, 900u) != 0u ||
         absolute_pixel(200, 0, 100, 900u) != 899u ||
         absolute_pixel(50, 0, 100, 900u) != 449u) return 1;

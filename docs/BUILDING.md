@@ -209,6 +209,15 @@ CI's graphics smoke requires `SYNVEIL_DESKTOP_READY` only after a drawable
 framebuffer and usable keyboard have both been opened. This is still a
 development desktop prototype, not a login-capable user session.
 
+The temporary framebuffer launcher also has a **Terminal** tile. Opening it
+presents a second confirmation before starting a disposable UID/GID 1000
+interactive shell on VT1. The root launcher executes only the fixed
+`synveil-vt --demo-terminal` binary, which drops all supplementary groups,
+privileges and inherited environment, and sets `no_new_privs` before launching
+BusyBox `sh`. The menu resumes when the shell exits. The demo home is ephemeral,
+not encrypted or backed up, and the account is password-locked. This is an
+**unattended/non-authenticated VM demo session**, not the final user login.
+
 A separate source-built `synveil-vt` tool can launch an actual kernel-backed
 interactive shell on framebuffer VT1. This is a **developer test VM only**
 entrypoint with no login/authentication, and is **never started by init**.

@@ -64,6 +64,10 @@ if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
     if [[ "$DESKTOP_AUTOSTART" == 1 ]]; then
         install -D -m 0644 /dev/null "$ROOTFS_DIR/etc/synveil/desktop-autostart"
     fi
+    # Non-root disposable developer login, deliberately password-locked.
+    # The graphical launcher only opens this identity, never a root shell.
+    mkdir -p "$ROOTFS_DIR/home/synveil"
+    chmod 0700 "$ROOTFS_DIR/home/synveil"
 fi
 if [[ "$NETWORK_ROOTFS" == 1 ]]; then
     install -D -m 0755 "$ROOT_DIR/build/rootfs/configure-network" "$ROOTFS_DIR/usr/libexec/synveil/configure-network"
@@ -94,6 +98,13 @@ EOF
 cat >"$ROOTFS_DIR/etc/group" <<'EOF'
 root:x:0:
 EOF
+
+if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
+    # The demo account does not grant local or remote password login.
+    # It exists only for synveil-vt's fixed-identity demo console.
+    printf '%s\n' 'synveil:x:1000:1000:Synveil VM demo:/home/synveil:/bin/sh' >> "$ROOTFS_DIR/etc/passwd"
+    printf '%s\n' 'synveil:x:1000:' >> "$ROOTFS_DIR/etc/group"
+fi
 
 cat >"$ROOTFS_DIR/etc/hostname" <<'EOF'
 synveil

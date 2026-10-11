@@ -39,6 +39,13 @@ helper. It scans only evdev character devices and verifies keyboard and pointer
 capabilities without reading private user input events. The QEMU graphics smoke
 now requires input discovery too.
 
+The read-only framebuffer launcher now includes a Terminal tile with
+explicit confirmation, opening a disposable UID 1000 demo shell through a
+fixed executable. The graphical launcher cannot request a root shell.
+The separate root-debug mode is only reachable with deliberate privileged
+serial-console flags. The demo account has no password login and must not
+be mistaken for secure multi-user authentication. Its home is ephemeral.
+
 A source-built `synveil-vt` tool now implements an actual kernel VT1
 terminal for the VM framebuffer. It is deliberately **not boot-launched**:
 its unauthenticated root shell requires the local developer to pass two
