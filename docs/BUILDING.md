@@ -173,6 +173,43 @@ SYNVEIL_OVMF_VARS=/path/to/OVMF_VARS.fd \
 bash build.sh qemu
 ```
 
+### Optional QEMU persistent state
+
+This is an isolated developer/VM feature, **not an installer or persistent system
+root**. It leaves the EFI boot image read-only. Opt in when building the rootfs:
+
+```sh
+SYNVEIL_NATIVE_ROOTFS=1 SYNVEIL_PERSISTENCE_ROOTFS=1 bash build.sh rootfs
+bash build.sh kernel
+bash build.sh image
+bash build.sh state-disk --size-mib 256
+SYNVEIL_QEMU_STATE_DISK="$PWD/out/synveil-state.ext4" bash build.sh qemu
+```
+
+The new ext4 volume is attached as a second virtio block disk and mounted at
+`/var` through `/dev/vdb` only in explicitly opted-in rootfs images. The
+guest never formats a disk. The creator uses exclusive file creation and
+**refuses to overwrite an existing image**. Retain the state image between
+QEMU sessions to retain data. `bash build.sh clean` removes the generated
+`out/` directory including this experimental state image; copy it elsewhere
+first if you want to preserve it.
+
+The state disk is only for controlled QEMU tests; do not use this device-path
+assumption for a physical installation. In the absence of the disk, Synveil
+prints `SYNVEIL_STATE_UNAVAILABLE` and provides a recovery shell instead of
+pretending storage is persistent. A correctly mounted volume prints
+`SYNVEIL_STATE_READY`.
+
+To verify actual persistence across separate VM processes:
+
+```sh
+bash build.sh persistence-smoke --timeout 60
+```
+
+This is not yet the final root filesystem/storage or an on-disk audit journal.
+First hardware installation and user-facing desktop testing remain blocked
+until the separate installation contract is met.
+
 ### smoke
 
 Runs the QEMU image under a timeout and requires the bootstrap userspace to emit:

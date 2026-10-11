@@ -11,6 +11,7 @@ ready; full AI optimization and package management are not prerequisites.
 
 - [ ] Validate core-failure and absent-core recovery in guest tests
 - [ ] Provide persistent writable storage that survives reboot
+  - Opt-in QEMU /var state disk and a two-boot validation test are implemented; validation and installed-system storage remain open.
 - [ ] Provide a documented installation path on a supported test target
 - [ ] Add display, keyboard, mouse, and required firmware/driver support
 - [ ] Establish a usable networking configuration path

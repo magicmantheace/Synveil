@@ -22,6 +22,15 @@ optimization, personalization, package generations, and the polished desktop
 remain later work. Essential filesystem and boot recovery behavior must exist
 before an installation path is presented for user testing.
 
+## Controlled QEMU persistence prototype
+
+`SYNVEIL_PERSISTENCE_ROOTFS=1` optionally includes a mount helper for a
+separately preformatted ext4 state image. The bootstrap OS stays in its
+embedded initramfs, while `/var` can survive separate QEMU boots. A guest
+must prove write -> shutdown -> new QEMU process -> read before we mark
+persistence validated. This mechanism deliberately does not pick or format
+hardware disks, and it is not an installation path.
+
 ## Decisions still open
 
 - Minimal compositor/session stack and its source-build dependencies.
