@@ -146,9 +146,12 @@ struct DeadlineReader {
 }
 
 fn remaining(deadline: Instant) -> io::Result<Duration> {
+    // Linux socket timeouts have microsecond-scale timeval granularity.
+    // Refuse nearly expired deadlines rather than sending a sub-millisecond
+    // duration that can round to zero or EINVAL in the OS timeout interface.
     deadline
         .checked_duration_since(Instant::now())
-        .filter(|duration| !duration.is_zero())
+        .filter(|duration| *duration >= Duration::from_millis(1))
         .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "connection deadline exceeded"))
 }
 
