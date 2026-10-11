@@ -43,9 +43,9 @@ infer user intent, call an AI model, or change policy. Additional metrics,
 normalized event streams, historical aggregation, privacy boundaries, and
 guest smoke evidence remain Phase 3 work.
 
-A dedicated `bash build.sh recovery-smoke --case observe --timeout 60`
-scenario now boots the native image, requests `synctl --json observe`,
-checks the schema and expected CPU/memory field names, and requires
-`SYNVEIL_OBSERVE_OK` on the serial console. A host fixture rejects echoed
-commands as evidence. The observer task is not marked complete until the
-actual QEMU guest test passes.
+The `bash build.sh recovery-smoke --case observe --timeout 60`
+scenario passed in the [810f66d guest run](validation/native-810f66d/README.md).
+It boots the native image, requests `synctl --json observe` and checks the
+schema and CPU/memory field names, requiring `SYNVEIL_OBSERVE_OK` on serial.
+A host fixture rejects echoed commands as evidence. Remaining Phase 3 metrics
+and aggregation work mean the observer roadmap milestone stays open.

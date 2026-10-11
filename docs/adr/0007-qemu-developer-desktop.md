@@ -45,8 +45,11 @@ Linux 6.18's `CONFIG_DRM_FBDEV_EMULATION=y` does not by itself create a
 `/dev/fb*` device: `CONFIG_FB_DEVICE=y` is also required. A prior QEMU
 guest run showed `/dev/fb0` absent, and its archived kernel config confirmed
 the missing option. The kernel builder now asserts the resolved Kconfig state.
-This is a corrected hypothesis until **actual QEMU framebuffer and menu
-startup smoke tests** pass on the new commit.
+The [810f66d native guest run](../validation/native-810f66d/README.md)
+confirmed framebuffer, virtual input and VT readiness markers; it also
+reported the desktop readiness marker, but not on a standalone line.
+Consequently the desktop smoke gate failed. The marker formatting is fixed
+in a later revision but requires a repeat native-image validation.
 
 Static/host tests cover framebuffer bounds, keyboard capability discovery,
 tile-click mapping, keyboard navigation, virtual terminal CLI gating,

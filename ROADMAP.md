@@ -9,7 +9,9 @@ desktop. Development builds continue to be tested automatically in QEMU.
 A minimal subset of Phases 11 and 12 moves forward once its dependencies are
 ready; full AI optimization and package management are not prerequisites.
 
-- [ ] Validate core-failure and absent-core recovery in guest tests
+- [x] Validate core-failure and absent-core recovery in guest tests
+  - Native QEMU recovery, restart exhaustion, absent-binary, protocol and observer
+    checks passed at [810f66d](docs/validation/native-810f66d/README.md).
 - [ ] Provide persistent writable storage that survives reboot
   - QEMU /var state disk survived independent write/reboot/read in the
     [partial guest evidence](docs/validation/persistence-2e1e54c/README.md);
@@ -74,10 +76,10 @@ Validated at `4c40d41b979090cc72b370a8dad540e7f0a6f735` in the
 - [x] Implement `veil-core`
 - [x] Define versioned local protocol
 - [x] Implement `synctl status`
-- [ ] Establish service lifecycle/supervision
-- [ ] Add structured logging
+- [x] Establish service lifecycle/supervision
+- [x] Add structured logging
 - [ ] Add durable audit record format
-- [ ] Add recovery behavior when core services fail
+- [x] Add recovery behavior when core services fail
 
 **Exit:** Synveil native code starts on boot and exposes health/status without AI.
 
@@ -86,7 +88,9 @@ Native startup and versioned status are validated at
 [native image evidence record](docs/validation/native-image-79a41c2/README.md).
 Core-crash recovery passed at `248775a` in the
 [recovery evidence](docs/validation/core-crash-248775a/README.md).
-Absent-core recovery, supervision, and durable audit work remain open.
+Absent-core recovery, supervision and structured logging passed in
+[guest validation at 810f66d](docs/validation/native-810f66d/README.md).
+Durable audit rotation, integrity and disk-full policy remain open.
 
 ## Phase 3 — Observer
 
@@ -104,7 +108,9 @@ Absent-core recovery, supervision, and durable audit work remain open.
 - [ ] ephemeral telemetry storage
 - [ ] historical aggregation
 - [ ] `synctl observe`
-  - First CPU/memory/uptime snapshot command implemented; QEMU runtime validation and additional metrics remain open.
+  - CPU/memory/uptime schema passed native QEMU at
+    [810f66d](docs/validation/native-810f66d/README.md); additional metrics,
+    utilization deltas and historical aggregation remain open.
 
 **Exit:** the system can describe current workload and resource pressure through structured APIs without parsing human CLI output.
 

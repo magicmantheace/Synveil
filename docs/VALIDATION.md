@@ -90,11 +90,14 @@ builds and boots a separate image with its core binary removed; it must prove
 boot completion, core absence, and functioning shell file operations.
 `guest-fixture --case protocol` builds a separate test image with a fixed probe
 that requires malformed/schema/method errors and healthy status afterwards.
-Both new guest cases remain pending until their real CI steps pass; they were
-skipped in the [a136fb5 failed run](validation/native-a136fb5/README.md).
-`recovery-smoke --case supervision` additionally requires an automatic worker
-restart, healthy status, bounded restart exhaustion, and functioning recovery
-shell. Its implementation and fixture tests do not establish guest validation.
+The missing-core and malformed-protocol guest cases, plus
+`recovery-smoke --case supervision` (automatic restart, exhaustion and shell
+recovery), passed in the [810f66d native run](validation/native-810f66d/README.md).
+The same run passed read-only observation, DHCP, virtual framebuffer/input/VT
+readiness, and two separate QEMU persistence boots. The **entire workflow
+failed** on a separate graphical desktop marker formatting assertion.
+Individual component checks are recorded as partial evidence, not a
+successful end-to-end desktop image.
 
 The [first user test-install contract](FIRST_INSTALL.md) adds desktop startup,
 persistent storage across reboot, input/network usability, and console fallback

@@ -70,8 +70,12 @@ It intentionally does not run a graphical terminal or perform privileged
 changes. The serial recovery shell stays independent.
 
 This is a **graphics/input bring-up and menu prototype**, not a graphical desktop or window
-manager. Automated QEMU validation is required before declaring the graphics
-device path working.
+manager. The [810f66d guest run](validation/native-810f66d/README.md) did validate
+`SYNVEIL_DISPLAY_READY`, `SYNVEIL_INPUT_READY` and `SYNVEIL_VT_READY`.
+The desktop menu also emitted its readiness marker, but the marker followed
+the serial prompt without a newline and failed the strict smoke assertion.
+The source has since added the missing newline; a new native-image run must
+still validate that fix and the demo-terminal launch.
 
 The development boot launcher can explicitly opt in to a virtio VGA device,
 USB keyboard/tablet and user-mode networking. The kernel configuration now
