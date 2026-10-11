@@ -1,0 +1,28 @@
+name: Network bootstrap host checks
+
+on:
+  push:
+    branches: [phase2/native-core-bootstrap]
+    paths:
+      - build/rootfs/configure-network
+      - build/rootfs/udhcpc-script
+      - tests/network-config.py
+      - .github/workflows/network-host.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+      - name: Test DHCP callback without real networking
+        run: python3 tests/network-config.py
+      - name: Check shell syntax
+        run: |
+          sh -n build/rootfs/configure-network
+          sh -n build/rootfs/udhcpc-script
