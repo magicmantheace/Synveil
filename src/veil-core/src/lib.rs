@@ -200,7 +200,7 @@ fn serve_connection_until(stream: UnixStream, deadline: Instant) -> io::Result<(
 }
 
 fn prepare_socket_path(path: &Path) -> io::Result<()> {
-    prepare_socket_path_with(path, UnixStream::connect)
+    prepare_socket_path_with(path, |socket_path| UnixStream::connect(socket_path))
 }
 
 fn prepare_socket_path_with<F>(path: &Path, try_connect: F) -> io::Result<()>
@@ -470,7 +470,7 @@ mod tests {
 
     fn connect_with_retry(path: &Path) -> UnixStream {
         for _ in 0..100 {
-            match try_connect(path) {
+            match UnixStream::connect(path) {
                 Ok(stream) => return stream,
                 Err(error)
                     if matches!(
