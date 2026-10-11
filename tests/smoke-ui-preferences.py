@@ -13,7 +13,10 @@ from pathlib import Path
 import selectors
 import signal
 import subprocess
+import tempfile
 import time
+
+from qmp_input import QMPError, settings_toggle
 
 ROOT = Path(__file__).resolve().parents[1]
 BOOT = {b"SYNVEIL_BOOT_OK", b"SYNVEIL_STATE_READY",
@@ -21,18 +24,26 @@ BOOT = {b"SYNVEIL_BOOT_OK", b"SYNVEIL_STATE_READY",
 ERRORS = {b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_DISPLAY_UNAVAILABLE",
           b"SYNVEIL_HOME_UNAVAILABLE"}
 MARKER = b"SYNVEIL_UI_PREFS_WRITE_OK"
+SEEDED = b"SYNVEIL_HOME_SEEDED"
 LOADED = b"SYNVEIL_SETTINGS_LOADED"
 HOME = b"SYNVEIL_UI_PREFS_HOME_OK"
 
-# Split the marker in shell output so console echo cannot satisfy the probe.
+# The first boot writes only the demo home from the serial recovery shell.
+# Display settings MUST be saved by the actual framebuffer menu after
+# QMP sends the same keyboard events as a user. No pre-seeded settings.
 WRITE = (
     "umask 077; "
-    "printf 'synveil.desktop/v1\\ncontrast=1\\ncursor_scale=1\\n' "
-    "> /var/lib/synveil/desktop-pref.conf && "
     "printf '%s' synveil-home-v1 > /home/synveil/roundtrip && "
     "chown 1000:1000 /home/synveil/roundtrip && "
-    "sync && "
-    "printf '\\n%s%s\\n' SYNVEIL_ UI_PREFS_WRITE_OK\n"
+    "sync && printf '\\n%s%s\\n' SYNVEIL_ HOME_SEEDED\\n"
+)
+
+VERIFY = (
+    "i=0; while [ \\"$i\\" -lt 50 ]; do "
+    "if grep -Fxq 'contrast=1' /var/lib/synveil/desktop-pref.conf && "
+    "grep -Fxq 'cursor_scale=1' /var/lib/synveil/desktop-pref.conf; then "
+    "sync; printf '\\n%s%s\\n' SYNVEIL_ UI_PREFS_WRITE_OK; break; fi; "
+    "i=$((i+1)); sleep 0.1; done\\n"
 )
 
 
@@ -44,10 +55,15 @@ READ_HOME = (
 
 
 def round_trip(state: Path, timeout: float, phase: int, logfile: Path) -> bool:
+    monitor = tempfile.TemporaryDirectory(prefix="synveil-qmp-")
+    qmp_path = Path(monitor.name) / "monitor.sock"
+    launch_env = {**os.environ, "SYNVEIL_QEMU_STATE_DISK": str(state),
+                  "SYNVEIL_QEMU_VIDEO": "1"}
+    if phase == 1:
+        launch_env["SYNVEIL_QEMU_QMP_SOCKET"] = str(qmp_path)
     process = subprocess.Popen(
         ["bash", str(ROOT / "build/scripts/qemu.sh")],
-        env={**os.environ, "SYNVEIL_QEMU_STATE_DISK": str(state),
-             "SYNVEIL_QEMU_VIDEO": "1"},
+        env=launch_env,
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         start_new_session=True,
     )
@@ -55,6 +71,7 @@ def round_trip(state: Path, timeout: float, phase: int, logfile: Path) -> bool:
     seen = set()
     pending = b""
     issued = False
+    keyboard_sent = False
     deadline = time.monotonic() + timeout
     try:
         with selectors.DefaultSelector() as selector, logfile.open("wb") as evidence:
@@ -88,7 +105,17 @@ def round_trip(state: Path, timeout: float, phase: int, logfile: Path) -> bool:
                     process.stdin.write(WRITE.encode())
                     process.stdin.flush()
                     issued = True
-                if phase == 1 and issued and MARKER in seen:
+                if phase == 1 and issued and not keyboard_sent and SEEDED in seen:
+                    try:
+                        settings_toggle(qmp_path, timeout=6)
+                    except (QMPError, OSError, ValueError) as exc:
+                        evidence.write(("[synveil-smoke] QMP input failed: " +
+                                        str(exc) + "\\n").encode())
+                        return False
+                    process.stdin.write(VERIFY.encode())
+                    process.stdin.flush()
+                    keyboard_sent = True
+                if phase == 1 and keyboard_sent and MARKER in seen:
                     return True
                 if len(pending) > 65536:
                     return False
@@ -105,6 +132,7 @@ def round_trip(state: Path, timeout: float, phase: int, logfile: Path) -> bool:
             process.wait(timeout=3)
         process.stdin.close()
         process.stdout.close()
+        monitor.cleanup()
 
 
 def main() -> int:
@@ -126,7 +154,7 @@ def main() -> int:
             print(f"[synveil] UI preferences QEMU {name} failed: {log}")
             print(log.read_text(errors="replace")[-14000:])
             return 1
-    print("[synveil] UI settings and non-root home survived two QEMU boots")
+    print("[synveil] keyboard-saved UI settings and non-root home survived two QEMU boots")
     return 0
 
 
