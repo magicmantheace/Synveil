@@ -40,5 +40,6 @@ python3 tests/vm-bundle.py
 python3 tests/network-config.py
 python3 tests/qemu-options.py
 python3 tests/display-build.py
+python3 tests/ui-preferences-smoke-fixture.py
 
 printf '[lint] bootstrap scripts, Python tools, and source manifest passed syntax checks\n'

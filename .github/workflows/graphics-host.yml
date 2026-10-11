@@ -6,6 +6,8 @@ on:
     paths:
       - src/veil-display/**
       - tests/display-build.py
+      - tests/smoke-ui-preferences.py
+      - tests/ui-preferences-smoke-fixture.py
       - tests/qemu-options.py
       - tests/native-smoke.py
       - tests/smoke-boot.sh
@@ -29,6 +31,8 @@ jobs:
         uses: actions/checkout@v6
       - name: Compile framebuffer diagnostic and check memory bounds
         run: python3 tests/display-build.py
+      - name: Test two-boot UI smoke verdicts with fake QEMU
+        run: python3 tests/ui-preferences-smoke-fixture.py
       - name: Test QEMU device configuration
         run: python3 tests/qemu-options.py
       - name: Test serial boot and graphics smoke verdicts
