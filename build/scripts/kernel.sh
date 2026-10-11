@@ -25,6 +25,18 @@ make -C "$LINUX_SRC"     O="$KERNEL_BUILD"     ARCH=x86     CROSS_COMPILE="$TARG
 
 make -C "$LINUX_SRC"     O="$KERNEL_BUILD"     ARCH=x86     CROSS_COMPILE="$TARGET-"     olddefconfig
 
+# Fail the build instead of silently shipping a GPU driver without the
+# /dev/fb0 interface consumed by the bootstrap display and terminal.
+required_graphics=(
+    DRM VIRTIO_PCI DRM_VIRTIO_GPU DRM_FBDEV_EMULATION
+    DRM_CLIENT_DEFAULT_FBDEV FB_DEVICE INPUT_EVDEV USB_HID USB_XHCI_HCD
+)
+for option in "${required_graphics[@]}"; do
+    if ! grep -qx "CONFIG_${option}=y" "$KERNEL_BUILD/.config"; then
+        die "kernel configuration dropped required CONFIG_${option}=y"
+    fi
+done
+
 log "building Linux EFI-stub kernel"
 make -C "$LINUX_SRC"     O="$KERNEL_BUILD"     ARCH=x86     CROSS_COMPILE="$TARGET-"     -j"$JOBS"     bzImage
 

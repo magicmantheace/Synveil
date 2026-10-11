@@ -25,7 +25,13 @@ before an installation path is presented for user testing.
 ## QEMU graphical hardware foundation
 
 A small source-built C framebuffer diagnostic can be included with
-`SYNVEIL_GRAPHICS_ROOTFS=1`. When `/dev/fb0` is available and writable, it
+`SYNVEIL_GRAPHICS_ROOTFS=1`. The first QEMU graphics-enabled guest run exposed a missing `/dev/fb0` despite
+having DRM and virtio GPU enabled. Inspection of its archived kernel config
+showed `CONFIG_FB_DEVICE` disabled; Synveil now explicitly enables it and
+checks the resolved config before compilation. Guest revalidation is still
+required.
+
+When `/dev/fb0` is available and writable, it
 draws a diagnostic splash and emits `SYNVEIL_DISPLAY_READY` on serial;
 otherwise it reports `SYNVEIL_DISPLAY_UNAVAILABLE` while preserving recovery.
 The same opt-in image includes a source-built `synveil-input --probe`
