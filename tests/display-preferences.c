@@ -43,6 +43,32 @@ int main(void) {
     assert(preferences_save(dir, &prefs) == 0);
     assert(lstat(path, &info) == 0 && S_ISREG(info.st_mode));
     assert(preferences_load(dir, &readback) == 1);
+    // Recover after an interrupted first save with an owner-private,
+    // bounded stale temporary record. Do not mistake it for the final one.
+    char temporary[256];
+    assert(snprintf(temporary, sizeof(temporary), "%s/.desktop-pref.tmp", dir) > 0);
+    fd = open(temporary, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    assert(fd >= 0);
+    assert(write(fd, "partial", 7) == 7);
+    assert(close(fd) == 0);
+    assert(preferences_save(dir, &prefs) == 0);
+    assert(access(temporary, F_OK) != 0);
+    assert(preferences_load(dir, &readback) == 1);
+
+    // Never remove or follow a fake stale temporary symlink.
+    assert(symlink("/etc/passwd", temporary) == 0);
+    assert(preferences_save(dir, &prefs) != 0);
+    struct stat fake;
+    assert(lstat(temporary, &fake) == 0 && S_ISLNK(fake.st_mode));
+    assert(unlink(temporary) == 0);
+
+    // Unexpected permissions are not trusted as an interrupted save.
+    fd = open(temporary, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    assert(fd >= 0 && close(fd) == 0);
+    assert(chmod(temporary, 0666) == 0);
+    assert(preferences_save(dir, &prefs) != 0);
+    assert(unlink(temporary) == 0);
+
     prefs.high_contrast = 2;
     assert(preferences_save(dir, &prefs) != 0);
     prefs.high_contrast = 1;

@@ -214,7 +214,10 @@ ephemeral. A failed mount or remount cannot block the serial recovery shell. The
 menu loads it on the next boot, rejecting malformed records. Without
 the state disk, these preferences remain session-only. These UI settings
 do not change display modes, networking, permissions or AI authorization.
-An isolated host test covers read/write/corruption/symlink handling.
+An isolated host test covers read/write/corruption/symlink handling,
+including recovery from an owner-private stale temporary file after
+interrupted saves. Symlinked or unexpectedly permissive temporary files
+are refused rather than trusted.
 The `bash build.sh ui-preferences-smoke --timeout 60` QEMU test now
 starts two separate VM processes on the same ext4 state disk. On boot one,
 it uses a private *host-only QMP Unix socket* to send actual keyboard events
