@@ -44,10 +44,16 @@ class BundleTests(unittest.TestCase):
         image = self.out / "synveil-x86_64.img"
         image.write_bytes(b"stand-in UEFI image")
         digest = hashlib.sha256(image.read_bytes()).hexdigest()
+        archive = self.out / "synveil-rootfs.tar.zst"
+        archive.write_bytes(b"fixture rootfs archive")
+        archive_digest = hashlib.sha256(archive.read_bytes()).hexdigest()
         manifest = {
             "schema": "synveil.build/v1",
             "git": {"commit": REV, "dirty": False},
-            "artifacts": {image.name: {"sha256": digest}},
+            "artifacts": {
+                image.name: {"sha256": digest},
+                archive.name: {"sha256": archive_digest},
+            },
         }
         (self.out / "manifests/build.json").write_text(json.dumps(manifest))
         (self.out / "manifests/kernel.config").write_text(
@@ -79,6 +85,9 @@ class BundleTests(unittest.TestCase):
         launch = (self.destination / "run-vm.sh").read_text()
         self.assertIn("SYNVEIL_QEMU_NETWORK=0", launch)
         self.assertIn("SYNVEIL_QEMU_STATE_DISK=", launch)
+        import subprocess
+        subprocess.run(["sh", "-n", str(self.destination / "run-vm.sh")],
+                       check=True)
 
     def test_refuses_existing_directory_without_mutation(self):
         self.destination.mkdir()
@@ -88,6 +97,21 @@ class BundleTests(unittest.TestCase):
                 create_bundle(self.out, self.rootfs, self.destination, REV, 64)
         formatter.assert_not_called()
         self.assertEqual((self.destination / "important").read_text(), "keep me")
+
+    def test_refuses_symlink_destination_without_touching_target(self):
+        target = self.root / "existing"
+        target.mkdir()
+        (target / "important").write_text("keep me")
+        self.destination.symlink_to(target)
+        with self.assertRaises(FileExistsError):
+            create_bundle(self.out, self.rootfs, self.destination, REV, 64)
+        self.assertEqual((target / "important").read_text(), "keep me")
+
+    def test_rejects_tampered_rootfs_archive(self):
+        archive = self.out / "synveil-rootfs.tar.zst"
+        archive.write_bytes(b"wrong archive")
+        with self.assertRaises(ValueError):
+            verify_build(self.out, self.rootfs, REV)
 
     def test_rejects_tampered_or_stale_boot_image(self):
         with self.assertRaises(ValueError):

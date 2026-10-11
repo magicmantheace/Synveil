@@ -56,10 +56,16 @@ def verify_build(out: Path, rootfs: Path, revision: str) -> dict:
     missing = set(NEEDED_KERNEL) - set(kernel_file.read_text().splitlines())
     if missing:
         raise ValueError("missing required kernel options: " + ", ".join(sorted(missing)))
+    archive = out / "synveil-rootfs.tar.zst"
+    archived_hash = manifest.get("artifacts", {}).get(archive.name, {}).get("sha256")
+    if (archive.is_symlink() or not archive.is_file() or
+        not isinstance(archived_hash, str) or sha256(archive) != archived_hash):
+        raise ValueError("staged rootfs archive failed SHA256 verification")
     for rel in NEEDED_ROOTFS:
         candidate = rootfs / rel
-        if candidate.is_symlink() or not candidate.exists():
-            raise ValueError(f"missing desktop staging file: {rel}")
+        expected_kind = candidate.is_dir() if rel == "home/synveil" else candidate.is_file()
+        if candidate.is_symlink() or not expected_kind:
+            raise ValueError(f"missing or invalid desktop staging file: {rel}")
     passwd = rootfs / "etc/passwd"
     if passwd.is_symlink() or not passwd.is_file():
         raise ValueError("missing staged passwd file")
