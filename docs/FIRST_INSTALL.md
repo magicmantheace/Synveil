@@ -80,9 +80,9 @@ required; this is not a production network manager.
 
 `SYNVEIL_PERSISTENCE_ROOTFS=1` optionally includes a mount helper for a
 separately preformatted ext4 state image. The bootstrap OS stays in its
-embedded initramfs, while `/var` can survive separate QEMU boots. A guest
-must prove write -> shutdown -> new QEMU process -> read before we mark
-persistence validated. This mechanism deliberately does not pick or format
+embedded initramfs, while `/var` can survive separate QEMU boots. The [2e1e54c QEMU persistence test](validation/persistence-2e1e54c/README.md)
+passed write -> stop first QEMU -> start new QEMU -> read. This validates
+the experimental VM /var state volume, not installed-system persistence. This mechanism deliberately does not pick or format
 hardware disks, and it is not an installation path.
 
 ## Decisions still open
