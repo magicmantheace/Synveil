@@ -41,8 +41,11 @@ The development boot launcher can explicitly opt in to a virtio VGA device,
 USB keyboard/tablet and user-mode networking. The kernel configuration now
 requests the matching DRM/input drivers. A host-side test verifies option
 selection and ensures that the normal serial CI path stays headless and offline.
-This is only a VM hardware configuration: graphical session, networking
-configuration, user settings and real driver readiness remain unvalidated.
+This is only a VM hardware configuration: graphical session, user settings,
+and real driver readiness remain unvalidated. A separate opt-in
+`SYNVEIL_NETWORK_ROOTFS=1` installs a bounded BusyBox DHCP helper and strict
+IPv4 lease callback for QEMU `eth0`. Live QEMU DHCP validation remains
+required; this is not a production network manager.
 
 ## Controlled QEMU persistence prototype
 

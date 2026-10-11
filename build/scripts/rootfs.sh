@@ -4,6 +4,8 @@ set -Eeuo pipefail
 source "$(dirname "$0")/common.sh"
 
 NATIVE_ROOTFS="${SYNVEIL_NATIVE_ROOTFS:-0}"
+NETWORK_ROOTFS="${SYNVEIL_NETWORK_ROOTFS:-0}"
+[[ "$NETWORK_ROOTFS" == 0 || "$NETWORK_ROOTFS" == 1 ]] || die "SYNVEIL_NETWORK_ROOTFS must be 0 or 1"
 GRAPHICS_ROOTFS="${SYNVEIL_GRAPHICS_ROOTFS:-0}"
 [[ "$GRAPHICS_ROOTFS" == 0 || "$GRAPHICS_ROOTFS" == 1 ]] || die "SYNVEIL_GRAPHICS_ROOTFS must be 0 or 1"
 PERSISTENCE_ROOTFS="${SYNVEIL_PERSISTENCE_ROOTFS:-0}"
@@ -54,6 +56,10 @@ if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
         "$ROOT_DIR/src/veil-display/main.c" -o "$ROOTFS_DIR/usr/bin/synveil-display"
     "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \
         "$ROOT_DIR/src/veil-display/input.c" -o "$ROOTFS_DIR/usr/bin/synveil-input"
+fi
+if [[ "$NETWORK_ROOTFS" == 1 ]]; then
+    install -D -m 0755 "$ROOT_DIR/build/rootfs/configure-network" "$ROOTFS_DIR/usr/libexec/synveil/configure-network"
+    install -D -m 0755 "$ROOT_DIR/build/rootfs/udhcpc-script" "$ROOTFS_DIR/usr/libexec/synveil/udhcpc-script"
 fi
 if [[ "$PERSISTENCE_ROOTFS" == 1 ]]; then
     install -D -m 0755 "$ROOT_DIR/build/rootfs/mount-state" "$ROOTFS_DIR/usr/libexec/synveil/mount-state"

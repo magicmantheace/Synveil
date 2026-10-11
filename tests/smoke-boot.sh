@@ -9,6 +9,11 @@ TIMEOUT_SECONDS="${SYNVEIL_SMOKE_TIMEOUT:-30}"
 REQUIRE_NATIVE="${SYNVEIL_SMOKE_REQUIRE_NATIVE:-0}"
 REQUIRE_DISPLAY="${SYNVEIL_SMOKE_REQUIRE_DISPLAY:-0}"
 REQUIRE_INPUT="${SYNVEIL_SMOKE_REQUIRE_INPUT:-0}"
+REQUIRE_NETWORK="${SYNVEIL_SMOKE_REQUIRE_NETWORK:-0}"
+case "$REQUIRE_NETWORK" in
+    0|1) ;;
+    *) die "SYNVEIL_SMOKE_REQUIRE_NETWORK must be 0 or 1" ;;
+esac
 case "$REQUIRE_INPUT" in
     0|1) ;;
     *) die "SYNVEIL_SMOKE_REQUIRE_INPUT must be 0 or 1" ;;
@@ -37,6 +42,14 @@ if grep -Eq $'^SYNVEIL_BOOT_OK\r?$' "$LOG_FILE"; then
         if ! grep -Eq $'^SYNVEIL_DISPLAY_READY\r?$' "$LOG_FILE" ||
            grep -Eq $'^SYNVEIL_DISPLAY_UNAVAILABLE\r?$' "$LOG_FILE"; then
             log "virtio framebuffer was not writable in guest"
+            tail -n 120 "$LOG_FILE" >&2 || true
+            exit 1
+        fi
+    fi
+    if [[ "$REQUIRE_NETWORK" == 1 ]]; then
+        if ! grep -Eq $'^SYNVEIL_NETWORK_READY\r?$' "$LOG_FILE" ||
+           grep -Eq $'^SYNVEIL_NETWORK_UNAVAILABLE\r?$' "$LOG_FILE"; then
+            log "guest did not configure QEMU DHCP networking"
             tail -n 120 "$LOG_FILE" >&2 || true
             exit 1
         fi

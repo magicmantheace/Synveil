@@ -37,6 +37,10 @@ if [ -x /usr/libexec/synveil/start-core ]; then
     }
 fi
 
+if [ -x /usr/libexec/synveil/configure-network ]; then
+    /usr/libexec/synveil/configure-network || echo SYNVEIL_NETWORK_UNAVAILABLE
+fi
+
 if [ -x /usr/bin/synveil-display ]; then
     /usr/bin/synveil-display --demo || echo SYNVEIL_DISPLAY_UNAVAILABLE
 fi

@@ -198,7 +198,14 @@ an interactive desktop.
 The chosen frontend must be present in the installed QEMU build; check
 `qemu-system-x86_64 -display help`. Network access uses QEMU's user-mode
 network backend and is disabled by default. This provides hardware support,
-**not** a graphical session, terminal, DHCP setup, or network services.
+**not** a graphical session or terminal. DHCP is separately opt-in when
+building with `SYNVEIL_NETWORK_ROOTFS=1`, which installs a bounded, QEMU-only
+`eth0` DHCP helper and validated lease callback. Boot QEMU with
+`SYNVEIL_QEMU_NETWORK=1` to attach the NIC. The helper uses BusyBox `udhcpc`
+and reports `SYNVEIL_NETWORK_READY` only after IPv4 assignment.
+`SYNVEIL_SMOKE_REQUIRE_NETWORK=1` enables explicit guest validation.
+Normal serial CI remains offline; the runtime control protocol cannot
+enable network access by itself.
 The kernel config enables the matching DRM virtio GPU, input event and USB HID
 drivers, but actual device readiness still requires QEMU guest validation.
 

@@ -107,6 +107,7 @@ jobs:
           SYNVEIL_NATIVE_ROOTFS: "1"
           SYNVEIL_PERSISTENCE_ROOTFS: "1"
           SYNVEIL_GRAPHICS_ROOTFS: "1"
+          SYNVEIL_NETWORK_ROOTFS: "1"
         run: |
           set -o pipefail
           bash build.sh rootfs 2>&1 | tee out/logs/native-rootfs.log
@@ -144,6 +145,13 @@ jobs:
           SYNVEIL_QEMU_VIDEO: "1"
           SYNVEIL_SMOKE_REQUIRE_DISPLAY: "1"
           SYNVEIL_SMOKE_REQUIRE_INPUT: "1"
+        run: bash build.sh native-smoke
+
+      - name: Validate opt-in QEMU DHCP configuration
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        env:
+          SYNVEIL_QEMU_NETWORK: "1"
+          SYNVEIL_SMOKE_REQUIRE_NETWORK: "1"
         run: bash build.sh native-smoke
 
       - name: Verify state survives two separate QEMU boots

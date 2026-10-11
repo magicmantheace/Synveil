@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NativeSmokeTests(unittest.TestCase):
-    def run_smoke(self, console, native="1", display="0", input_required="0"):
+    def run_smoke(self, console, native="1", display="0", input_required="0", network="0"):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "tests").mkdir()
@@ -28,6 +28,7 @@ class NativeSmokeTests(unittest.TestCase):
                      "SYNVEIL_SMOKE_REQUIRE_NATIVE": native,
                      "SYNVEIL_SMOKE_REQUIRE_DISPLAY": display,
                      "SYNVEIL_SMOKE_REQUIRE_INPUT": input_required,
+                     "SYNVEIL_SMOKE_REQUIRE_NETWORK": network,
                      "FIXTURE_CONSOLE": console},
                 capture_output=True, text=True, timeout=5,
             )
@@ -66,6 +67,15 @@ class NativeSmokeTests(unittest.TestCase):
 
     def test_invalid_input_requirement_fails(self):
         self.assertNotEqual(self.run_smoke("SYNVEIL_BOOT_OK\n", input_required="yes"), 0)
+
+    def test_network_marker_requires_opt_in(self):
+        console = "SYNVEIL_CORE_READY\nSYNVEIL_BOOT_OK\n"
+        self.assertEqual(self.run_smoke(console), 0)
+        self.assertNotEqual(self.run_smoke(console, network="1"), 0)
+        self.assertEqual(self.run_smoke(
+            console + "SYNVEIL_NETWORK_READY\n", network="1"), 0)
+        self.assertNotEqual(self.run_smoke(
+            console + "SYNVEIL_NETWORK_UNAVAILABLE\n", network="1"), 0)
 
     def test_invalid_mode_fails(self):
         self.assertNotEqual(self.run_smoke("SYNVEIL_BOOT_OK\n", "yes"), 0)
