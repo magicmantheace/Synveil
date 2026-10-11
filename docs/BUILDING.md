@@ -216,13 +216,16 @@ the state disk, these preferences remain session-only. These UI settings
 do not change display modes, networking, permissions or AI authorization.
 An isolated host test covers read/write/corruption/symlink handling.
 The `bash build.sh ui-preferences-smoke --timeout 60` QEMU test now
-starts two separate VM processes on the same ext4 state disk: the serial
-recovery shell stages a known, private versioned preference record in the
-first boot, then the actual graphical launcher must emit
-`SYNVEIL_SETTINGS_LOADED` on the next boot. This proves cross-boot loading
-of the real menu, and also checks a private demo-home file retains its
-contents and UID/GID 1000 across the two independent QEMU boots. It does
-not simulate a user's actual pointer click.
+starts two separate VM processes on the same ext4 state disk. On boot one,
+it uses a private *host-only QMP Unix socket* to send actual keyboard events
+through the guest's Settings tile, toggling contrast and pointer size, and
+requires the on-disk preferences to match. The serial recovery shell separately
+writes a demo-user file. Boot two must report `SYNVEIL_SETTINGS_LOADED`
+from the real graphical launcher and prove that the private home file retains
+its contents and UID/GID 1000. The host QMP path must live in a mode-0700
+owner-owned directory; it is never available to Synveil's guest AI/core and
+is disabled for ordinary VM boots. The test still does not replace manual
+validation of visible graphical input or a secure authenticated login.
 The new guest test must pass before this behavior is marked validated.
 
 To start the read-only framebuffer menu automatically on boot, enable

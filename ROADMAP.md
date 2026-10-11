@@ -36,8 +36,9 @@ ready; full AI optimization and package management are not prerequisites.
 - [ ] Provide basic settings for the supported display/input/network setup
   - High-contrast/pointer-size controls now save a private versioned
     record when the QEMU ext4 state volume is mounted; host tests cover
-    atomic writing and invalid/symlink records. QEMU cross-boot validation,
-    display modes and network configuration UI remain open.
+    atomic writing and invalid/symlink records. An opt-in QMP keyboard test
+    now exercises the actual GUI Save -> QEMU reboot -> Load path, pending
+    full guest validation. Display modes and network settings remain open.
 - [ ] Validate desktop startup, reboot persistence, and console fallback
 - [ ] Publish a checksummed test image and installation/test instructions
 

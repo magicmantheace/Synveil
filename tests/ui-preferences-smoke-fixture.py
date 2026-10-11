@@ -33,7 +33,11 @@ if mode == "echo":
     sys.exit(0)
 line = sys.stdin.readline()
 if mode == "success" and phase == 1:
-    assert "desktop-pref.conf" in line and "/home/synveil/roundtrip" in line
+    assert "/home/synveil/roundtrip" in line
+    assert "desktop-pref.conf" not in line
+    print("SYNVEIL_HOME_SEEDED", flush=True)
+    verify = sys.stdin.readline()
+    assert "desktop-pref.conf" in verify and "contrast=1" in verify
     print("SYNVEIL_UI_PREFS_WRITE_OK", flush=True)
 elif mode == "success" and phase == 2:
     assert "stat -c" in line and "/home/synveil/roundtrip" in line
@@ -56,10 +60,13 @@ class UIPreferencesSmokeTests(unittest.TestCase):
     
     def boot(self, phase, mode):
         path = self.root / f"phase-{phase}-{mode}.log"
-        with patch.object(smoke, "ROOT", self.root), patch.dict(
+        with patch.object(smoke, "ROOT", self.root), \
+             patch.object(smoke, "settings_toggle") as keyboard, patch.dict(
             os.environ, {"SYNVEIL_TEST_MODE": mode, "SYNVEIL_TEST_PHASE": str(phase)}
         ):
             result = smoke.round_trip(self.disk, 1.5, phase, path)
+            if mode == "success":
+                self.assertEqual(keyboard.call_count, 1 if phase == 1 else 0)
         return result, path.read_text(errors="replace")
 
     def test_both_phases_require_real_markers(self):

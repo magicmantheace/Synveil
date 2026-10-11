@@ -81,10 +81,11 @@ save in a private, versioned record under `/var/lib/synveil/` **only when**
 the opt-in ext4 state disk is mounted. The file is atomically replaced and
 synchronized, and invalid records revert to safe defaults. Without a state
 volume, settings remain session-only. This is limited to two display choices:
-it never stores authorization or AI policy. A two-process QEMU guest test now requires the launcher to load a known
-versioned settings record on its next boot **and** verifies a UID 1000-owned
-demo-home file survived through the same state volume. The guest validation
-result remains pending. Display modes, authenticated login and a
+it never stores authorization or AI policy. A two-process QEMU guest test now drives the real graphical Settings
+screen through a private host QMP keyboard connection, verifies the launcher
+saved its two bounded preferences, then requires the launcher to load those
+preferences in a second QEMU process. The test also checks that a UID
+1000-owned demo-home file survived. Full guest execution remains pending. Display modes, authenticated login and a
 production network UI remain open.
 No AI can request or authorize actions from this menu. The serial recovery
 shell stays independent.

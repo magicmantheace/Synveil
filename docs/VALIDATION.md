@@ -99,14 +99,15 @@ failed** on a separate graphical desktop marker formatting assertion.
 Individual component checks are recorded as partial evidence, not a
 successful end-to-end desktop image.
 
-A dedicated `ui-preferences-smoke` test writes a valid private display
-record from the recovery shell, terminates that guest, then boots a new
-QEMU process and requires `SYNVEIL_SETTINGS_LOADED` emitted by the actual
-graphical menu. It checks the integration of durable storage and menu
-loading but does not constitute a full settings-UI interaction test.
-The host unit test separately checks the menu's atomic file writer and
-rejects corrupted, symlinked or permissively owned inputs. Neither new
-test is considered complete until its workflow execution succeeds.
+A dedicated `ui-preferences-smoke` test now sends keyboard actions through
+a private QEMU monitor into the actual Settings UI on the first boot,
+requires the expected saved file, then boots a second independent QEMU
+instance and requires `SYNVEIL_SETTINGS_LOADED` emitted by the menu.
+It also verifies a UID-1000-owned demo-home file survives. The QMP input
+helper is host-only, opt-in, key allowlisted, and its protocol is exercised
+against a fake monitor. The host unit test separately checks the menu's
+atomic file writer, corrupted records and symlink protections. Full QEMU
+execution remains necessary before marking the new behavior validated.
 
 The [d875da39 full native QEMU run](validation/native-d875da39/README.md)
 passed its build pipeline and all guest gates: core recovery, observer,
