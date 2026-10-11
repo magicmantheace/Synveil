@@ -70,8 +70,10 @@ class UIPreferencesSmokeTests(unittest.TestCase):
         return result, path.read_text(errors="replace")
 
     def test_both_phases_require_real_markers(self):
-        self.assertTrue(self.boot(1, "success")[0])
-        self.assertTrue(self.boot(2, "success")[0])
+        first, console = self.boot(1, "success")
+        self.assertTrue(first, console)
+        second, console = self.boot(2, "success")
+        self.assertTrue(second, console)
 
     def test_errors_fail_closed(self):
         for phase in (1, 2):

@@ -30,6 +30,9 @@ class QemuOptionTests(unittest.TestCase):
         self.args_file = self.work / "args"
 
     def invoke(self, extra=None):
+        # Rejected QEMU launches must not accidentally reuse captured
+        # arguments from an earlier successful invocation.
+        self.args_file.unlink(missing_ok=True)
         env = {
             **os.environ,
             "PATH": str(self.bin) + os.pathsep + os.environ.get("PATH", ""),
