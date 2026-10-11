@@ -197,6 +197,14 @@ When booted with `SYNVEIL_QEMU_DISPLAY=gtk` and the graphics rootfs enabled,
 you may manually start `synveil-display --menu` from the recovery shell for
 a basic keyboard-driven status/storage/network display.
 
+To start the read-only framebuffer menu automatically on boot, enable
+`SYNVEIL_DESKTOP_AUTOSTART=1` **and**
+`SYNVEIL_GRAPHICS_ROOTFS=1` when building the rootfs. The menu is a
+background process; it does not replace the independent serial recovery shell.
+CI's graphics smoke requires `SYNVEIL_DESKTOP_READY` only after a drawable
+framebuffer and usable keyboard have both been opened. This is still a
+development desktop prototype, not a login-capable user session.
+
 A separate source-built `synveil-vt` tool can launch an actual kernel-backed
 interactive shell on framebuffer VT1. This is a **developer test VM only**
 entrypoint with no login/authentication, and is **never started by init**.

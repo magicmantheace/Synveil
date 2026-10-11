@@ -6,8 +6,11 @@ source "$(dirname "$0")/common.sh"
 NATIVE_ROOTFS="${SYNVEIL_NATIVE_ROOTFS:-0}"
 NETWORK_ROOTFS="${SYNVEIL_NETWORK_ROOTFS:-0}"
 [[ "$NETWORK_ROOTFS" == 0 || "$NETWORK_ROOTFS" == 1 ]] || die "SYNVEIL_NETWORK_ROOTFS must be 0 or 1"
+DESKTOP_AUTOSTART="${SYNVEIL_DESKTOP_AUTOSTART:-0}"
+[[ "$DESKTOP_AUTOSTART" == 0 || "$DESKTOP_AUTOSTART" == 1 ]] || die "SYNVEIL_DESKTOP_AUTOSTART must be 0 or 1"
 GRAPHICS_ROOTFS="${SYNVEIL_GRAPHICS_ROOTFS:-0}"
 [[ "$GRAPHICS_ROOTFS" == 0 || "$GRAPHICS_ROOTFS" == 1 ]] || die "SYNVEIL_GRAPHICS_ROOTFS must be 0 or 1"
+[[ "$DESKTOP_AUTOSTART" != 1 || "$GRAPHICS_ROOTFS" == 1 ]] || die "desktop autostart requires SYNVEIL_GRAPHICS_ROOTFS=1"
 PERSISTENCE_ROOTFS="${SYNVEIL_PERSISTENCE_ROOTFS:-0}"
 [[ "$PERSISTENCE_ROOTFS" == 0 || "$PERSISTENCE_ROOTFS" == 1 ]] || die "SYNVEIL_PERSISTENCE_ROOTFS must be 0 or 1"
 [[ "$NATIVE_ROOTFS" == 0 || "$NATIVE_ROOTFS" == 1 ]] || die "SYNVEIL_NATIVE_ROOTFS must be 0 or 1"
@@ -58,6 +61,9 @@ if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
         "$ROOT_DIR/src/veil-display/input.c" -o "$ROOTFS_DIR/usr/bin/synveil-input"
     "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \
         "$ROOT_DIR/src/veil-display/vt.c" -o "$ROOTFS_DIR/usr/bin/synveil-vt"
+    if [[ "$DESKTOP_AUTOSTART" == 1 ]]; then
+        install -D -m 0644 /dev/null "$ROOTFS_DIR/etc/synveil/desktop-autostart"
+    fi
 fi
 if [[ "$NETWORK_ROOTFS" == 1 ]]; then
     install -D -m 0755 "$ROOT_DIR/build/rootfs/configure-network" "$ROOTFS_DIR/usr/libexec/synveil/configure-network"

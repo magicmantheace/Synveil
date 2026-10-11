@@ -107,6 +107,7 @@ jobs:
           SYNVEIL_NATIVE_ROOTFS: "1"
           SYNVEIL_PERSISTENCE_ROOTFS: "1"
           SYNVEIL_GRAPHICS_ROOTFS: "1"
+          SYNVEIL_DESKTOP_AUTOSTART: "1"
           SYNVEIL_NETWORK_ROOTFS: "1"
         run: |
           set -o pipefail
@@ -149,6 +150,7 @@ jobs:
           SYNVEIL_SMOKE_REQUIRE_DISPLAY: "1"
           SYNVEIL_SMOKE_REQUIRE_INPUT: "1"
           SYNVEIL_SMOKE_REQUIRE_VT: "1"
+          SYNVEIL_SMOKE_REQUIRE_DESKTOP: "1"
         run: bash build.sh native-smoke
 
       - name: Validate opt-in QEMU DHCP configuration

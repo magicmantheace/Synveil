@@ -245,6 +245,8 @@ static int run_menu(const struct surface *screen) {
     }
     struct menu_state state = {.selected = 0u, .page = -1, .quit = 0};
     render_menu(screen, &state);
+    puts("SYNVEIL_DESKTOP_READY");
+    fflush(stdout);
     while (!state.quit) {
         struct pollfd pfd = {.fd = keyboard, .events = POLLIN, .revents = 0};
         int result = poll(&pfd, 1, 1000);

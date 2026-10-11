@@ -47,6 +47,13 @@ unsuitable for a user install until there is login/authentication and a
 non-root graphical session. A fast host self-test checks the CLI boundary;
 the guest must expose real framebuffer and VT device nodes.
 
+The graphical menu now optionally autostarts from a fixed build-time
+`/etc/synveil/desktop-autostart` marker. Its startup marker is produced only
+after framebuffer mapping and keyboard discovery. It runs alongside the serial
+console, so a missing or failed display cannot remove recovery. The build
+option is off by default, and the first user's installation still requires
+more than this provisional session.
+
 A manually started `synveil-display --menu` session now provides a
 read-only framebuffer launcher prototype. Arrow keys select Status, Storage
 and Network views; Enter opens a view, Escape goes back or exits.

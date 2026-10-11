@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NativeSmokeTests(unittest.TestCase):
-    def run_smoke(self, console, native="1", display="0", input_required="0", network="0", vt="0"):
+    def run_smoke(self, console, native="1", display="0", input_required="0", network="0", vt="0", desktop="0"):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "tests").mkdir()
@@ -30,6 +30,7 @@ class NativeSmokeTests(unittest.TestCase):
                      "SYNVEIL_SMOKE_REQUIRE_INPUT": input_required,
                      "SYNVEIL_SMOKE_REQUIRE_NETWORK": network,
                      "SYNVEIL_SMOKE_REQUIRE_VT": vt,
+                     "SYNVEIL_SMOKE_REQUIRE_DESKTOP": desktop,
                      "FIXTURE_CONSOLE": console},
                 capture_output=True, text=True, timeout=5,
             )
@@ -83,6 +84,14 @@ class NativeSmokeTests(unittest.TestCase):
         self.assertNotEqual(self.run_smoke(console, vt="1"), 0)
         self.assertEqual(self.run_smoke(console + "SYNVEIL_VT_READY\n", vt="1"), 0)
         self.assertNotEqual(self.run_smoke(console + "SYNVEIL_VT_UNAVAILABLE\n", vt="1"), 0)
+
+    def test_desktop_marker_is_required_when_enabled(self):
+        console = "SYNVEIL_CORE_READY\nSYNVEIL_BOOT_OK\n"
+        self.assertNotEqual(self.run_smoke(console, desktop="1"), 0)
+        self.assertEqual(self.run_smoke(
+            console + "SYNVEIL_DESKTOP_READY\n", desktop="1"), 0)
+        self.assertNotEqual(self.run_smoke(
+            console + "echo SYNVEIL_DESKTOP_READY\n", desktop="1"), 0)
 
     def test_invalid_mode_fails(self):
         self.assertNotEqual(self.run_smoke("SYNVEIL_BOOT_OK\n", "yes"), 0)

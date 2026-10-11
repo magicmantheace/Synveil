@@ -50,6 +50,11 @@ fi
 if [ -x /usr/bin/synveil-vt ]; then
     /usr/bin/synveil-vt --probe || echo SYNVEIL_VT_UNAVAILABLE
 fi
+# The read-only menu is optional and never owns the serial recovery shell.
+# Failed graphics input cannot prevent the machine from reaching a console.
+if [ -f /etc/synveil/desktop-autostart ] && [ -x /usr/bin/synveil-display ]; then
+    /usr/bin/synveil-display --menu &
+fi
 
 echo
 echo "Synveil bootstrap"
