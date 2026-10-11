@@ -18,7 +18,7 @@ ready; full AI optimization and package management are not prerequisites.
 - [ ] Establish a usable networking configuration path
   - QEMU eth0 DHCP bootstrap and guest smoke check implemented; guest validation and settings UI remain open.
 - [ ] Select and build a minimal graphical session with terminal and launcher
-  - Source-built framebuffer menu with optional boot autostart, plus manual developer VT shell, have been implemented; authenticated non-root session, broader launcher and compositor remain open.
+  - Source-built framebuffer menu with keyboard and USB tablet clicks, optional boot autostart, plus manual developer VT shell, have been implemented; authenticated non-root session, broader launcher and compositor remain open.
 - [ ] Provide basic settings for the supported display/input/network setup
 - [ ] Validate desktop startup, reboot persistence, and console fallback
 - [ ] Publish a checksummed test image and installation/test instructions

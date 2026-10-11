@@ -195,7 +195,11 @@ evdev has exposed at least one keyboard and pointer. With
 devices as well as the framebuffer. Neither check provides a compositor or a finished desktop.
 When booted with `SYNVEIL_QEMU_DISPLAY=gtk` and the graphics rootfs enabled,
 you may manually start `synveil-display --menu` from the recovery shell for
-a basic keyboard-driven status/storage/network display.
+a basic status/storage/network display. In the QEMU graphics configuration,
+the USB tablet supports a visible pointer: move the pointer to a tile and
+left-click to open it; click **BACK** in the top-right to return. Keyboard
+navigation remains Left/Right, Enter and Escape. If no tablet is found, the
+keyboard-only menu remains usable.
 
 To start the read-only framebuffer menu automatically on boot, enable
 `SYNVEIL_DESKTOP_AUTOSTART=1` **and**

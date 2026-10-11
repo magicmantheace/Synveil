@@ -56,7 +56,9 @@ more than this provisional session.
 
 A manually started `synveil-display --menu` session now provides a
 read-only framebuffer launcher prototype. Arrow keys select Status, Storage
-and Network views; Enter opens a view, Escape goes back or exits.
+and Network views; Enter opens a view, Escape goes back or exits. An attached
+QEMU USB tablet also supplies absolute pointer motion and left-click
+navigation; missing mouse input does not block keyboard recovery.
 It intentionally does not run a graphical terminal or perform privileged
 changes. The serial recovery shell stays independent.
 
