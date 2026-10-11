@@ -73,13 +73,14 @@ static int developer_terminal(void) {
         _exit(1);
     }
     if (terminal > STDERR_FILENO) close(terminal);
-    (void)write(STDOUT_FILENO,
+    ssize_t banner_written = write(STDOUT_FILENO,
         "\033[2J\033[H"
         "Synveil developer console (UNAUTHENTICATED ROOT)\r\n"
         "Test VM only. Type exit to close this shell.\r\n\r\n",
         sizeof("\033[2J\033[H"
         "Synveil developer console (UNAUTHENTICATED ROOT)\r\n"
         "Test VM only. Type exit to close this shell.\r\n\r\n") - 1);
+    if (banner_written < 0) _exit(1);
     execl("/bin/sh", "sh", "-i", (char *)NULL);
     _exit(127);
 }
