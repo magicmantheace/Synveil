@@ -210,8 +210,14 @@ private versioned file using atomic replace and `fsync`. The startup
 menu loads it on the next boot, rejecting malformed records. Without
 the state disk, these preferences remain session-only. These UI settings
 do not change display modes, networking, permissions or AI authorization.
-An isolated host test covers read/write/corruption/symlink handling;
-full guest cross-reboot testing remains open.
+An isolated host test covers read/write/corruption/symlink handling.
+The `bash build.sh ui-preferences-smoke --timeout 60` QEMU test now
+starts two separate VM processes on the same ext4 state disk: the serial
+recovery shell stages a known, private versioned preference record in the
+first boot, then the actual graphical launcher must emit
+`SYNVEIL_SETTINGS_LOADED` on the next boot. This proves cross-boot loading
+of the real menu, but does not simulate a user's actual pointer click.
+The new guest test must pass before this behavior is marked validated.
 
 To start the read-only framebuffer menu automatically on boot, enable
 `SYNVEIL_DESKTOP_AUTOSTART=1` **and**

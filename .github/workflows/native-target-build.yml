@@ -172,6 +172,10 @@ jobs:
           bash build.sh state-disk --size-mib 128
           bash build.sh persistence-smoke --timeout 60
 
+      - name: Verify graphical settings load across separate QEMU boots
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: bash build.sh ui-preferences-smoke --timeout 60
+
       - name: Preserve native build evidence
         if: always()
         uses: actions/upload-artifact@v4

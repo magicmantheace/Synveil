@@ -99,6 +99,15 @@ failed** on a separate graphical desktop marker formatting assertion.
 Individual component checks are recorded as partial evidence, not a
 successful end-to-end desktop image.
 
+A dedicated `ui-preferences-smoke` test writes a valid private display
+record from the recovery shell, terminates that guest, then boots a new
+QEMU process and requires `SYNVEIL_SETTINGS_LOADED` emitted by the actual
+graphical menu. It checks the integration of durable storage and menu
+loading but does not constitute a full settings-UI interaction test.
+The host unit test separately checks the menu's atomic file writer and
+rejects corrupted, symlinked or permissively owned inputs. Neither new
+test is considered complete until its workflow execution succeeds.
+
 The [first user test-install contract](FIRST_INSTALL.md) adds desktop startup,
 persistent storage across reboot, input/network usability, and console fallback
 checks before a user-facing test image is offered.

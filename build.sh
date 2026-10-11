@@ -26,6 +26,7 @@ Usage:
   bash build.sh guest-fixture --case absent|protocol
   bash build.sh state-disk [--path PATH] [--size-mib N]
   bash build.sh persistence-smoke [--timeout SECONDS]
+  bash build.sh ui-preferences-smoke [--timeout SECONDS]
   bash build.sh vm-bundle [--dest PATH] [--size-mib N]
   bash build.sh all
   bash build.sh clean
@@ -35,7 +36,7 @@ EOF
 
 command="${1:-help}"
 case "$command" in
-    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|recovery-smoke|guest-fixture|state-disk|persistence-smoke|vm-bundle|clean|distclean)
+    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|recovery-smoke|guest-fixture|state-disk|persistence-smoke|ui-preferences-smoke|vm-bundle|clean|distclean)
         exec 9>"$ROOT_DIR/.synveil-build.lock"
         flock -n 9 || {
             printf '[synveil] another build command owns this checkout; wait for it to finish\n' >&2
@@ -107,6 +108,9 @@ case "$command" in
         ;;
     persistence-smoke)
         python3 "$ROOT_DIR/tests/smoke-persistence.py" "${@:2}"
+        ;;
+    ui-preferences-smoke)
+        python3 "$ROOT_DIR/tests/smoke-ui-preferences.py" "${@:2}"
         ;;
     vm-bundle)
         python3 "$ROOT_DIR/tools/vm_bundle.py" "${@:2}"

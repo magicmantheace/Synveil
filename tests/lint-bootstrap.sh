@@ -29,7 +29,7 @@ sh -n build/rootfs/start-core
 sh -n build/rootfs/mount-state
 sh -n build/rootfs/configure-network
 sh -n build/rootfs/udhcpc-script
-python3 -m py_compile tools/source_lock.py tools/build_manifest.py tools/state_disk.py tests/smoke-persistence.py tools/vm_bundle.py tests/vm-bundle.py
+python3 -m py_compile tools/source_lock.py tools/build_manifest.py tools/state_disk.py tests/smoke-persistence.py tests/smoke-ui-preferences.py tools/vm_bundle.py tests/vm-bundle.py
 python3 -m json.tool build/manifests/sources.json >/dev/null
 python3 tools/source_lock.py dump >/dev/null
 python3 tests/validate-source-lock.py

@@ -76,8 +76,9 @@ save in a private, versioned record under `/var/lib/synveil/` **only when**
 the opt-in ext4 state disk is mounted. The file is atomically replaced and
 synchronized, and invalid records revert to safe defaults. Without a state
 volume, settings remain session-only. This is limited to two display choices:
-it never stores authorization or AI policy. Guest reboot validation for
-these preferences is pending. Display modes, authenticated login and a
+it never stores authorization or AI policy. A two-process QEMU
+guest test now requires the launcher to load a known versioned settings
+record on its next boot. The guest validation result remains pending. Display modes, authenticated login and a
 production network UI remain open.
 No AI can request or authorize actions from this menu. The serial recovery
 shell stays independent.
