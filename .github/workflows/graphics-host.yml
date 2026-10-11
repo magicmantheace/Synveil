@@ -1,0 +1,39 @@
+name: Graphics diagnostic host checks
+
+on:
+  push:
+    branches: [phase2/native-core-bootstrap]
+    paths:
+      - src/veil-display/**
+      - tests/display-build.py
+      - tests/qemu-options.py
+      - tests/native-smoke.py
+      - tests/smoke-boot.sh
+      - build/scripts/qemu.sh
+      - .github/workflows/graphics-host.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: graphics-host-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+      - name: Compile framebuffer diagnostic and check memory bounds
+        run: python3 tests/display-build.py
+      - name: Test QEMU device configuration
+        run: python3 tests/qemu-options.py
+      - name: Test serial boot and graphics smoke verdicts
+        run: python3 tests/native-smoke.py
+      - name: Validate launcher shell syntax
+        run: |
+          bash -n build/scripts/qemu.sh
+          bash -n tests/smoke-boot.sh
