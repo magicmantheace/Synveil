@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use serde_json::{Value, json};
+use std::fs::OpenOptions;
+use std::io::{self, Write};
+use std::os::unix::fs::OpenOptionsExt;
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -30,7 +34,27 @@ fn record_at(event: &str, fields: Value, unix_time_ms: Option<u64>) -> Value {
 }
 
 pub fn emit(event: &str, fields: Value) {
-    eprintln!("{}", record(event, fields));
+    let line = record(event, fields).to_string();
+    eprintln!("{line}");
+    // Opt-in audit journal, only set by bootstrap after /var is mounted.
+    // Console logging remains available even if persistent storage fails.
+    if let Some(path) = std::env::var_os("SYNVEIL_AUDIT_PATH") {
+        if let Err(error) = append_record(Path::new(&path), &line) {
+            eprintln!("[synveil-audit] persistent write failed: {error}");
+        }
+    }
+}
+
+fn append_record(path: &Path, line: &str) -> io::Result<()> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .mode(0o600)
+        .open(path)?;
+    let mut bytes = line.as_bytes().to_vec();
+    bytes.push(b'\n');
+    file.write_all(&bytes)?;
+    file.sync_data()
 }
 
 #[cfg(test)]

@@ -22,13 +22,21 @@ record construction order within a process, not cross-process ordering or
 concurrent sink-write order. JSON serialization escapes embedded newlines and
 carriage returns so a field cannot create an additional console record.
 
-The sink is stderr. No on-disk append journal, fsync guarantee, rotation,
-tamper evidence, or reboot persistence exists yet. The durable-audit roadmap
-item remains open pending writable storage and sink semantics. These are
-service/status records; future privileged actions require their own typed
-cause, parameters, result, authorization, and rollback evidence.
+The default sink is stderr. When the opt-in QEMU ext4 state disk is mounted
+at `/var`, bootstrap enables `SYNVEIL_AUDIT_PATH`. The supervisor and worker
+then also append each event to `/var/log/synveil/core-audit.jsonl`, creating it
+mode 0600 in a root-owned mode 0700 directory and calling `sync_data()` after
+each event. Sink failures are reported on the console; they do not disable
+recovery. Sequence numbers remain process-local, not a cross-process ordering.
+
+This is a developer-grade persistent event log, not a complete durable-audit
+subsystem. It lacks rotation, tamper evidence, integrity checks, a history API,
+and disk-full policy. The durable-audit roadmap item remains open. Future
+privileged actions also require typed cause, parameters, result, authorization,
+and rollback evidence.
 
 Unit tests cover identity, sequence ordering, unavailable clocks, and escaped
-fields. A host integration test starts the actual core, obtains a status
-response, and validates its startup/socket/request/shutdown records. CI must
-pass these tests before the new format is treated as validated.
+fields. A host integration test starts the actual core with a temporary journal,
+obtains status, and checks that the on-disk event stream matches console
+records with owner-only file permissions. Guest reboot testing must separately
+prove that the journal is written to persistent storage.

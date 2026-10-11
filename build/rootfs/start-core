@@ -5,6 +5,12 @@ core=/usr/sbin/veil-core
 ctl=/usr/bin/synctl
 socket=/run/synveil/veil-core.sock
 
+# Only enable the journal if /var really is the separate ext4 volume.
+# Missing state storage retains console-only logging and recovery.
+if grep -q ' /var ext4 ' /proc/mounts 2>/dev/null && [ -d /var/log/synveil ]; then
+    export SYNVEIL_AUDIT_PATH=/var/log/synveil/core-audit.jsonl
+fi
+
 if [ ! -x "$core" ] || [ ! -x "$ctl" ]; then
     echo "[synveil-init] native binaries unavailable; recovery remains available"
     echo SYNVEIL_CORE_UNAVAILABLE

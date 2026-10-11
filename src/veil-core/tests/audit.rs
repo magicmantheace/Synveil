@@ -3,6 +3,7 @@
 use serde_json::{Value, json};
 use std::io::{BufReader, Write};
 use std::os::unix::net::UnixStream;
+use std::os::unix::fs::PermissionsExt;
 use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -24,11 +25,13 @@ fn running_core_emits_versioned_status_lifecycle_records() {
     let directory = std::env::temp_dir().join(format!("veil-audit-test-{}", std::process::id()));
     std::fs::create_dir(&directory).unwrap();
     let socket = directory.join("core.sock");
+    let journal = directory.join("core-audit.jsonl");
     let mut core = Core(Some(
         Command::new(env!("CARGO_BIN_EXE_veil-core"))
             .arg("--once")
             .arg("--socket")
             .arg(&socket)
+            .env("SYNVEIL_AUDIT_PATH", &journal)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()
@@ -82,5 +85,17 @@ fn running_core_emits_versioned_status_lifecycle_records() {
         .unwrap();
     assert_eq!(request["fields"]["id"], "audit-test");
     assert_eq!(request["fields"]["method"], "status");
+    let persisted: Vec<Value> = std::fs::read_to_string(&journal)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(persisted, records, "journal must match console event stream");
+    assert_eq!(
+        std::fs::metadata(&journal).unwrap().permissions().mode() & 0o777,
+        0o600,
+        "journal must be owner-readable only"
+    );
+    std::fs::remove_file(journal).unwrap();
     std::fs::remove_dir(directory).unwrap();
 }
