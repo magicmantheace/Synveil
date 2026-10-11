@@ -349,11 +349,17 @@ mod tests {
             io::ErrorKind::AlreadyExists
         );
         assert!(path.exists());
-        // Drain the liveness probe before closing the listener. Otherwise a
-        // queued, unaccepted connection can make this stale-socket assertion
-        // sensitive to kernel socket teardown timing.
-        let (probe, _) = listener.accept().expect("accept liveness probe");
-        drop(probe);
+        drop(listener);
+        fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn unix_socket_removes_stale_listener() {
+        let path = test_socket_path();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        // Independent fixture: no active-liveness probe leaves connections
+        // queued in this listener when it is closed.
+        let listener = UnixListener::bind(&path).unwrap();
         drop(listener);
         prepare_socket_path(&path).expect("stale socket is removable");
         assert!(!path.exists());
