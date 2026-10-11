@@ -87,7 +87,8 @@ def main() -> int:
     rounds = (
         (b"SYNVEIL_PERSIST_WRITE_OK",
          "printf '%s' synveil-persistence-v1 > /var/lib/synveil/roundtrip && "
-         "sync && printf '\\n%s%s\\n' SYNVEIL_ PERSIST_WRITE_OK\n",
+         "sync && test -s /var/log/synveil/core-audit.jsonl && "
+         "printf '\\n%s%s\\n' SYNVEIL_ PERSIST_WRITE_OK\n",
          logs / "qemu-persistence-write.log"),
         (b"SYNVEIL_PERSIST_READ_OK",
          "if [ \"$(cat /var/lib/synveil/roundtrip)\" = synveil-persistence-v1 ]; then "

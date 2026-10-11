@@ -224,7 +224,10 @@ To verify actual persistence across separate VM processes:
 bash build.sh persistence-smoke --timeout 60
 ```
 
-This is not yet the final root filesystem/storage or an on-disk audit journal.
+This is not yet the final root filesystem/storage or a production-grade
+audit journal. With a mounted state volume, native `veil-core` writes
+synchronized JSONL events under `/var/log/synveil/`; it does not yet provide
+journal rotation, verified integrity, or historical query APIs.
 First hardware installation and user-facing desktop testing remain blocked
 until the separate installation contract is met.
 
