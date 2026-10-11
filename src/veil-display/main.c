@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // A source-built framebuffer diagnostic. Not a desktop or a privileged agent.
-#define _POSIX_C_SOURCE 200809L
+#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
@@ -187,6 +187,69 @@ static int mounted_state(void) {
     return found;
 }
 
+static void show_runtime_details(const struct surface *screen, int page,
+                                 unsigned y, uint32_t color) {
+    char line[96];
+    if (page == 0) {
+        long cpus = sysconf(_SC_NPROCESSORS_ONLN);
+        if (cpus > 0) {
+            snprintf(line, sizeof(line), "CPU %ld THREADS", cpus);
+            heading(screen, line, 32u, y, 2u, color);
+        }
+        FILE *memory = fopen("/proc/meminfo", "r");
+        if (memory != NULL) {
+            unsigned long long available = 0;
+            char buffer[256];
+            while (fgets(buffer, sizeof(buffer), memory)) {
+                if (strncmp(buffer, "MemAvailable:", 13) == 0 &&
+                    sscanf(buffer + 13, " %llu kB", &available) == 1) break;
+            }
+            fclose(memory);
+            if (available > 0) {
+                snprintf(line, sizeof(line), "RAM %llu MB AVAILABLE", available / 1024u);
+                heading(screen, line, 32u, y + 34u, 2u, color);
+            }
+        }
+        FILE *uptime = fopen("/proc/uptime", "r");
+        if (uptime != NULL) {
+            double seconds = 0.0;
+            if (fscanf(uptime, "%lf", &seconds) == 1 &&
+                seconds >= 0.0 && seconds < 1.0e12) {
+                snprintf(line, sizeof(line), "UPTIME %llu MIN",
+                         (unsigned long long)(seconds / 60.0));
+                heading(screen, line, 32u, y + 68u, 2u, color);
+            }
+            fclose(uptime);
+        }
+    } else if (page == 1 && mounted_state()) {
+        struct statvfs filesystem;
+        if (statvfs("/var", &filesystem) == 0 && filesystem.f_frsize != 0) {
+            unsigned long long free_mb =
+                (unsigned long long)filesystem.f_bavail * filesystem.f_frsize / 1048576ull;
+            snprintf(line, sizeof(line), "FREE %llu MB", free_mb);
+            heading(screen, line, 32u, y, 2u, color);
+        }
+    } else if (page == 2) {
+        int fd = socket(AF_INET, SOCK_DGRAM, 0);
+        if (fd >= 0) {
+            struct ifreq request = {0};
+            snprintf(request.ifr_name, sizeof(request.ifr_name), "eth0");
+            if (ioctl(fd, SIOCGIFADDR, &request) == 0) {
+                const struct sockaddr_in *address =
+                    (const struct sockaddr_in *)&request.ifr_addr;
+                char ip[INET_ADDRSTRLEN];
+                if (inet_ntop(AF_INET, &address->sin_addr, ip, sizeof(ip)) != NULL) {
+                    snprintf(line, sizeof(line), "IP %s", ip);
+                    heading(screen, line, 32u, y, 2u, color);
+                }
+            } else {
+                heading(screen, "IP NOT ASSIGNED", 32u, y, 2u, color);
+            }
+            close(fd);
+        }
+    }
+}
+
 static void render_menu(const struct surface *screen, const struct menu_state *state) {
     unsigned w = screen->variable.xres;
     unsigned h = screen->variable.yres;
@@ -219,6 +282,7 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
                 "VIRTUAL NIC PRESENT" : "VIRTUAL NIC MISSING";
         }
         heading(screen, label, 32u, h / 3u, 2u, muted);
+        show_runtime_details(screen, state->page, h / 3u + 44u, muted);
         heading(screen, "BACK", w > 125u ? w - 105u : 0u, 18u, 2u, title);
         heading(screen, "ESC TO GO BACK", 32u, h * 4u / 5u, 2u, title);
         return;
