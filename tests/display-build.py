@@ -10,6 +10,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DisplaySourceTests(unittest.TestCase):
+    def test_versioned_preferences_are_private_atomic_and_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            executable = Path(tmp) / "desktop-preferences-test"
+            subprocess.run(
+                ["gcc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                 str(ROOT / "tests/display-preferences.c"),
+                 str(ROOT / "src/veil-display/preferences.c"),
+                 "-I", str(ROOT / "src/veil-display"), "-o", str(executable)],
+                check=True,
+            )
+            subprocess.run([str(executable)], check=True, timeout=3)
+
     def test_developer_virtual_terminal_requires_explicit_manual_launch(self):
         with tempfile.TemporaryDirectory() as tmp:
             executable = Path(tmp) / "synveil-vt"
@@ -39,7 +51,9 @@ class DisplaySourceTests(unittest.TestCase):
             executable = Path(tmp) / "synveil-display"
             subprocess.run(
                 ["gcc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror",
-                 str(ROOT / "src/veil-display/main.c"), "-o", str(executable)],
+                 str(ROOT / "src/veil-display/main.c"),
+                 str(ROOT / "src/veil-display/preferences.c"),
+                 "-o", str(executable)],
                 check=True,
             )
             subprocess.run([str(executable), "--self-test"], check=True, timeout=3)

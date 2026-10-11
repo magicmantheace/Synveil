@@ -21,6 +21,7 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "preferences.h"
 
 struct surface {
     unsigned char *mapped;
@@ -492,6 +493,18 @@ static int run_menu(const struct surface *screen) {
         return 1;
     }
     struct menu_state state = {.selected = 0u, .page = -1, .quit = 0};
+    // Persist only explicit display choices. No authorization or AI policy
+    // is read from this file. Without the opt-in ext4 state disk the UI works
+    // exactly as before, with ephemeral settings.
+    const char *const preferences_dir = "/var/lib/synveil";
+    if (mounted_state()) {
+        struct desktop_preferences loaded = {0};
+        if (preferences_load(preferences_dir, &loaded)) {
+            state.high_contrast = loaded.high_contrast;
+            state.cursor_scale = loaded.cursor_scale;
+            puts("\nSYNVEIL_SETTINGS_LOADED");
+        }
+    }
     struct pointer_device pointer = open_pointer();
     render_menu(screen, &state);
     render_cursor(screen, &pointer, &state);
@@ -500,6 +513,8 @@ static int run_menu(const struct surface *screen) {
     puts("\nSYNVEIL_DESKTOP_READY");
     fflush(stdout);
     while (!state.quit) {
+        int old_contrast = state.high_contrast;
+        unsigned old_cursor_scale = state.cursor_scale;
         struct pollfd fds[2] = {{.fd = keyboard, .events = POLLIN},
                                 {.fd = pointer.fd, .events = POLLIN}};
         nfds_t count = pointer.fd >= 0 ? 2u : 1u;
@@ -546,6 +561,21 @@ static int run_menu(const struct surface *screen) {
                 fputs("[synveil-display] demo terminal did not start or exited abnormally\n", stderr);
             state.page = -1;
             redraw = 1;
+        }
+        if (state.high_contrast != old_contrast ||
+            state.cursor_scale != old_cursor_scale) {
+            if (mounted_state()) {
+                struct desktop_preferences current = {
+                    .high_contrast = state.high_contrast,
+                    .cursor_scale = state.cursor_scale
+                };
+                if (preferences_save(preferences_dir, &current) != 0) {
+                    fputs("[synveil-display] could not persist display settings\n", stderr);
+                } else {
+                    puts("\nSYNVEIL_SETTINGS_SAVED");
+                    fflush(stdout);
+                }
+            }
         }
         if (redraw && !state.quit) {
             render_menu(screen, &state);

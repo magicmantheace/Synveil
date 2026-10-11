@@ -63,5 +63,11 @@ This is not a Wayland compositor, mouse-driven window manager, graphical
 application launcher, authenticated terminal, secure display manager,
 production installer, or certified hardware driver configuration. The root
 debug shell remains a trusted local **developer VM** capability only. Network
-interfaces still require explicit opt-in. User settings, on-disk profile
-state, sessions, and display/input management are separate milestones.
+interfaces still require explicit opt-in. The two simple display choices now use an opt-in versioned state record
+only on the existing trusted QEMU `/var` ext4 volume. Writes replace an
+owner-private file atomically, synchronize it, and reject invalid records;
+a missing volume means ephemeral defaults, not a boot failure. No
+authorization is inferred from saved display preferences. Host tests
+validate corrupt records, refused symlinks and file permissions; on-device
+cross-reboot tests remain outstanding. Broader profiles, authenticated user
+sessions, and display/input management are separate milestones.

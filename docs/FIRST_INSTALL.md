@@ -71,9 +71,14 @@ QEMU USB tablet also supplies absolute pointer motion and left-click
 navigation; missing mouse input does not block keyboard recovery.
 The menu now has Status, Storage, Network, Terminal and Settings. Its
 read-only panels report actual local CPU/memory/uptime, state-volume free
-space and network IPv4. Display settings adjust only current-session
-contrast and pointer size; the guest still lacks persistent settings,
-display modes, an authenticated account and a production network UI.
+space and network IPv4. Display contrast and pointer-size selections now
+save in a private, versioned record under `/var/lib/synveil/` **only when**
+the opt-in ext4 state disk is mounted. The file is atomically replaced and
+synchronized, and invalid records revert to safe defaults. Without a state
+volume, settings remain session-only. This is limited to two display choices:
+it never stores authorization or AI policy. Guest reboot validation for
+these preferences is pending. Display modes, authenticated login and a
+production network UI remain open.
 No AI can request or authorize actions from this menu. The serial recovery
 shell stays independent.
 

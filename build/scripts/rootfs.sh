@@ -56,7 +56,8 @@ install -m 0755 "$ROOT_DIR/build/rootfs/init" "$ROOTFS_DIR/init"
 if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
     # Diagnostic framebuffer splash, not a desktop compositor.
     "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \
-        "$ROOT_DIR/src/veil-display/main.c" -o "$ROOTFS_DIR/usr/bin/synveil-display"
+        "$ROOT_DIR/src/veil-display/main.c" "$ROOT_DIR/src/veil-display/preferences.c" \
+        -o "$ROOTFS_DIR/usr/bin/synveil-display"
     "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \
         "$ROOT_DIR/src/veil-display/input.c" -o "$ROOTFS_DIR/usr/bin/synveil-input"
     "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \

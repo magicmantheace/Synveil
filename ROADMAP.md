@@ -26,9 +26,10 @@ ready; full AI optimization and package management are not prerequisites.
 - [ ] Select and build a minimal graphical session with terminal and launcher
   - Framebuffer menu with keyboard/tablet clicks, optional autostart and a fixed-command non-root UID 1000 demo terminal implemented; authenticated login, a full compositor and a safe installed-system session remain open.
 - [ ] Provide basic settings for the supported display/input/network setup
-  - In-memory high-contrast/pointer-size controls and read-only CPU, disk and
-    IPv4 status pages exist; saved profiles, display modes and networking
-    configuration UI remain open.
+  - High-contrast/pointer-size controls now save a private versioned
+    record when the QEMU ext4 state volume is mounted; host tests cover
+    atomic writing and invalid/symlink records. QEMU cross-boot validation,
+    display modes and network configuration UI remain open.
 - [ ] Validate desktop startup, reboot persistence, and console fallback
 - [ ] Publish a checksummed test image and installation/test instructions
 

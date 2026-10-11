@@ -204,9 +204,14 @@ count, available memory and uptime; Storage reports ext4 free space, and
 Network shows the actual assigned eth0 IPv4 address when available.
 A fifth **Settings** tile controls a bright/high-contrast color scheme
 (Left/Right) and small/large cursor (Up/Down). Pointer clicks can toggle
-these options too. These are local in-memory display preferences: they do not
-change kernel display modes, system network configuration, permissions or
-persistent user policy. They reset on reboot.
+these options too. With the opt-in QEMU ext4 state volume mounted under `/var`,
+the launcher now saves the contrast and pointer-size selections in a
+private versioned file using atomic replace and `fsync`. The startup
+menu loads it on the next boot, rejecting malformed records. Without
+the state disk, these preferences remain session-only. These UI settings
+do not change display modes, networking, permissions or AI authorization.
+An isolated host test covers read/write/corruption/symlink handling;
+full guest cross-reboot testing remains open.
 
 To start the read-only framebuffer menu automatically on boot, enable
 `SYNVEIL_DESKTOP_AUTOSTART=1` **and**
