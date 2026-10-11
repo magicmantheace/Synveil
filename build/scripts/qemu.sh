@@ -6,6 +6,13 @@ source "$(dirname "$0")/common.sh"
 IMAGE="$OUT_DIR/synveil-x86_64.img"
 [[ -f "$IMAGE" ]] || die "image missing; run 'bash build.sh image' first"
 require_cmd qemu-system-x86_64
+DISPLAY_BACKEND="${SYNVEIL_QEMU_DISPLAY:-none}"
+case "$DISPLAY_BACKEND" in
+    none|gtk|sdl) ;;
+    *) die "SYNVEIL_QEMU_DISPLAY must be none, gtk, or sdl" ;;
+esac
+NETWORK="${SYNVEIL_QEMU_NETWORK:-0}"
+[[ "$NETWORK" == 0 || "$NETWORK" == 1 ]] || die "SYNVEIL_QEMU_NETWORK must be 0 or 1"
 STATE_DISK="${SYNVEIL_QEMU_STATE_DISK:-}"
 if [[ -n "$STATE_DISK" ]]; then
     [[ -f "$STATE_DISK" && ! -L "$STATE_DISK" ]] || die "state disk must be a regular file: $STATE_DISK"
@@ -15,14 +22,29 @@ QEMU_ARGS=(
     -machine q35
     -m "${SYNVEIL_QEMU_MEMORY:-512M}"
     -smp "${SYNVEIL_QEMU_CPUS:-2}"
-    -display none
+    -display "$DISPLAY_BACKEND"
     -serial stdio
     -monitor none
     -no-reboot
-    -net none
     -drive "if=none,id=synveil_disk,file=$IMAGE,format=raw,readonly=on"
     -device "virtio-blk-pci,drive=synveil_disk,bootindex=1"
 )
+
+# Explicit opt-in graphics/input and user-mode network for the VM desktop target.
+# Serial-console CI remains headless, offline and recovery-capable by default.
+if [[ "$DISPLAY_BACKEND" != none ]]; then
+    QEMU_ARGS+=(
+        -device virtio-vga
+        -device qemu-xhci
+        -device usb-kbd
+        -device usb-tablet
+    )
+fi
+if [[ "$NETWORK" == 1 ]]; then
+    QEMU_ARGS+=(-netdev user,id=synveil_net -device virtio-net-pci,netdev=synveil_net)
+else
+    QEMU_ARGS+=(-net none)
+fi
 
 # State is a second, separately writable disk; EFI remains read-only.
 if [[ -n "$STATE_DISK" ]]; then

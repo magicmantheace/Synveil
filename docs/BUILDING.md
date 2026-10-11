@@ -173,6 +173,24 @@ SYNVEIL_OVMF_VARS=/path/to/OVMF_VARS.fd \
 bash build.sh qemu
 ```
 
+### Optional QEMU graphical-device target
+
+QEMU remains headless and network-isolated by default. To boot the same
+bootstrap image with a virtio VGA device, a virtual USB keyboard/tablet and
+an optional user-mode network adapter:
+
+```sh
+SYNVEIL_QEMU_DISPLAY=gtk SYNVEIL_QEMU_NETWORK=1 bash build.sh qemu
+```
+
+`SYNVEIL_QEMU_DISPLAY` accepts `none` (default), `gtk`, and `sdl`.
+The chosen frontend must be present in the installed QEMU build; check
+`qemu-system-x86_64 -display help`. Network access uses QEMU's user-mode
+network backend and is disabled by default. This provides hardware support,
+**not** a graphical session, terminal, DHCP setup, or network services.
+The kernel config enables the matching DRM virtio GPU, input event and USB HID
+drivers, but actual device readiness still requires QEMU guest validation.
+
 ### Optional QEMU persistent state
 
 This is an isolated developer/VM feature, **not an installer or persistent system

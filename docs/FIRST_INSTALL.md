@@ -22,6 +22,15 @@ optimization, personalization, package generations, and the polished desktop
 remain later work. Essential filesystem and boot recovery behavior must exist
 before an installation path is presented for user testing.
 
+## QEMU graphical hardware foundation
+
+The development boot launcher can explicitly opt in to a virtio VGA device,
+USB keyboard/tablet and user-mode networking. The kernel configuration now
+requests the matching DRM/input drivers. A host-side test verifies option
+selection and ensures that the normal serial CI path stays headless and offline.
+This is only a VM hardware configuration: graphical session, networking
+configuration, user settings and real driver readiness remain unvalidated.
+
 ## Controlled QEMU persistence prototype
 
 `SYNVEIL_PERSISTENCE_ROOTFS=1` optionally includes a mount helper for a

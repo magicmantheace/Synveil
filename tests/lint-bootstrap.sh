@@ -34,5 +34,6 @@ python3 tests/validate-source-lock.py
 bash tests/source-extraction.sh
 python3 tests/build-lock.py
 python3 tests/state-disk.py
+python3 tests/qemu-options.py
 
 printf '[lint] bootstrap scripts, Python tools, and source manifest passed syntax checks\n'

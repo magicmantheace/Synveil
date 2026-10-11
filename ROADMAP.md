@@ -14,6 +14,7 @@ ready; full AI optimization and package management are not prerequisites.
   - Opt-in QEMU /var state disk and a two-boot validation test are implemented; validation and installed-system storage remain open.
 - [ ] Provide a documented installation path on a supported test target
 - [ ] Add display, keyboard, mouse, and required firmware/driver support
+  - Opt-in QEMU graphical/input device wiring and kernel options are implemented; guest device/desktop validation remains open.
 - [ ] Establish a usable networking configuration path
 - [ ] Select and build a minimal graphical session with terminal and launcher
 - [ ] Provide basic settings for the supported display/input/network setup
