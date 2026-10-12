@@ -7,6 +7,7 @@ from pathlib import Path
 import selectors
 import signal
 import subprocess
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,7 +23,16 @@ COMMAND = (
     "[ \"$(cat /tmp/recovery-check/probe)\" = shell-alive ] && "
     "printf '\\n%s%s\\n' SYNVEIL_ RECOVERY_OK; fi; fi\n"
 )
+STATE_RECOVERY = ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY",
+                   b"SYNVEIL_STATE_UNAVAILABLE"},
+                  b"SYNVEIL_STATE_READY", b"SYNVEIL_STATE_RECOVERY_OK",
+                  "if timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null && "
+                  "printf '%s' shell-alive > /tmp/state-recovery-probe && "
+                  "[ \"$(cat /tmp/state-recovery-probe)\" = shell-alive ]; then "
+                  "printf '\\n%s%s\\n' SYNVEIL_ STATE_RECOVERY_OK; fi\n")
 SCENARIOS = {
+    "state-missing": STATE_RECOVERY,
+    "state-corrupt": STATE_RECOVERY,
     "desktop": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY",
                  b"SYNVEIL_DESKTOP_READY"},
                 b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_DESKTOP_RECOVERY_OK",
@@ -105,8 +115,20 @@ def smoke(timeout_seconds, case="crash"):
     log = out / "logs" / ("qemu-recovery-smoke.log" if case == "crash"
                           else f"qemu-{case}-smoke.log")
     log.parent.mkdir(parents=True, exist_ok=True)
+    # These cases use only developer QEMU state devices, never host disks.
+    guest_env = dict(os.environ)
+    corrupt_disk = None
+    if case == "state-missing":
+        guest_env.pop("SYNVEIL_QEMU_STATE_DISK", None)
+    elif case == "state-corrupt":
+        corrupt_disk = tempfile.TemporaryDirectory(prefix="synveil-invalid-ext4-")
+        path = Path(corrupt_disk.name) / "invalid.ext4"
+        with path.open("wb") as state:
+            state.truncate(16 * 1024 * 1024)
+        guest_env["SYNVEIL_QEMU_STATE_DISK"] = str(path)
     process = subprocess.Popen(
         ["bash", str(ROOT / "build/scripts/qemu.sh")],
+        env=guest_env,
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         start_new_session=True,
     )
@@ -164,6 +186,8 @@ def smoke(timeout_seconds, case="crash"):
             process.wait(timeout=3)
         process.stdin.close()
         process.stdout.close()
+        if corrupt_disk is not None:
+            corrupt_disk.cleanup()
 
 
 def main():

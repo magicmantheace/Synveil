@@ -105,6 +105,12 @@ restart, checks that a different desktop process is running and that
 `synctl status` still responds. The serial console remains available.
 Host fixtures ensure an echoed command does not count as recovery evidence.
 
+Two recovery-smoke guest cases now require the serial shell and healthy
+`synctl status` when the explicitly opt-in `/dev/vdb` disk is absent
+or a temporary attached block image contains no valid ext4 filesystem.
+They never identify, open or format a physical disk. These cases require
+their own native-image guest validation.
+
 A dedicated `ui-preferences-smoke` test now sends keyboard actions through
 a private QEMU monitor into the actual Settings UI on the first boot,
 requires the expected saved file, then boots a second independent QEMU

@@ -143,6 +143,12 @@ jobs:
           set -o pipefail
           bash build.sh guest-fixture --case absent 2>&1 | tee out/logs/absent-fixture.log
 
+      - name: Recover from absent or invalid QEMU state disk
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: |
+          bash build.sh recovery-smoke --case state-missing --timeout 60
+          bash build.sh recovery-smoke --case state-corrupt --timeout 60
+
       - name: Validate virtual framebuffer in headless QEMU
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         env:
