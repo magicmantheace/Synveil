@@ -141,6 +141,33 @@ passed write -> stop first QEMU -> start new QEMU -> read. This validates
 the experimental VM /var state volume, not installed-system persistence. This mechanism deliberately does not pick or format
 hardware disks, and it is not an installation path.
 
+## Experimental seat-backed graphical login preview
+
+The framebuffer binary now has a separate, explicitly invoked `--login`
+screen that displays masked password-length indicators, never plaintext.
+Its password input uses the current **US keyboard-only** evdev mapping and
+a bounded fixed buffer. It sends a fixed password frame to the root-owned
+`veil-seat` socket, then keeps that connection alive during the fixed
+non-root VT session. A closed/crashed graphical client must end the lease
+and relock the seat; neither a status tile nor an AI planner grants login.
+
+To experiment on a developer-only build, `SYNVEIL_AUTH_DESKTOP_ROOTFS=1`
+selects `--login` rather than the unauthenticated developer menu. This
+requires all of `SYNVEIL_NATIVE_ROOTFS=1`,
+`SYNVEIL_GRAPHICS_ROOTFS=1`, `SYNVEIL_PERSISTENCE_ROOTFS=1` and
+`SYNVEIL_DESKTOP_AUTOSTART=1`, and installs a rootfs-owned selection
+marker. It does **not** enroll a password. Without an operator-enrolled,
+protected state volume the screen remains locked. The default CI image
+still exercises the original developer menu and console; authenticated
+graphical mode requires its own full guest validation.
+
+This is a controlled prototype, **not a secure physical installer or
+production display manager**: the graphical input/display code still runs
+as root, the bootstrap serial console still exposes developer recovery,
+and comprehensive international keyboard/IME, clipboard, multiwindow
+compositor, encrypted disk, signed boot and safe account onboarding are
+not implemented.
+
 ## Decisions still open
 
 - Minimal compositor/session stack and its source-build dependencies.

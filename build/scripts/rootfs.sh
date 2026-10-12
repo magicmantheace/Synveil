@@ -6,6 +6,8 @@ source "$(dirname "$0")/common.sh"
 NATIVE_ROOTFS="${SYNVEIL_NATIVE_ROOTFS:-0}"
 NETWORK_ROOTFS="${SYNVEIL_NETWORK_ROOTFS:-0}"
 [[ "$NETWORK_ROOTFS" == 0 || "$NETWORK_ROOTFS" == 1 ]] || die "SYNVEIL_NETWORK_ROOTFS must be 0 or 1"
+AUTH_DESKTOP_ROOTFS="${SYNVEIL_AUTH_DESKTOP_ROOTFS:-0}"
+[[ "$AUTH_DESKTOP_ROOTFS" == 0 || "$AUTH_DESKTOP_ROOTFS" == 1 ]] || die "SYNVEIL_AUTH_DESKTOP_ROOTFS must be 0 or 1"
 DESKTOP_AUTOSTART="${SYNVEIL_DESKTOP_AUTOSTART:-0}"
 [[ "$DESKTOP_AUTOSTART" == 0 || "$DESKTOP_AUTOSTART" == 1 ]] || die "SYNVEIL_DESKTOP_AUTOSTART must be 0 or 1"
 GRAPHICS_ROOTFS="${SYNVEIL_GRAPHICS_ROOTFS:-0}"
@@ -14,6 +16,10 @@ GRAPHICS_ROOTFS="${SYNVEIL_GRAPHICS_ROOTFS:-0}"
 PERSISTENCE_ROOTFS="${SYNVEIL_PERSISTENCE_ROOTFS:-0}"
 [[ "$PERSISTENCE_ROOTFS" == 0 || "$PERSISTENCE_ROOTFS" == 1 ]] || die "SYNVEIL_PERSISTENCE_ROOTFS must be 0 or 1"
 [[ "$NATIVE_ROOTFS" == 0 || "$NATIVE_ROOTFS" == 1 ]] || die "SYNVEIL_NATIVE_ROOTFS must be 0 or 1"
+[[ "$AUTH_DESKTOP_ROOTFS" != 1 || (
+   "$GRAPHICS_ROOTFS" == 1 && "$NATIVE_ROOTFS" == 1 &&
+   "$PERSISTENCE_ROOTFS" == 1 && "$DESKTOP_AUTOSTART" == 1
+) ]] || die "auth desktop preview needs native, graphics, persistence and autostart"
 if [[ "$NATIVE_ROOTFS" == 1 ]]; then
     python3 "$ROOT_DIR/tools/package_native.py" --bundle "$OUT_DIR/native"
 fi
@@ -66,6 +72,9 @@ if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
         "$ROOTFS_DIR/usr/libexec/synveil/start-desktop"
     if [[ "$DESKTOP_AUTOSTART" == 1 ]]; then
         install -D -m 0644 /dev/null "$ROOTFS_DIR/etc/synveil/desktop-autostart"
+    fi
+    if [[ "$AUTH_DESKTOP_ROOTFS" == 1 ]]; then
+        install -D -m 0644 /dev/null "$ROOTFS_DIR/etc/synveil/auth-desktop"
     fi
     # Non-root disposable developer login, deliberately password-locked.
     # The graphical launcher only opens this identity, never a root shell.

@@ -11,9 +11,15 @@ if [ ! -x "$desktop" ]; then
     printf '\nSYNVEIL_DESKTOP_UNAVAILABLE\n'
     exit 1
 fi
+# This immutable rootfs marker explicitly selects the *developer-only*
+# seat-backed login preview. Never trust state-volume preferences here.
+mode=--menu
+if [ -f /etc/synveil/auth-desktop ]; then
+    mode=--login
+fi
 attempt=1
 while [ "$attempt" -le 3 ]; do
-    "$desktop" --menu
+    "$desktop" "$mode"
     status=$?
     if [ "$status" -eq 0 ]; then
         printf '\nSYNVEIL_DESKTOP_EXITED\n'

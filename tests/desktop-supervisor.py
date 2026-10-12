@@ -25,6 +25,11 @@ class DesktopSupervisorTests(unittest.TestCase):
             'if [ "$(wc -l < "$TEST_LOG")" -ge "$TEST_SUCCESS_AFTER" ]; then exit 0; fi\n'
             'exit 7\n')
         self.menu.chmod(0o755)
+        self.auth_marker = self.root / "auth-desktop"
+        self.helper = self.root / "start-desktop"
+        self.helper.write_text(
+            SUPERVISOR.read_text().replace("/etc/synveil/auth-desktop", str(self.auth_marker))
+        )
 
     def invoke(self, **extra):
         env = {**os.environ,
@@ -34,7 +39,7 @@ class DesktopSupervisorTests(unittest.TestCase):
                "TEST_FINISH": str(self.root / "finish"),
                "TEST_SUCCESS_AFTER": "100"}
         env.update(extra)
-        return subprocess.run(["sh", str(SUPERVISOR)], env=env,
+        return subprocess.run(["sh", str(self.helper)], env=env,
                               capture_output=True, text=True, timeout=5)
 
     def test_crash_budget_exhaustion_does_not_retry_forever(self):
@@ -57,6 +62,11 @@ class DesktopSupervisorTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.log.read_text().splitlines(), ["--menu"] * 2)
         self.assertEqual(result.stdout.count("SYNVEIL_DESKTOP_RESTARTING"), 1)
+
+    def test_explicit_auth_marker_selects_only_the_login_preview(self):
+        self.auth_marker.touch()
+        self.assertEqual(self.invoke(TEST_SUCCESS_AFTER="2").returncode, 0)
+        self.assertEqual(self.log.read_text().splitlines(), ["--login"] * 2)
 
     def test_missing_binary_falls_back_without_spawning(self):
         result = self.invoke(SYNVEIL_DESKTOP_BINARY=str(self.root / "missing"))
