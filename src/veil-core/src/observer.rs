@@ -232,8 +232,10 @@ fn parse_net_dev(input: &str) -> io::Result<Value> {
     let second = lines
         .next()
         .ok_or_else(|| invalid_data("missing netdev columns"))?;
-    if !first.contains("Inter-") || !first.contains("Receive")
-        || !second.contains("bytes") || !second.contains("packets")
+    if !first.contains("Inter-")
+        || !first.contains("Receive")
+        || !second.contains("bytes")
+        || !second.contains("packets")
     {
         return Err(invalid_data("invalid netdev header"));
     }
@@ -244,10 +246,11 @@ fn parse_net_dev(input: &str) -> io::Result<Value> {
             .split_once(':')
             .ok_or_else(|| invalid_data("missing netdev interface separator"))?;
         let name = raw_name.trim();
-        if name.is_empty() || name.len() > 15
-            || !name.bytes().all(|b| {
-                b.is_ascii_alphanumeric() || b == b'_' || b == b'.' || b == b'-'
-            })
+        if name.is_empty()
+            || name.len() > 15
+            || !name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.' || b == b'-')
         {
             return Err(invalid_data("invalid netdev interface name"));
         }
@@ -257,7 +260,11 @@ fn parse_net_dev(input: &str) -> io::Result<Value> {
         }
         let counters = fields
             .iter()
-            .map(|field| field.parse::<u64>().map_err(|_| invalid_data("invalid netdev counter")))
+            .map(|field| {
+                field
+                    .parse::<u64>()
+                    .map_err(|_| invalid_data("invalid netdev counter"))
+            })
             .collect::<io::Result<Vec<_>>>()?;
         if interfaces.len() == MAX_INTERFACES {
             omitted = omitted
@@ -367,14 +374,11 @@ mod tests {
         assert_eq!(parsed["omitted_devices"], 2);
     }
 
-    const NET_HEADER: &str =
-        "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n";
+    const NET_HEADER: &str = "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n";
 
     #[test]
     fn network_snapshot_reports_only_cumulative_counters() {
-        let input = format!(
-            "{NET_HEADER}    lo: 100 2 0 0 0 0 0 0 100 2 0 0 0 0 0 0\n"
-        );
+        let input = format!("{NET_HEADER}    lo: 100 2 0 0 0 0 0 0 100 2 0 0 0 0 0 0\n");
         let parsed = parse_net_dev(&input).unwrap();
         assert_eq!(parsed["status"], "ready");
         assert_eq!(parsed["interfaces"][0]["name"], "lo");
@@ -398,9 +402,7 @@ mod tests {
         let input = format!(
             "{NET_HEADER}{}",
             (0..34)
-                .map(|i| format!(
-                    "dev{i}: 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0\n"
-                ))
+                .map(|i| format!("dev{i}: 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0\n"))
                 .collect::<String>()
         );
         let parsed = parse_net_dev(&input).unwrap();
