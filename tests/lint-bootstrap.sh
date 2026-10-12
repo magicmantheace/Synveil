@@ -25,6 +25,7 @@ for file in "${bash_files[@]}"; do
 done
 
 sh -n build/rootfs/init
+sh -n build/rootfs/start-desktop
 sh -n build/rootfs/start-core
 sh -n build/rootfs/mount-state
 sh -n build/rootfs/configure-network
@@ -39,6 +40,7 @@ python3 tests/state-disk.py
 python3 tests/vm-bundle.py
 python3 tests/network-config.py
 python3 tests/qemu-options.py
+python3 tests/desktop-supervisor.py
 python3 tests/display-build.py
 python3 tests/ui-preferences-smoke-fixture.py
 python3 tests/qmp-input.py

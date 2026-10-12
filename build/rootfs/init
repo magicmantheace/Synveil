@@ -57,8 +57,9 @@ if [ -x /usr/bin/synveil-vt ]; then
 fi
 # The read-only menu is optional and never owns the serial recovery shell.
 # Failed graphics input cannot prevent the machine from reaching a console.
-if [ -f /etc/synveil/desktop-autostart ] && [ -x /usr/bin/synveil-display ]; then
-    /usr/bin/synveil-display --menu &
+if [ -f /etc/synveil/desktop-autostart ] &&
+   [ -x /usr/libexec/synveil/start-desktop ]; then
+    /usr/libexec/synveil/start-desktop &
 fi
 
 echo

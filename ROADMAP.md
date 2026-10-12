@@ -31,8 +31,10 @@ ready; full AI optimization and package management are not prerequisites.
     network settings UI and real hardware remain open.
 - [ ] Select and build a minimal graphical session with terminal and launcher
   - QEMU framebuffer menu/autostart and fixed UID 1000 terminal guest
-    checks passed at [d875da39](docs/validation/native-d875da39/README.md);
-    authenticated login, full compositor and physical install remain open.
+    checks passed at [d875da39](docs/validation/native-d875da39/README.md).
+    A bounded crash-restart supervisor is implemented and host-tested;
+    latest guest retest, authenticated login, compositor and physical
+    installation remain open.
 - [ ] Provide basic settings for the supported display/input/network setup
   - High-contrast/pointer-size controls now save a private versioned
     record when the QEMU ext4 state volume is mounted; host tests cover

@@ -64,8 +64,9 @@ the guest must expose real framebuffer and VT device nodes.
 
 The graphical menu now optionally autostarts from a fixed build-time
 `/etc/synveil/desktop-autostart` marker. Its startup marker is produced only
-after framebuffer mapping and keyboard discovery. It runs alongside the serial
-console, so a missing or failed display cannot remove recovery. The build
+after framebuffer mapping and keyboard discovery. It runs under a three-attempt supervisor alongside the serial
+console. Crash restarts have a bounded budget; a deliberate menu exit
+stops cleanly and a missing or failed display cannot remove recovery. The build
 option is off by default, and the first user's installation still requires
 more than this provisional session.
 

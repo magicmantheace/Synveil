@@ -233,8 +233,11 @@ The new guest test must pass before this behavior is marked validated.
 
 To start the read-only framebuffer menu automatically on boot, enable
 `SYNVEIL_DESKTOP_AUTOSTART=1` **and**
-`SYNVEIL_GRAPHICS_ROOTFS=1` when building the rootfs. The menu is a
-background process; it does not replace the independent serial recovery shell.
+`SYNVEIL_GRAPHICS_ROOTFS=1` when building the rootfs. The menu runs under a bounded developer supervisor in the background;
+unexpected UI failures are retried at most twice after the initial launch
+(three total attempts), then `SYNVEIL_DESKTOP_RESTART_EXHAUSTED` is emitted.
+A deliberate clean Escape exit stops without restart. The independent serial
+recovery shell remains usable even when graphics repeatedly fail.
 CI's graphics smoke requires `SYNVEIL_DESKTOP_READY` only after a drawable
 framebuffer and usable keyboard have both been opened. This is still a
 development desktop prototype, not a login-capable user session.

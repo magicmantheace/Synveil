@@ -62,6 +62,8 @@ if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
         "$ROOT_DIR/src/veil-display/input.c" -o "$ROOTFS_DIR/usr/bin/synveil-input"
     "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \
         "$ROOT_DIR/src/veil-display/vt.c" -o "$ROOTFS_DIR/usr/bin/synveil-vt"
+    install -D -m 0755 "$ROOT_DIR/build/rootfs/start-desktop" \
+        "$ROOTFS_DIR/usr/libexec/synveil/start-desktop"
     if [[ "$DESKTOP_AUTOSTART" == 1 ]]; then
         install -D -m 0644 /dev/null "$ROOTFS_DIR/etc/synveil/desktop-autostart"
     fi
