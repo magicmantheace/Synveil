@@ -33,6 +33,7 @@
 #include "lifetime.h"
 #include "mapping.h"
 #include "seat_privacy.h"
+#include "enroll.h"
 
 struct surface {
     unsigned char *mapped;
@@ -886,6 +887,8 @@ struct auth_input {
     int caps_lock;      // only affects letters, not symbols
     int denied;
     int keyboard_missing;
+    // 0: normal login; 1: first password; 2: repeat password.
+    unsigned enroll_stage;
 };
 
 static void auth_clear(struct auth_input *state) {
@@ -996,8 +999,11 @@ static void auth_render(const struct surface *screen, const struct auth_input *s
     rectangle(screen, 0u, 0u, w, h, background);
     rectangle(screen, 0u, 0u, w, h/11u, rgb(screen, 21, 51, 78));
     heading(screen, "SYNVEIL", 24u, 18u, 3u, text);
-    heading(screen, "LOCAL LOGIN", 36u, h/4u, 3u, text);
-    heading(screen, "PASSWORD", 36u, h/3u, 2u, muted);
+    heading(screen, state->enroll_stage ? "FIRST USER SETUP" : "LOCAL LOGIN",
+            36u, h/4u, 3u, text);
+    heading(screen, state->enroll_stage == 1u ? "CREATE PASSWORD" :
+            state->enroll_stage == 2u ? "RETYPE PASSWORD" : "PASSWORD",
+            36u, h/3u, 2u, muted);
     // Constant glyph per character, never a raw or encoded secret.
     unsigned visible = state->length < 26u ? state->length : 26u;
     for (unsigned i = 0; i < visible; i++) {
@@ -1011,9 +1017,11 @@ static void auth_render(const struct surface *screen, const struct auth_input *s
         heading(screen, "KEYBOARD DISCONNECTED", 36u, h*3u/5u, 2u, muted);
         heading(screen, "RECONNECT TO CONTINUE", 36u, h*3u/5u+32u, 2u, muted);
     } else if (state->denied) {
-        heading(screen, "LOGIN DENIED", 36u, h*3u/5u, 2u, muted);
+        heading(screen, state->enroll_stage ? "SETUP RETRY" : "LOGIN DENIED",
+                36u, h*3u/5u, 2u, muted);
     }
-    heading(screen, "ENTER TO LOGIN", 36u, h*4u/5u, 2u, text);
+    heading(screen, state->enroll_stage ? "ENTER TO CONTINUE" :
+            "ENTER TO LOGIN", 36u, h*4u/5u, 2u, text);
     heading(screen, "ESC TO CLEAR", 36u, h*4u/5u+32u, 2u, muted);
 }
 
@@ -1113,10 +1121,16 @@ static int run_auth_login(const struct surface *screen) {
     if (auth_restore_login_vt() != 0) return 1;
     int keyboard = auth_open_private_keyboard();
     struct auth_input state = {0};
+    // Only immutable auth images without the unsafe developer serial
+    // override may perform first-user credential setup.
+    state.enroll_stage = synveil_enroll_can_start() ? 1u : 0u;
+    unsigned char first_password[AUTH_MAX_UI_PASSWORD] = {0};
+    size_t first_length = 0u;
     if (keyboard < 0) auth_keyboard_disconnected(&state);
     auth_render(screen, &state);
     if (keyboard >= 0) {
-        puts("\nSYNVEIL_LOGIN_READY");
+        puts(state.enroll_stage ? "\nSYNVEIL_ENROLL_READY" :
+             "\nSYNVEIL_LOGIN_READY");
     } else {
         puts("\nSYNVEIL_LOGIN_INPUT_UNAVAILABLE");
     }
@@ -1131,8 +1145,12 @@ static int run_auth_login(const struct surface *screen) {
             keyboard = auth_open_private_keyboard();
             if (keyboard < 0) continue;
             auth_keyboard_connected(&state);
+            synveil_enroll_wipe(first_password, sizeof(first_password));
+            first_length = 0u;
+            state.enroll_stage = synveil_enroll_can_start() ? 1u : 0u;
             auth_render(screen, &state);
-            puts("\nSYNVEIL_LOGIN_READY");
+            puts(state.enroll_stage ? "\nSYNVEIL_ENROLL_READY" :
+                 "\nSYNVEIL_LOGIN_READY");
             fflush(stdout);
             continue;
         }
@@ -1145,6 +1163,9 @@ static int run_auth_login(const struct surface *screen) {
         if (fd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
             close(keyboard);
             keyboard = -1;
+            synveil_enroll_wipe(first_password, sizeof(first_password));
+            first_length = 0u;
+            state.enroll_stage = synveil_enroll_can_start() ? 1u : 0u;
             auth_keyboard_disconnected(&state);
             auth_render(screen, &state);
             puts("\nSYNVEIL_LOGIN_INPUT_UNAVAILABLE");
@@ -1159,6 +1180,9 @@ static int run_auth_login(const struct surface *screen) {
                                  errno == EWOULDBLOCK)) continue;
             close(keyboard);
             keyboard = -1;
+            synveil_enroll_wipe(first_password, sizeof(first_password));
+            first_length = 0u;
+            state.enroll_stage = synveil_enroll_can_start() ? 1u : 0u;
             auth_keyboard_disconnected(&state);
             auth_render(screen, &state);
             puts("\nSYNVEIL_LOGIN_INPUT_UNAVAILABLE");
@@ -1168,9 +1192,53 @@ static int run_auth_login(const struct surface *screen) {
         if (event.type != EV_KEY) continue;
         if (event.value == 1 && event.code == KEY_ESC) {
             auth_clear(&state);
+            synveil_enroll_wipe(first_password, sizeof(first_password));
+            first_length = 0u;
+            if (state.enroll_stage) state.enroll_stage = 1u;
             state.denied = 0;
         } else if (event.value == 1 &&
                    (event.code == KEY_ENTER || event.code == KEY_KPENTER)) {
+            if (state.enroll_stage == 1u) {
+                if (state.length >= 8u) {
+                    memcpy(first_password, state.password, state.length);
+                    first_length = state.length;
+                    auth_clear(&state);
+                    state.enroll_stage = 2u;
+                    state.denied = 0;
+                    auth_render(screen, &state);
+                    puts("\nSYNVEIL_ENROLL_CONFIRM_READY");
+                    fflush(stdout);
+                } else {
+                    auth_clear(&state);
+                    state.denied = 1;
+                    auth_render(screen, &state);
+                }
+                continue;
+            }
+            if (state.enroll_stage == 2u) {
+                int matched = synveil_enroll_matches(first_password, first_length,
+                                                     state.password, state.length);
+                // Keep EVIOCGRAB during fixed root enroller subprocess.
+                int enrolled = matched &&
+                    synveil_enroll_password(first_password, first_length) == 0;
+                auth_clear(&state);
+                synveil_enroll_wipe(first_password, sizeof(first_password));
+                first_length = 0u;
+                if (enrolled) {
+                    state.enroll_stage = 0u;
+                    state.denied = 0;
+                    auth_render(screen, &state);
+                    puts("\nSYNVEIL_ENROLL_COMPLETED");
+                    puts("SYNVEIL_LOGIN_READY");
+                } else {
+                    state.enroll_stage = synveil_enroll_can_start() ? 1u : 0u;
+                    state.denied = 1;
+                    auth_render(screen, &state);
+                    puts("\nSYNVEIL_ENROLL_FAILED");
+                }
+                fflush(stdout);
+                continue;
+            }
             // Drop EVIOCGRAB before switching to the authenticated shell.
             close(keyboard);
             keyboard = -1;
@@ -1207,6 +1275,7 @@ static int run_auth_login(const struct surface *screen) {
         }
     }
     auth_clear(&state);
+    synveil_enroll_wipe(first_password, sizeof(first_password));
     if (keyboard >= 0) close(keyboard);
     return 1;
 }
@@ -1418,7 +1487,7 @@ int main(int argc, char **argv) {
     // framebuffer mapping, including if exec of the shell fails or races
     // with the seat being revoked. Refuse to start if the kernel cannot
     // enforce MADV_DONTFORK for this framebuffer.
-    if (user_session &&
+    if ((user_session || strcmp(argv[1], "--login") == 0) &&
         synveil_exclude_mapping_from_children(screen.mapped, screen.length) != 0) {
         fputs("[synveil-display] cannot isolate framebuffer from child processes\n", stderr);
         munmap(screen.mapped, screen.length);

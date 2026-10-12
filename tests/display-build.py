@@ -68,6 +68,19 @@ class DisplaySourceTests(unittest.TestCase):
             )
             subprocess.run([str(executable), "--self-test"], check=True, timeout=3)
 
+    def test_first_user_enrollment_helpers_are_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            executable = Path(tmp) / "display-enroll-test"
+            subprocess.run(
+                ["gcc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                 "-I", str(ROOT / "src/veil-display"),
+                 str(ROOT / "tests/display-enroll.c"),
+                 str(ROOT / "src/veil-display/enroll.c"),
+                 "-o", str(executable)],
+                check=True, timeout=15,
+            )
+            subprocess.run([str(executable)], check=True, timeout=3)
+
     def test_compiles_and_rejects_out_of_bounds_framebuffer(self):
         with tempfile.TemporaryDirectory() as tmp:
             executable = Path(tmp) / "synveil-display"
@@ -77,6 +90,7 @@ class DisplaySourceTests(unittest.TestCase):
                  str(ROOT / "src/veil-display/preferences.c"),
                  str(ROOT / "src/veil-display/core_health.c"),
                  str(ROOT / "src/veil-display/network_diag.c"),
+                 str(ROOT / "src/veil-display/enroll.c"),
                  "-o", str(executable)],
                 check=True,
             )
