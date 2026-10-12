@@ -19,6 +19,8 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include "preferences.h"
@@ -591,6 +593,195 @@ static int run_menu(const struct surface *screen) {
     return state.quit ? 0 : 1;
 }
 
+// Experimental *developer-only* graphical login client for veil-seat.
+// Never renders raw password bytes, grants root commands or authorizes a
+// session itself. A production compositor/input isolation layer is pending.
+#define AUTH_MAX_UI_PASSWORD 128u
+#define AUTH_SEAT_SOCKET "/run/synveil/veil-seat.sock"
+
+struct auth_input {
+    unsigned char password[AUTH_MAX_UI_PASSWORD];
+    unsigned length;
+    int shift;
+    int denied;
+};
+
+static void auth_clear(struct auth_input *state) {
+    // Force wiping the UI-side secret even under compiler optimization.
+    volatile unsigned char *bytes = state->password;
+    for (unsigned i = 0; i < AUTH_MAX_UI_PASSWORD; i++) bytes[i] = 0u;
+    state->length = 0u;
+}
+
+static unsigned char auth_key_char(unsigned code, int shift) {
+    const struct {unsigned key; unsigned char value;} keys[] = {
+        {KEY_A,'a'}, {KEY_B,'b'}, {KEY_C,'c'}, {KEY_D,'d'},
+        {KEY_E,'e'}, {KEY_F,'f'}, {KEY_G,'g'}, {KEY_H,'h'},
+        {KEY_I,'i'}, {KEY_J,'j'}, {KEY_K,'k'}, {KEY_L,'l'},
+        {KEY_M,'m'}, {KEY_N,'n'}, {KEY_O,'o'}, {KEY_P,'p'},
+        {KEY_Q,'q'}, {KEY_R,'r'}, {KEY_S,'s'}, {KEY_T,'t'},
+        {KEY_U,'u'}, {KEY_V,'v'}, {KEY_W,'w'}, {KEY_X,'x'},
+        {KEY_Y,'y'}, {KEY_Z,'z'}
+    };
+    for (unsigned i = 0; i < sizeof(keys)/sizeof(keys[0]); i++) {
+        if (keys[i].key == code) {
+            return (unsigned char)(shift ? keys[i].value - ('a'-'A') : keys[i].value);
+        }
+    }
+    const struct {unsigned key; unsigned char normal; unsigned char shifted;} symbols[] = {
+        {KEY_1,'1','!'}, {KEY_2,'2','@'}, {KEY_3,'3','#'},
+        {KEY_4,'4','$'}, {KEY_5,'5','%'}, {KEY_6,'6','^'},
+        {KEY_7,'7','&'}, {KEY_8,'8','*'}, {KEY_9,'9','('},
+        {KEY_0,'0',')'}, {KEY_MINUS,'-','_'}, {KEY_EQUAL,'=','+'},
+        {KEY_DOT,'.','>'}, {KEY_COMMA,',','<'}, {KEY_SLASH,'/','?'},
+        {KEY_SPACE,' ',' '}, {KEY_SEMICOLON,';',':'},
+        {KEY_APOSTROPHE,39u,34u}
+    };
+    for (unsigned i = 0; i < sizeof(symbols)/sizeof(symbols[0]); i++) {
+        if (symbols[i].key == code)
+            return shift ? symbols[i].shifted : symbols[i].normal;
+    }
+    return 0u;
+}
+
+static void auth_input_key(struct auth_input *state, unsigned code, int value) {
+    if (code == KEY_LEFTSHIFT || code == KEY_RIGHTSHIFT) {
+        state->shift = value != 0;
+        return;
+    }
+    if (value != 1) return;
+    if (code == KEY_BACKSPACE) {
+        if (state->length) {
+            state->length--;
+            state->password[state->length] = 0;
+        }
+        return;
+    }
+    unsigned char letter = auth_key_char(code, state->shift);
+    if (letter && state->length < AUTH_MAX_UI_PASSWORD) {
+        state->password[state->length++] = letter;
+        state->denied = 0;
+    }
+}
+
+static void auth_render(const struct surface *screen, const struct auth_input *state) {
+    unsigned w = screen->variable.xres;
+    unsigned h = screen->variable.yres;
+    uint32_t background = rgb(screen, 12, 21, 34);
+    uint32_t text = rgb(screen, 219, 237, 244);
+    uint32_t muted = rgb(screen, 134, 171, 190);
+    rectangle(screen, 0u, 0u, w, h, background);
+    rectangle(screen, 0u, 0u, w, h/11u, rgb(screen, 21, 51, 78));
+    heading(screen, "SYNVEIL", 24u, 18u, 3u, text);
+    heading(screen, "LOCAL LOGIN", 36u, h/4u, 3u, text);
+    heading(screen, "PASSWORD", 36u, h/3u, 2u, muted);
+    // Constant glyph per character, never a raw or encoded secret.
+    unsigned visible = state->length < 26u ? state->length : 26u;
+    for (unsigned i = 0; i < visible; i++) {
+        rectangle(screen, 40u + i*15u, h/2u, 8u, 8u, text);
+    }
+    if (state->denied) heading(screen, "LOGIN DENIED", 36u, h*3u/5u, 2u, muted);
+    heading(screen, "ENTER TO LOGIN", 36u, h*4u/5u, 2u, text);
+    heading(screen, "ESC TO EXIT", 36u, h*4u/5u+32u, 2u, muted);
+}
+
+static int auth_send_all(int fd, const unsigned char *bytes, size_t len) {
+    while (len) {
+        ssize_t n = send(fd, bytes, len, MSG_NOSIGNAL);
+        if (n <= 0) return -1;
+        bytes += (size_t)n;
+        len -= (size_t)n;
+    }
+    return 0;
+}
+
+static int auth_attempt(struct auth_input *state) {
+    int connected = -1;
+    if (state->length < 8u) goto denied;
+    connected = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (connected < 0) goto denied;
+    struct timeval limit = {.tv_sec = 4, .tv_usec = 0};
+    if (setsockopt(connected, SOL_SOCKET, SO_SNDTIMEO, &limit, sizeof(limit)) != 0 ||
+        setsockopt(connected, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit)) != 0)
+        goto denied;
+    struct sockaddr_un addr = {0};
+    addr.sun_family = AF_UNIX;
+    const char *name = AUTH_SEAT_SOCKET;
+    if (strlen(name) >= sizeof(addr.sun_path)) goto denied;
+    memcpy(addr.sun_path, name, strlen(name)+1u);
+    if (connect(connected, (struct sockaddr *)&addr, sizeof(addr)) != 0) goto denied;
+    unsigned char header[] = {'S','V','L','1',0,(unsigned char)state->length};
+    if (auth_send_all(connected, header, sizeof(header)) != 0 ||
+        auth_send_all(connected, state->password, state->length) != 0)
+        goto denied;
+    auth_clear(state);
+    // The broker sends only ACTIVE/DENIED/THROTTLED; never a token.
+    unsigned char response[7] = {0};
+    size_t have = 0;
+    while (have < sizeof(response)) {
+        ssize_t n = recv(connected, response+have, sizeof(response)-have, 0);
+        if (n <= 0) goto denied;
+        have += (size_t)n;
+    }
+    if (memcmp(response, "ACTIVE\n", sizeof(response)) != 0) goto denied;
+    puts("\nSYNVEIL_GRAPHICAL_AUTH_ACTIVE");
+    fflush(stdout);
+    // This open descriptor is the lease. On a UI crash the OS closes the
+    // socket and veil-seat immediately revokes the unprivileged VT session.
+    limit.tv_sec = 1;
+    if (setsockopt(connected, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof(limit)) != 0)
+        goto denied;
+    for (;;) {
+        unsigned char discard[16];
+        ssize_t n = recv(connected, discard, sizeof(discard), 0);
+        if (n == 0) break;
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) continue;
+        if (n < 0) break;
+        if (n > 0) break;
+    }
+    close(connected);
+    return 1;
+
+denied:
+    auth_clear(state);
+    if (connected >= 0) close(connected);
+    return 0;
+}
+
+static int run_auth_login(const struct surface *screen) {
+    int keyboard = open_keyboard();
+    if (keyboard < 0) return 1;
+    struct auth_input state = {0};
+    auth_render(screen, &state);
+    puts("\nSYNVEIL_LOGIN_READY");
+    fflush(stdout);
+    int quit = 0;
+    while (!quit) {
+        struct pollfd fd = {.fd = keyboard, .events = POLLIN};
+        int n = poll(&fd, 1u, 1000);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+        if (fd.revents & (POLLERR | POLLHUP | POLLNVAL)) break;
+        if ((fd.revents & POLLIN) == 0) continue;
+        struct input_event event;
+        if (read(keyboard, &event, sizeof(event)) != (ssize_t)sizeof(event) ||
+            event.type != EV_KEY) continue;
+        if (event.value == 1 && event.code == KEY_ESC) {
+            quit = 1;
+        } else if (event.value == 1 && event.code == KEY_ENTER) {
+            state.denied = !auth_attempt(&state);
+        } else {
+            auth_input_key(&state, event.code, event.value);
+        }
+        if (!quit) auth_render(screen, &state);
+    }
+    auth_clear(&state);
+    close(keyboard);
+    return quit ? 0 : 1;
+}
+
 static int self_test(void) {
     struct surface screen;
     memset(&screen, 0, sizeof(screen));
@@ -642,6 +833,19 @@ static int self_test(void) {
     menu_click(&settings, 50u, 220u, 900u, 600u);
     menu_click(&settings, 50u, 330u, 900u, 600u);
     if (settings.high_contrast || settings.cursor_scale) return 1;
+    struct auth_input auth = {0};
+    auth_input_key(&auth, KEY_A, 1);
+    auth_input_key(&auth, KEY_1, 1);
+    auth_input_key(&auth, KEY_MINUS, 1);
+    if (auth.length != 3u || auth.password[0] != 'a' ||
+        auth.password[1] != '1' || auth.password[2] != '-') return 1;
+    auth_input_key(&auth, KEY_BACKSPACE, 1);
+    auth_input_key(&auth, KEY_LEFTSHIFT, 1);
+    auth_input_key(&auth, KEY_B, 1);
+    auth_input_key(&auth, KEY_LEFTSHIFT, 0);
+    if (auth.length != 3u || auth.password[2] != 'B') return 1;
+    auth_clear(&auth);
+    if (auth.length != 0u || auth.password[0] != 0u || auth.password[2] != 0u) return 1;
     if (glyph_for('4') == NULL || glyph_for('.') == NULL ||
         glyph_for('N') == NULL || glyph_for('@') != NULL) return 1;
     if (absolute_pixel(-20, 0, 100, 900u) != 0u ||
@@ -654,8 +858,9 @@ int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "--self-test") == 0) return self_test();
     if (argc != 2 || (strcmp(argv[1], "--probe") != 0 &&
                       strcmp(argv[1], "--demo") != 0 &&
-                      strcmp(argv[1], "--menu") != 0)) {
-        fputs("usage: synveil-display --probe|--demo|--menu|--self-test\n", stderr);
+                      strcmp(argv[1], "--menu") != 0 &&
+                      strcmp(argv[1], "--login") != 0)) {
+        fputs("usage: synveil-display --probe|--demo|--menu|--login|--self-test\n", stderr);
         return 2;
     }
     int fd = open("/dev/fb0", O_RDWR | O_CLOEXEC);
@@ -682,6 +887,7 @@ int main(int argc, char **argv) {
     int result = 0;
     if (strcmp(argv[1], "--demo") == 0) paint(&screen);
     else if (strcmp(argv[1], "--menu") == 0) result = run_menu(&screen);
+    else if (strcmp(argv[1], "--login") == 0) result = run_auth_login(&screen);
     else rectangle(&screen, 0, 0, 1, 1, rgb(&screen, 13, 20, 36));
     munmap(screen.mapped, screen.length);
     if (result == 0) puts("SYNVEIL_DISPLAY_READY");
