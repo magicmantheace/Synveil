@@ -8,7 +8,7 @@ case "$pause" in
     *) echo "[synveil-desktop] invalid retry delay" >&2; exit 2 ;;
 esac
 if [ ! -x "$desktop" ]; then
-    echo SYNVEIL_DESKTOP_UNAVAILABLE
+    printf '\nSYNVEIL_DESKTOP_UNAVAILABLE\n'
     exit 1
 fi
 attempt=1
@@ -16,14 +16,14 @@ while [ "$attempt" -le 3 ]; do
     "$desktop" --menu
     status=$?
     if [ "$status" -eq 0 ]; then
-        echo SYNVEIL_DESKTOP_EXITED
+        printf '\nSYNVEIL_DESKTOP_EXITED\n'
         exit 0
     fi
     if [ "$attempt" -ge 3 ]; then
-        echo SYNVEIL_DESKTOP_RESTART_EXHAUSTED
+        printf '\nSYNVEIL_DESKTOP_RESTART_EXHAUSTED\n'
         exit 1
     fi
-    echo SYNVEIL_DESKTOP_RESTARTING
+    printf '\nSYNVEIL_DESKTOP_RESTARTING\n'
     attempt=$((attempt + 1))
     sleep "$pause"
 done
