@@ -17,6 +17,7 @@ pub mod audit;
 pub mod credential;
 pub mod observer;
 pub mod session;
+pub mod seat;
 pub mod supervision;
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_REQUESTS_PER_CONNECTION: usize = 16;

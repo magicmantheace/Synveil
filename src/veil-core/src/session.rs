@@ -128,7 +128,7 @@ impl SessionTracker {
         )
     }
 
-    fn complete_with_verifier<F>(
+    pub(crate) fn complete_with_verifier<F>(
         &mut self,
         attempt: u64,
         username: &str,
