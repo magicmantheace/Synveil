@@ -131,11 +131,19 @@ fn read_exact_before(
     while received < buffer.len() {
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
-            return Err(io::Error::new(io::ErrorKind::TimedOut, "seat frame deadline"));
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "seat frame deadline",
+            ));
         }
         stream.set_read_timeout(Some(remaining))?;
         match stream.read(&mut buffer[received..]) {
-            Ok(0) => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "seat frame closed")),
+            Ok(0) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "seat frame closed",
+                ));
+            }
             Ok(size) => received += size,
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
             Err(error) => return Err(error),
@@ -634,8 +642,8 @@ mod tests {
 
     #[test]
     fn activated_terminal_switching_away_revokes_lease() {
-        use std::sync::atomic::{AtomicU16, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicU16, Ordering};
         let (mut client, mut server) = UnixStream::pair().unwrap();
         let owner = unsafe { native_euid() };
         let active = Arc::new(AtomicU16::new(AUTHENTICATED_TERMINAL_VT));

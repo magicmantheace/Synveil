@@ -671,7 +671,10 @@ static int session_terminal(const struct termios *original) {
     if (tcsetattr(STDIN_FILENO, TCSANOW, original) != 0) return -1;
     const char banner[] = "\033[2J\033[HSynveil user terminal (UID 1000)\r\n"
                           "Type exit to return to your desktop.\r\n";
-    (void)write(STDOUT_FILENO, banner, sizeof(banner)-1u);
+    // glibc marks write() warn_unused_result; a short write must not
+    // silently advance to an interactive shell with a broken tty.
+    if (write(STDOUT_FILENO, banner, sizeof(banner)-1u) !=
+        (ssize_t)(sizeof(banner)-1u)) return -1;
     pid_t owner = getpid();
     pid_t child = fork();
     if (child < 0) return -1;
