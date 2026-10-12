@@ -6,7 +6,7 @@
 //! followed by password bytes. Username/UID/GID/command are NOT client fields.
 //! One connection holds the entire session lease. Losing that connection
 //! kills the fixed launcher; there is no token that can be replayed.
-//! The current developer framebuffer has NOT yet been wired to this service.
+//! The opt-in developer graphical login is wired to this lease boundary.
 use crate::session::{SessionError, SessionState, SessionTracker};
 use std::fs::{self, File, Permissions};
 use std::io::{self, Read, Write};
@@ -34,8 +34,8 @@ const VT_GETSTATE: u64 = 0x5603;
 #[derive(Clone, Copy, Default)]
 struct LinuxVtState {
     active: u16,
-    signal: u16,
-    state: u16,
+    _signal: u16,
+    _state: u16,
 }
 
 // A newly launched terminal has a short chance to activate tty1. After
@@ -49,7 +49,10 @@ struct VtLease {
 
 impl VtLease {
     fn new() -> Self {
-        Self { launched: Instant::now(), activated: false }
+        Self {
+            launched: Instant::now(),
+            activated: false,
+        }
     }
 
     fn permits(&mut self, active: u16, now: Instant) -> bool {
@@ -573,7 +576,9 @@ mod tests {
         // Wait until the broker has observed tty1 before switching to tty2.
         thread::sleep(Duration::from_millis(250));
         active.store(2, Ordering::SeqCst);
-        client.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
         let mut relock = [0u8; 7];
         client.read_exact(&mut relock).unwrap();
         assert_eq!(&relock, b"LOCKED\n");
