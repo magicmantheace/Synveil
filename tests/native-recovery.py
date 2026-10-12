@@ -69,6 +69,7 @@ if mode == 'pass':
     elif case == 'observe':
         assert 'synctl --json observe' in command
         assert 'synveil.observe/v1' in command
+        assert 'total_threads' in command and 'average_1m' in command
     else:
         assert '/children' in command and 'restarted=1' in command
         assert 'for round in 1 2 3' in command and 'shell-alive' in command
