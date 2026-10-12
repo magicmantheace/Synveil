@@ -119,7 +119,9 @@ impl SessionTracker {
 
     pub fn cleanup_finished(&mut self, session: u64) -> Result<(), SessionError> {
         match self.state {
-            SessionState::CleaningUp { session: active, .. } if active == session => {
+            SessionState::CleaningUp {
+                session: active, ..
+            } if active == session => {
                 self.state = SessionState::Locked;
                 Ok(())
             }
@@ -156,7 +158,10 @@ mod tests {
             tracker.complete_login(old, verified(1000, 1000)),
             Err(SessionError::StaleAttempt)
         );
-        assert_eq!(tracker.state(), SessionState::Authenticating { attempt: new });
+        assert_eq!(
+            tracker.state(),
+            SessionState::Authenticating { attempt: new }
+        );
     }
 
     #[test]
@@ -176,11 +181,17 @@ mod tests {
     fn logout_must_clean_resources_before_next_authentication() {
         let mut tracker = SessionTracker::default();
         let attempt = tracker.begin_login().unwrap();
-        assert_eq!(tracker.complete_login(attempt, verified(1000, 1000)), Ok(attempt));
+        assert_eq!(
+            tracker.complete_login(attempt, verified(1000, 1000)),
+            Ok(attempt)
+        );
         assert_eq!(tracker.begin_login(), Err(SessionError::InvalidState));
         tracker.request_logout().unwrap();
         assert_eq!(tracker.begin_login(), Err(SessionError::InvalidState));
-        assert_eq!(tracker.cleanup_finished(attempt + 1), Err(SessionError::InvalidState));
+        assert_eq!(
+            tracker.cleanup_finished(attempt + 1),
+            Err(SessionError::InvalidState)
+        );
         tracker.cleanup_finished(attempt).unwrap();
         assert_eq!(tracker.state(), SessionState::Locked);
         assert!(tracker.begin_login().is_ok());
@@ -197,7 +208,9 @@ mod tests {
             Err(SessionError::InvalidState)
         );
         let second = tracker.begin_login().unwrap();
-        tracker.complete_login(second, verified(1000, 1000)).unwrap();
+        tracker
+            .complete_login(second, verified(1000, 1000))
+            .unwrap();
         tracker.display_failed();
         assert_eq!(
             tracker.state(),
@@ -218,7 +231,10 @@ mod tests {
             state: SessionState::Locked,
             sequence: u64::MAX,
         };
-        assert_eq!(tracker.begin_login(), Err(SessionError::IdentifierExhausted));
+        assert_eq!(
+            tracker.begin_login(),
+            Err(SessionError::IdentifierExhausted)
+        );
         assert_eq!(tracker.state(), SessionState::Locked);
     }
 
@@ -227,7 +243,10 @@ mod tests {
         let mut tracker = SessionTracker::default();
         let first = tracker.begin_login().unwrap();
         assert_eq!(tracker.begin_login(), Err(SessionError::InvalidState));
-        assert_eq!(tracker.cleanup_finished(first), Err(SessionError::InvalidState));
+        assert_eq!(
+            tracker.cleanup_finished(first),
+            Err(SessionError::InvalidState)
+        );
         assert_eq!(tracker.expire_login(first), Ok(()));
         assert_eq!(tracker.expire_login(first), Err(SessionError::InvalidState));
     }
