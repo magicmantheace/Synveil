@@ -18,7 +18,7 @@ from qmp_input import QMPError, type_test_secret  # noqa: E402
 
 BOOT = {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY",
         b"SYNVEIL_SEAT_READY", b"SYNVEIL_SERIAL_RECOVERY_LOCKED"}
-DENIED = {b"SYNVEIL_SERIAL_RECOVERY_DEVELOPER", b"SYNVEIL_ENROLL_FAILED",
+DENIED = {b"SYNVEIL_SERIAL_RECOVERY_DEVELOPER",
           b"SYNVEIL_LOGIN_INPUT_UNAVAILABLE"}
 
 
@@ -36,6 +36,9 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
         )
         deadline = time.monotonic() + timeout
         phase = "boot"
+        # A deliberately mismatching second entry must never provision the
+        # account. Retry from the first masked password, then reauthenticate.
+        incorrect = secret[:-1] + ("0" if secret[-1] != "0" else "1")
         seen = set()
         pending = b""
         try:
@@ -64,6 +67,8 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                             seen.add(line)
                     if seen & DENIED:
                         return False
+                    if b"SYNVEIL_ENROLL_FAILED" in seen and phase != "waiting-wrong-rejection":
+                        return False
                     if not fresh and b"SYNVEIL_ENROLL_READY" in seen:
                         return False
                     if phase == "boot" and BOOT <= seen:
@@ -79,6 +84,22 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                             return False
                         phase = "first-password" if fresh else "logging-in"
                     if phase == "first-password" and b"SYNVEIL_ENROLL_CONFIRM_READY" in seen:
+                        seen.discard(b"SYNVEIL_ENROLL_CONFIRM_READY")
+                        try:
+                            type_test_secret(qmp, incorrect, timeout=18)
+                        except (QMPError, OSError, ValueError):
+                            return False
+                        phase = "waiting-wrong-rejection"
+                    if (phase == "waiting-wrong-rejection" and
+                        b"SYNVEIL_ENROLL_FAILED" in seen):
+                        seen.discard(b"SYNVEIL_ENROLL_FAILED")
+                        try:
+                            type_test_secret(qmp, secret, timeout=18)
+                        except (QMPError, OSError, ValueError):
+                            return False
+                        phase = "retry-first-password"
+                    if (phase == "retry-first-password" and
+                        b"SYNVEIL_ENROLL_CONFIRM_READY" in seen):
                         try:
                             type_test_secret(qmp, secret, timeout=18)
                         except (QMPError, OSError, ValueError):
