@@ -3,6 +3,7 @@
 """Test network UI data using fake procfs routes and DHCP resolver records."""
 from pathlib import Path
 import subprocess
+import socket
 import tempfile
 import unittest
 
@@ -69,6 +70,26 @@ class NetworkDiagnosticsTests(unittest.TestCase):
             self.route_interface(
                 "garbage\n" * 128 + "enp3s0 00000000 0202000A 0003\n"),
             {"found": "0", "interface": ""})
+
+    def test_auto_discovers_installed_nic_without_eth0_assumption(self):
+        interfaces = [name for _, name in socket.if_nameindex() if name != "lo"]
+        if not interfaces:
+            self.skipTest("host exposes no non-loopback NIC")
+        chosen = interfaces[0]
+        route = f"{chosen} 00000000 0202000A 0003\n"
+        state = self.sample(route, "nameserver 10.0.2.3\n", "auto")
+        self.assertEqual(state["interface"], chosen)
+        self.assertEqual(state["present"], "1")
+        self.assertEqual(state["gateway"], "10.0.2.2")
+
+    def test_auto_fallback_never_identifies_loopback_as_nic(self):
+        interfaces = [name for _, name in socket.if_nameindex() if name != "lo"]
+        state = self.sample("lo 00000000 0202000A 0003\n",
+                            "nameserver 127.0.0.1\n", "auto")
+        self.assertNotEqual(state["interface"], "lo")
+        if not interfaces:
+            self.assertEqual(state["present"], "0")
+            self.assertEqual(state["interface"], "")
 
     def test_route_gateway_uses_procfs_little_endian(self):
         state = self.sample(

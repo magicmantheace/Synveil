@@ -12,9 +12,14 @@ int main(int argc, char **argv) {
     }
     if (argc != 4) return 2;
     struct synveil_network_diag snapshot;
-    synveil_network_snapshot(argv[1], argv[2], argv[3], &snapshot);
+    if (strcmp(argv[1], "auto") == 0)
+        synveil_network_snapshot_auto(argv[2], argv[3], &snapshot);
+    else
+        synveil_network_snapshot(argv[1], argv[2], argv[3], &snapshot);
     printf("present=%d\nlink=%d\nip=%s\ngateway=%s\ndns=%s\n",
            snapshot.present, snapshot.link_up, snapshot.address,
            snapshot.gateway, snapshot.dns);
+    if (strcmp(argv[1], "auto") == 0)
+        printf("interface=%s\n", snapshot.interface);
     return 0;
 }

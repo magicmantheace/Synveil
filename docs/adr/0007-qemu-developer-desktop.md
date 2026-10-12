@@ -94,3 +94,13 @@ of an input device nor reacquisition constitutes a successful login.
 
 This is still a developer-only framebuffer session; it has no user-facing
 installer and does not replace a production compositor or input policy.
+
+## Automatic network adapter selection
+
+The read-only Network diagnostic chooses a non-loopback interface from a
+validated default IPv4 route. If the route is missing or stale, it selects an
+installed running device, or an installed disconnected adapter. The panel
+shows the chosen interface rather than assuming the developer VM name
+`eth0` applies to physical hardware. Host tests inject route data while
+checking actual kernel-reported interface presence; this does not validate
+Wi-Fi firmware or installer networking.
