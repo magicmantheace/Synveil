@@ -106,7 +106,9 @@ fn append_record(path: &Path, line: &str) -> io::Result<()> {
         .checked_add(bytes.len() as u64)
         .is_none_or(|next| next > MAX_AUDIT_BYTES)
     {
-        return Err(io::Error::other("persistent audit journal reached capacity"));
+        return Err(io::Error::other(
+            "persistent audit journal reached capacity",
+        ));
     }
     file.write_all(&bytes)?;
     file.sync_data()
