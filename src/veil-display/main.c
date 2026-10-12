@@ -602,7 +602,8 @@ static int run_menu(const struct surface *screen) {
 struct auth_input {
     unsigned char password[AUTH_MAX_UI_PASSWORD];
     unsigned length;
-    int shift;
+    unsigned shift;     // bit 0 = left, bit 1 = right
+    int caps_lock;      // only affects letters, not symbols
     int denied;
 };
 
@@ -611,6 +612,9 @@ static void auth_clear(struct auth_input *state) {
     volatile unsigned char *bytes = state->password;
     for (unsigned i = 0; i < AUTH_MAX_UI_PASSWORD; i++) bytes[i] = 0u;
     state->length = 0u;
+    // Evdev is closed while the terminal owns the seat; old held-key
+    // events cannot remain logically pressed after that device is reopened.
+    state->shift = 0u;
 }
 
 static unsigned char auth_key_char(unsigned code, int shift) {
@@ -635,7 +639,17 @@ static unsigned char auth_key_char(unsigned code, int shift) {
         {KEY_0,'0',')'}, {KEY_MINUS,'-','_'}, {KEY_EQUAL,'=','+'},
         {KEY_DOT,'.','>'}, {KEY_COMMA,',','<'}, {KEY_SLASH,'/','?'},
         {KEY_SPACE,' ',' '}, {KEY_SEMICOLON,';',':'},
-        {KEY_APOSTROPHE,39u,34u}
+        {KEY_APOSTROPHE,39u,34u},
+        {KEY_LEFTBRACE,'[','{'}, {KEY_RIGHTBRACE,']','}'},
+        {KEY_BACKSLASH,92u,'|'}, {KEY_GRAVE,96u,'~'},
+        {KEY_KP0,'0','0'}, {KEY_KP1,'1','1'},
+        {KEY_KP2,'2','2'}, {KEY_KP3,'3','3'},
+        {KEY_KP4,'4','4'}, {KEY_KP5,'5','5'},
+        {KEY_KP6,'6','6'}, {KEY_KP7,'7','7'},
+        {KEY_KP8,'8','8'}, {KEY_KP9,'9','9'},
+        {KEY_KPDOT,'.','.'}, {KEY_KPSLASH,'/','/'},
+        {KEY_KPASTERISK,'*','*'}, {KEY_KPMINUS,'-','-'},
+        {KEY_KPPLUS,'+','+'}
     };
     for (unsigned i = 0; i < sizeof(symbols)/sizeof(symbols[0]); i++) {
         if (symbols[i].key == code)
@@ -646,10 +660,16 @@ static unsigned char auth_key_char(unsigned code, int shift) {
 
 static void auth_input_key(struct auth_input *state, unsigned code, int value) {
     if (code == KEY_LEFTSHIFT || code == KEY_RIGHTSHIFT) {
-        state->shift = value != 0;
+        unsigned bit = code == KEY_LEFTSHIFT ? 1u : 2u;
+        if (value == 0) state->shift &= ~bit;
+        else if (value == 1) state->shift |= bit;
         return;
     }
     if (value != 1) return;
+    if (code == KEY_CAPSLOCK) {
+        state->caps_lock = !state->caps_lock;
+        return;
+    }
     if (code == KEY_BACKSPACE) {
         if (state->length) {
             state->length--;
@@ -657,7 +677,13 @@ static void auth_input_key(struct auth_input *state, unsigned code, int value) {
         }
         return;
     }
-    unsigned char letter = auth_key_char(code, state->shift);
+    // Caps Lock only modifies alpha keys. Shift still selects punctuation.
+    int shifted = state->shift != 0u;
+    unsigned char letter = auth_key_char(code, shifted);
+    if (letter >= 'a' && letter <= 'z' && state->caps_lock)
+        letter = (unsigned char)(letter - ('a' - 'A'));
+    else if (letter >= 'A' && letter <= 'Z' && state->caps_lock)
+        letter = (unsigned char)(letter + ('a' - 'A'));
     if (letter && state->length < AUTH_MAX_UI_PASSWORD) {
         state->password[state->length++] = letter;
         state->denied = 0;
@@ -680,6 +706,8 @@ static void auth_render(const struct surface *screen, const struct auth_input *s
     for (unsigned i = 0; i < visible; i++) {
         rectangle(screen, 40u + i*15u, h/2u, 8u, 8u, text);
     }
+    if (state->caps_lock)
+        heading(screen, "CAPS LOCK ON", 36u, h*3u/5u - 27u, 2u, muted);
     if (state->denied) heading(screen, "LOGIN DENIED", 36u, h*3u/5u, 2u, muted);
     heading(screen, "ENTER TO LOGIN", 36u, h*4u/5u, 2u, text);
     heading(screen, "ESC TO EXIT", 36u, h*4u/5u+32u, 2u, muted);
@@ -770,7 +798,8 @@ static int run_auth_login(const struct surface *screen) {
             event.type != EV_KEY) continue;
         if (event.value == 1 && event.code == KEY_ESC) {
             quit = 1;
-        } else if (event.value == 1 && event.code == KEY_ENTER) {
+        } else if (event.value == 1 &&
+                   (event.code == KEY_ENTER || event.code == KEY_KPENTER)) {
             // The login process must not retain an evdev keyboard reader
             // while the authenticated VT shell owns the keyboard. Reopen
             // only after the seat lease has ended; reopening also drops
@@ -858,6 +887,27 @@ static int self_test(void) {
     if (auth.length != 3u || auth.password[2] != 'B') return 1;
     auth_clear(&auth);
     if (auth.length != 0u || auth.password[0] != 0u || auth.password[2] != 0u) return 1;
+    // Independent shift keys, Caps Lock XOR shift, and symbols must map
+    // consistently before we send any password bytes over the seat IPC.
+    auth_input_key(&auth, KEY_LEFTSHIFT, 1);
+    auth_input_key(&auth, KEY_RIGHTSHIFT, 1);
+    auth_input_key(&auth, KEY_LEFTSHIFT, 0);
+    auth_input_key(&auth, KEY_A, 1);
+    if (auth.password[0] != 'A') return 1;
+    auth_input_key(&auth, KEY_RIGHTSHIFT, 0);
+    auth_input_key(&auth, KEY_CAPSLOCK, 1);
+    auth_input_key(&auth, KEY_A, 1);
+    auth_input_key(&auth, KEY_RIGHTSHIFT, 1);
+    auth_input_key(&auth, KEY_A, 1);
+    auth_input_key(&auth, KEY_LEFTBRACE, 1);
+    if (auth.length != 4u || auth.password[1] != 'A' ||
+        auth.password[2] != 'a' || auth.password[3] != '{') return 1;
+    auth_input_key(&auth, KEY_RIGHTSHIFT, 0);
+    auth_input_key(&auth, KEY_BACKSLASH, 1);
+    auth_input_key(&auth, KEY_KP7, 1);
+    if (auth.password[4] != 92u || auth.password[5] != '7') return 1;
+    auth_clear(&auth);
+    if (auth.length || auth.shift || auth.password[0] || auth.password[5]) return 1;
     if (glyph_for('4') == NULL || glyph_for('.') == NULL ||
         glyph_for('N') == NULL || glyph_for('@') != NULL) return 1;
     if (absolute_pixel(-20, 0, 100, 900u) != 0u ||
