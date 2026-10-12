@@ -48,8 +48,11 @@ be mistaken for secure multi-user authentication. Its home is ephemeral
 without the optional state disk. With the explicit QEMU ext4 `/var` volume,
 the mount helper bind-mounts a UID 1000-owned private home from
 `/var/lib/synveil/home/synveil` to `/home/synveil`, preserving its files
-across reboot. A failed bind or restrictive remount leaves serial recovery
-available and cannot silently claim durable home storage.
+across reboot. The mount helper now rejects symlinked home/state paths
+and requires a root-owned parent before changing UID ownership. A failed
+bind, suspect directory, or restrictive remount leaves serial recovery
+available and cannot silently claim durable home storage. The new directory
+hardening remains pending validation in a QEMU guest.
 A dedicated guest test now requires a VT1 shell with UID/GID 1000,
 `NoNewPrivs=1` and `/dev/tty1` stdin before claiming the demo terminal
 works. That exact UID 1000/no-new-privileges/tty1 guest check passed in the [d875da39 full native QEMU run](validation/native-d875da39/README.md). This is not a secure authenticated production login.
