@@ -116,6 +116,45 @@ def type_test_secret(socket_path: Path, secret: str, *, timeout=15.0):
                      allowed=ALLOWED_TEST_KEYS)
 
 
+
+def switch_to_login_vt(socket_path: Path, *, timeout=5.0):
+    """Send only Ctrl+Alt+F2 to test authenticated VT lease revocation.
+
+    All keycodes and the target VT are fixed: callers cannot send commands,
+    arbitrary chords, passwords, or synthetic events through this helper.
+    """
+    socket_path = Path(socket_path)
+    if not socket_path.is_absolute():
+        raise ValueError("QMP socket must use an absolute path")
+    deadline = time.monotonic() + timeout
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+        while True:
+            try:
+                sock.settimeout(max(0.1, min(1.0, deadline - time.monotonic())))
+                sock.connect(str(socket_path))
+                break
+            except (FileNotFoundError, ConnectionRefusedError):
+                if time.monotonic() >= deadline:
+                    raise QMPError("QMP socket unavailable before deadline")
+                time.sleep(0.05)
+        sock.settimeout(max(0.1, deadline - time.monotonic()))
+        with sock.makefile("rb") as reader:
+            _read_reply(reader, greeting=True)
+            emit_command(sock, reader, {"execute": "qmp_capabilities"})
+            keys = ("ctrl", "alt", "f2")
+            events = [
+                {"type": "key",
+                 "data": {"down": True, "key": {"type": "qcode", "data": key}}}
+                for key in keys
+            ]
+            events.extend(
+                {"type": "key",
+                 "data": {"down": False, "key": {"type": "qcode", "data": key}}}
+                for key in reversed(keys)
+            )
+            emit_command(sock, reader, {"execute": "input-send-event",
+                                        "arguments": {"events": events}})
+
 def exit_authenticated_terminal(socket_path: Path, *, timeout=5.0):
     """Type the fixed shell built-in `exit` during an isolated guest test.
 
