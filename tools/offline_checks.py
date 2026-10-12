@@ -25,6 +25,7 @@ HOST = (
     ("native-rootfs", "python3", "tests/native-rootfs.py"),
     ("native-startup", "python3", "tests/native-startup.py"),
     ("seat-supervisor", "python3", "tests/seat-supervisor.py"),
+    ("offline-runner-fixtures", "python3", "tests/offline-checks.py"),
     ("native-smoke-fixtures", "python3", "tests/native-smoke.py"),
     ("native-recovery-fixtures", "python3", "tests/native-recovery.py"),
     ("qemu-lock", "python3", "tests/qemu-lock.py"),
@@ -74,6 +75,31 @@ def git_identity():
         return head, not bool(dirty), hashlib.sha256(diff).hexdigest()
     except (OSError, subprocess.SubprocessError):
         return "unknown", False, "unknown"
+
+
+def guest_image_matches(image, head, clean):
+    """Never certify a stale, dirty or modified native image."""
+    if not clean or head == "unknown" or not image.is_file():
+        return False
+    manifest = image.parent / "manifests" / "build.json"
+    try:
+        data = json.loads(manifest.read_text())
+        if data.get("schema") != "synveil.build/v1":
+            return False
+        if data.get("git", {}).get("commit") != head:
+            return False
+        if data.get("git", {}).get("dirty") is not False:
+            return False
+        entry = data.get("artifacts", {}).get(image.name, {})
+        if entry.get("bytes") != image.stat().st_size:
+            return False
+        digest = hashlib.sha256()
+        with image.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1048576), b""):
+                digest.update(chunk)
+        return digest.hexdigest() == entry.get("sha256")
+    except (OSError, ValueError, TypeError):
+        return False
 
 
 def store(path, record):
@@ -140,12 +166,15 @@ def main():
         env["SYNVEIL_SMOKE_REQUIRE_DISPLAY"] = "1"
         env["SYNVEIL_SMOKE_REQUIRE_DESKTOP"] = "1"
     image = Path(env.get("SYNVEIL_OUT_DIR", str(ROOT / "out"))) / "synveil-x86_64.img"
+    guest_matched = guest_image_matches(image, head, clean) if args.level == "guest" else False
     for i, entry in enumerate(steps, start=1):
         name, *command = entry
         logfile = output / f"{i:02d}-{name}.log"
-        if name.startswith("qemu-") and not image.is_file():
+        if name.startswith("qemu-") and not guest_matched:
             status, code, elapsed = "blocked", None, 0
-            logfile.write_text("QEMU image absent; guest validation not run\n")
+            logfile.write_text(
+                "BLOCKED: QEMU image or clean build manifest does not match this Git commit\n"
+            )
         elif command[0] == "cargo" and shutil.which("cargo") is None:
             status, code, elapsed = "blocked", None, 0
             logfile.write_text("Rust toolchain absent; Rust validation not run\n")
@@ -163,7 +192,7 @@ def main():
     ) else "fail")
     receipt["guest_validated"] = (
         args.level == "guest" and receipt["status"] == "pass"
-        and clean and head != "unknown"
+        and guest_matched
     )
     store(receipt_path, receipt)
     print(f"[offline] {receipt['status']} — {receipt_path}")
