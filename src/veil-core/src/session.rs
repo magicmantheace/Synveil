@@ -20,6 +20,7 @@ pub enum SessionError {
     StaleAttempt,
     PrivilegedIdentity,
     IdentifierExhausted,
+    Denied,
 }
 
 /// Not constructible by external callers. The future credential verifier
@@ -95,6 +96,36 @@ impl SessionTracker {
         Ok(attempt)
     }
 
+    /// Trusted root-owned credential file is the only production password
+    /// authority. The caller must never provide a PHC hash or an identity.
+    /// This is not yet exposed over IPC or wired to the graphical shell.
+    pub fn complete_local_login(
+        &mut self,
+        attempt: u64,
+        username: &str,
+        password: &[u8],
+    ) -> Result<u64, SessionError> {
+        self.complete_with_verifier(attempt, username, password, crate::credential::verify_root_credential)
+    }
+
+    fn complete_with_verifier<F>(
+        &mut self,
+        attempt: u64,
+        username: &str,
+        password: &[u8],
+        verifier: F,
+    ) -> Result<u64, SessionError>
+    where
+        F: FnOnce(&str, &[u8]) -> bool,
+    {
+        self.check_attempt(attempt)?;
+        if !verifier(username, password) {
+            self.state = SessionState::Locked;
+            return Err(SessionError::Denied);
+        }
+        self.complete_login(attempt, VerifiedIdentity { uid: 1000, gid: 1000 })
+    }
+
     pub fn request_logout(&mut self) -> Result<(), SessionError> {
         match self.state {
             SessionState::Active { session, uid, gid } => {
@@ -144,6 +175,30 @@ mod tests {
 
     fn verified(uid: u32, gid: u32) -> VerifiedIdentity {
         VerifiedIdentity { uid, gid }
+    }
+
+    #[test]
+    fn fake_verifier_is_not_authority_after_denial_or_crash() {
+        let mut tracker = SessionTracker::default();
+        let first = tracker.begin_login().unwrap();
+        assert_eq!(
+            tracker.complete_with_verifier(first, "synveil", b"incorrect", |_, _| false),
+            Err(SessionError::Denied)
+        );
+        assert_eq!(tracker.state(), SessionState::Locked);
+        let second = tracker.begin_login().unwrap();
+        assert_eq!(
+            tracker.complete_with_verifier(first, "synveil", b"valid", |_, _| true),
+            Err(SessionError::StaleAttempt)
+        );
+        assert_eq!(
+            tracker.complete_with_verifier(second, "synveil", b"valid", |_, _| true),
+            Ok(second)
+        );
+        tracker.display_failed();
+        assert_eq!(tracker.begin_login(), Err(SessionError::InvalidState));
+        tracker.cleanup_finished(second).unwrap();
+        assert_eq!(tracker.state(), SessionState::Locked);
     }
 
     #[test]
