@@ -4,11 +4,21 @@ use serde_json::{Value, json};
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const AUDIT_SCHEMA_V1: &str = "synveil.audit/v1";
+// Prototype protection against unbounded persistent journal growth. A
+// production release still requires rotation with independent integrity.
+const MAX_AUDIT_BYTES: u64 = 4 * 1024 * 1024;
+const LINUX_LOCK_EX_NONBLOCK: i32 = 2 | 4;
+
+unsafe extern "C" {
+    fn flock(fd: i32, operation: i32) -> i32;
+}
+
 static SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 pub fn record(event: &str, fields: Value) -> Value {
@@ -82,6 +92,22 @@ fn append_record(path: &Path, line: &str) -> io::Result<()> {
     }
     let mut bytes = line.as_bytes().to_vec();
     bytes.push(b'\n');
+    if bytes.len() as u64 > MAX_AUDIT_BYTES {
+        return Err(io::Error::other("audit event exceeds journal limit"));
+    }
+    // Serialize cooperative writers before checking remaining capacity.
+    // The lock is nonblocking: a stuck writer cannot freeze core service.
+    // The kernel releases this advisory lock when the descriptor closes.
+    if unsafe { flock(file.as_raw_fd(), LINUX_LOCK_EX_NONBLOCK) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let current = file.metadata()?.len();
+    if current
+        .checked_add(bytes.len() as u64)
+        .is_none_or(|next| next > MAX_AUDIT_BYTES)
+    {
+        return Err(io::Error::other("persistent audit journal reached capacity"));
+    }
     file.write_all(&bytes)?;
     file.sync_data()
 }
@@ -178,6 +204,21 @@ mod tests {
             io::ErrorKind::PermissionDenied
         );
         assert_eq!(fs::read_to_string(&journal).unwrap(), "first\nsecond\n");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn bounded_audit_journal_refuses_growth_before_disk_exhaustion() {
+        let dir = test_dir("capacity");
+        let journal = dir.join("journal");
+        let initial = vec![b'x'; (MAX_AUDIT_BYTES - 3) as usize];
+        fs::write(&journal, &initial).unwrap();
+        fs::set_permissions(&journal, fs::Permissions::from_mode(0o600)).unwrap();
+        append_record(&journal, "x").unwrap();
+        assert_eq!(fs::metadata(&journal).unwrap().len(), MAX_AUDIT_BYTES - 1);
+        assert!(append_record(&journal, "more").is_err());
+        assert_eq!(fs::metadata(&journal).unwrap().len(), MAX_AUDIT_BYTES - 1);
+        assert_eq!(fs::read(&journal).unwrap().last(), Some(&b'\n'));
         fs::remove_dir_all(dir).unwrap();
     }
 
