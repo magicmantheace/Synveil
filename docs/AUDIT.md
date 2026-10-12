@@ -43,6 +43,10 @@ and disk-full policy. The durable-audit roadmap item remains open. Future
 privileged actions also require typed cause, parameters, result, authorization,
 and rollback evidence.
 
+The native two-boot QEMU persistence gate now also verifies that the
+versioned audit journal is present, root-owned, mode 0600 and singly linked.
+That stronger guest gate is pending on the latest native-image workflow.
+
 Unit tests cover identity, sequence, unavailable clocks, escaped fields,
 symlink/hardlink rejection, owner-only mode and unsafe-parent refusal. A host integration test starts the actual core with a temporary journal,
 obtains status, and checks that the on-disk event stream matches console

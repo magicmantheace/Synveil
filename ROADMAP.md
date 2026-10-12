@@ -123,6 +123,10 @@ Durable audit rotation, integrity and disk-full policy remain open.
 - [ ] memory/pressure metrics
   - Read-only MemTotal/MemAvailable snapshot implemented; pressure metrics remain open.
 - [ ] process lifecycle and resource metrics
+  - Read-only 1/5/15-minute Linux load averages and runnable/total thread
+    counts are now parsed with strict schema checks. They are not CPU
+    utilization or process inventory; full lifecycle metrics remain open.
+    The expanded QEMU observer check is pending.
 - [ ] disk/I/O metrics
 - [ ] network metrics
 - [ ] thermal/power interface where available

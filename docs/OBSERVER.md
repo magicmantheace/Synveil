@@ -1,51 +1,39 @@
-# Observer v1 — Read-only Linux snapshot
+# Read-only local observer (developer v1)
 
-Status: **implemented in the Rust host workspace; guest runtime validation pending**
+`synctl --json observe` queries `veil-core` through its local read-only
+Unix socket. This does not authorize process mutation, privileged actions,
+AI recommendations or operating-system policy changes.
 
-The first observer endpoint is `synctl observe` (or `synctl --json observe`)
-over the existing private Unix socket. Request method: `observe`, with an
-empty JSON parameter object. Unknown parameters receive `invalid_parameters`.
+## Schema: `synveil.observe/v1`
 
-The result is `synveil.observe/v1`. It is sampled from three kernel interfaces
-without spawning shell commands or performing privileged mutations:
+- `cpu.logical_count`: logical CPUs from `/proc/stat`.
+- `cpu.total_ticks`, `cpu.idle_ticks`: monotonically cumulative kernel
+  counters; `idle_ticks` includes iowait. A single read is **not** an
+  instantaneous CPU utilization percentage.
+- `memory.total_bytes`, `memory.available_bytes`: Linux MemTotal and
+  MemAvailable read from `/proc/meminfo`, converted from kB to bytes with
+  overflow checks.
+- `uptime_seconds`: kernel time since boot from `/proc/uptime`.
+- `load.average_1m`, `load.average_5m`, `load.average_15m`:
+  Linux scheduler load averages from `/proc/loadavg`. These are neither
+  CPU percentages nor normalized by logical processor count.
+- `load.runnable`, `load.total_threads`: scheduler entities from
+  the runnable/total field in `/proc/loadavg`. Total refers to threads,
+  not distinct processes, and includes the current procfs context.
 
-- `/proc/meminfo`: `MemTotal` and `MemAvailable`, returned as unsigned bytes.
-- `/proc/stat`: cumulative CPU tick totals and idle+iowait ticks, as unsigned
-  integers; number of logical `cpuN` lines.
-- `/proc/uptime`: seconds since boot.
+The core validates required fields, finite nonnegative numeric values,
+CPU and memory consistency and runnable/total bounds. Bad or unavailable
+required procfs input returns a structured error; it never silently
+substitutes fake zero values. The implementation reads kernel files
+directly without starting shell commands.
 
-Example result (illustrative values, not actual hardware measurements):
+Host tests cover valid parsing and malformed/inconsistent counters. The
+native QEMU `observe` guest smoke was extended to require the new load
+fields and is pending rerun.
 
-```json
-{
-  "schema": "synveil.observe/v1",
-  "memory": {
-    "total_bytes": 33554432,
-    "available_bytes": 12582912
-  },
-  "cpu": {
-    "logical_count": 2,
-    "total_ticks": 1145,
-    "idle_ticks": 1010
-  },
-  "uptime_seconds": 12.5
-}
-```
+## Deliberately not claimed
 
-CPU counters are cumulative; they are **not instantaneous CPU utilization**.
-A consumer may compute deltas between snapshots but must also handle counter
-reset/reboot and CPU hotplug. Absent, malformed, inconsistent or overflowing
-kernel values cause a typed `internal_failure` response rather than invented
-measurements.
-
-The kernel remains the source of truth; the service does not persist metrics,
-infer user intent, call an AI model, or change policy. Additional metrics,
-normalized event streams, historical aggregation, privacy boundaries, and
-guest smoke evidence remain Phase 3 work.
-
-The `bash build.sh recovery-smoke --case observe --timeout 60`
-scenario passed in the [810f66d guest run](validation/native-810f66d/README.md).
-It boots the native image, requests `synctl --json observe` and checks the
-schema and CPU/memory field names, requiring `SYNVEIL_OBSERVE_OK` on serial.
-A host fixture rejects echoed commands as evidence. Remaining Phase 3 metrics
-and aggregation work mean the observer roadmap milestone stays open.
+CPU utilization sampling requires a time delta; process inventory and
+lifecycle tracking, PSI pressure, I/O, networking, resource history and
+long-term aggregation are separate roadmap items. The observer does not
+yet implement these metrics.
