@@ -184,7 +184,11 @@ fn parse_diskstats(input: &str) -> io::Result<Value> {
         // non-numeric or negative counters never leak into a snapshot.
         let values = columns[3..14]
             .iter()
-            .map(|field| field.parse::<u64>().map_err(|_| invalid_data("invalid diskstats counter")))
+            .map(|field| {
+                field
+                    .parse::<u64>()
+                    .map_err(|_| invalid_data("invalid diskstats counter"))
+            })
             .collect::<io::Result<Vec<_>>>()?;
         if devices.len() == MAX_DEVICES {
             omitted = omitted
@@ -263,8 +267,7 @@ mod tests {
 
     #[test]
     fn diskstats_snapshot_preserves_raw_counters_without_double_counted_totals() {
-        let raw = "   253 0 dm-0 31 2 128 7 40 0 256 10 1 11 15 0 0 0 0\n"
-            .to_owned()
+        let raw = "   253 0 dm-0 31 2 128 7 40 0 256 10 1 11 15 0 0 0 0\n".to_owned()
             + "  8  0 sda  10 0 1024 2 12 0 2048 4 0 6 9\n";
         let parsed = parse_diskstats(&raw).unwrap();
         assert_eq!(parsed["status"], "ready");
