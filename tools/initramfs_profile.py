@@ -46,8 +46,9 @@ def scan_names(path: Path):
                     raise ValueError("invalid newc trailer size")
                 # cpio may pad to an archive block boundary, never permit an
                 # unexpected second archive or nonzero trailing instructions.
-                if any(stream.read()):
-                    raise ValueError("nonzero data after newc trailer")
+                tail = stream.read(512)
+                if len(tail) > 511 or any(tail):
+                    raise ValueError("invalid padding after newc trailer")
                 return entries
             while name.startswith("./"):
                 name = name[2:]
