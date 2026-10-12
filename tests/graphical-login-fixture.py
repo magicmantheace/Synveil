@@ -120,6 +120,40 @@ print('SYNVEIL_RELOCK_NO_USER_SHELL', flush=True)
 wait_for(8)
 assert signal.read_text().splitlines()[7] == signal.read_text().splitlines()[1]
 print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
+check_tty = sys.stdin.readline()
+assert 'AUTH_TTY_READY' in check_tty and 'NoNewPrivs' in check_tty
+print('SYNVEIL_AUTH_TTY_READY', flush=True)
+crash = sys.stdin.readline()
+assert 'SYNVEIL_USER_DASHBOARD_KILLED' in crash
+assert 'kill -KILL' in crash and '--session' in crash
+print('SYNVEIL_USER_DASHBOARD_KILLED', flush=True)
+if mode == 'no-user-crash-relock':
+    sys.exit(0)
+print('SYNVEIL_LOGIN_RELOCKED', flush=True)
+check_relock = sys.stdin.readline()
+assert 'RELOCK_NO_USER_SHELL' in check_relock
+print('SYNVEIL_RELOCK_NO_USER_SHELL', flush=True)
+wait_for(9)
+assert signal.read_text().splitlines()[8] == signal.read_text().splitlines()[1]
+print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
+check_tty = sys.stdin.readline()
+assert 'AUTH_TTY_READY' in check_tty and 'NoNewPrivs' in check_tty
+print('SYNVEIL_AUTH_TTY_READY', flush=True)
+wait_for(10)
+assert signal.read_text().splitlines()[9] == 'TERM_OPEN'
+terminal = sys.stdin.readline()
+assert 'SYNVEIL_USER_TERMINAL_READY' in terminal
+assert 'NoNewPrivs' in terminal
+if mode == 'no-post-crash-terminal':
+    sys.exit(0)
+print('SYNVEIL_USER_TERMINAL_READY', flush=True)
+wait_for(11)
+assert signal.read_text().splitlines()[10] == 'TERM_EXIT'
+returned = sys.stdin.readline()
+assert 'SYNVEIL_USER_TERMINAL_RETURNED' in returned
+if mode == 'no-post-crash-return':
+    sys.exit(0)
+print('SYNVEIL_USER_TERMINAL_RETURNED', flush=True)
 script = ''
 while not script.endswith('# SYNVEIL_TEST_COMMAND_END\\n'):
     line = sys.stdin.readline()
@@ -143,8 +177,8 @@ if mode != 'no-gui-restart':
                    "FIXTURE_MODE": mode}
             result = subprocess.run(
                 ["python3", str(root / "tests/smoke-graphical-login.py"),
-                 "--timeout", "2"], env=env, capture_output=True,
-                text=True, timeout=5
+                 "--timeout", "4"], env=env, capture_output=True,
+                text=True, timeout=7
             )
             log = (out / "logs/qemu-graphical-login-smoke.log").read_text()
             secrets = signals.read_text().splitlines() if signals.exists() else []
@@ -153,7 +187,7 @@ if mode != 'no-gui-restart':
     def test_script_requires_wrong_password_then_correct_login_and_cleanup(self):
         code, log, secrets = self.simulate("pass")
         self.assertEqual(code, 0, log)
-        self.assertEqual(len(secrets), 8)
+        self.assertEqual(len(secrets), 11)
         self.assertNotEqual(secrets[0], secrets[1])
         self.assertEqual(secrets[2], "VT_SWITCH")
         self.assertEqual(secrets[3], secrets[1])
@@ -161,14 +195,27 @@ if mode != 'no-gui-restart':
         self.assertEqual(secrets[5], "TERM_EXIT")
         self.assertEqual(secrets[6], "ESC_LOGOUT")
         self.assertEqual(secrets[7], secrets[1])
-        for secret in (secrets[0], secrets[1], secrets[3], secrets[7]):
+        self.assertEqual(secrets[8], secrets[1])
+        self.assertEqual(secrets[9], "TERM_OPEN")
+        self.assertEqual(secrets[10], "TERM_EXIT")
+        for secret in (secrets[0], secrets[1], secrets[3], secrets[7], secrets[8]):
             self.assertRegex(secret, r"^[a-f0-9]{32}$")
             self.assertNotIn(secret, log)
         self.assertIn("SYNVEIL_USER_TERMINAL_READY", log)
         self.assertIn("SYNVEIL_USER_TERMINAL_RETURNED", log)
         self.assertIn("SYNVEIL_LOGIN_RELOCKED", log)
         self.assertIn("SYNVEIL_RELOCK_NO_USER_SHELL", log)
+        self.assertIn("SYNVEIL_USER_DASHBOARD_KILLED", log)
         self.assertIn("SYNVEIL_GRAPHICAL_LOGIN_CLEANED", log)
+
+    def test_hard_killed_user_session_must_relock(self):
+        self.assertNotEqual(self.simulate("no-user-crash-relock")[0], 0)
+
+    def test_new_login_after_crash_must_reopen_a_user_terminal(self):
+        self.assertNotEqual(self.simulate("no-post-crash-terminal")[0], 0)
+
+    def test_new_login_after_crash_must_return_to_dashboard(self):
+        self.assertNotEqual(self.simulate("no-post-crash-return")[0], 0)
 
     def test_missing_child_user_shell_evidence_fails(self):
         self.assertNotEqual(self.simulate("no-user-terminal")[0], 0)
