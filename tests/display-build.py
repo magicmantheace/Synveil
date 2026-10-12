@@ -54,6 +54,7 @@ class DisplaySourceTests(unittest.TestCase):
                  str(ROOT / "src/veil-display/main.c"),
                  str(ROOT / "src/veil-display/preferences.c"),
                  str(ROOT / "src/veil-display/core_health.c"),
+                 str(ROOT / "src/veil-display/network_diag.c"),
                  "-o", str(executable)],
                 check=True,
             )

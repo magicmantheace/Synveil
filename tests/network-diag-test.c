@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MPL-2.0
+#include "network_diag.h"
+#include <stdio.h>
+#include <string.h>
+
+int main(int argc, char **argv) {
+    if (argc != 4) return 2;
+    struct synveil_network_diag snapshot;
+    synveil_network_snapshot(argv[1], argv[2], argv[3], &snapshot);
+    printf("present=%d\nlink=%d\nip=%s\ngateway=%s\ndns=%s\n",
+           snapshot.present, snapshot.link_up, snapshot.address,
+           snapshot.gateway, snapshot.dns);
+    return 0;
+}

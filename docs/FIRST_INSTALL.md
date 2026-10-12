@@ -223,3 +223,15 @@ AI command path, and does not grant authentication authority. The host
 fixture (`tests/core-health.py`) simulates partial, invalid and stalled
 peers. Native guest validation of this updated framebuffer image remains
 outstanding; do not confuse the diagnostic menu with a desktop compositor.
+
+## Read-only network diagnostics in the developer launcher
+
+The Network page now reads the fixed QEMU `eth0` interface state,
+assigned IPv4 address, kernel default route and first IPv4 DNS resolver.
+Missing or invalid data is displayed as unavailable/not assigned rather
+than inferred from the presence of a device node. The snapshot is
+read-only, bounded when reading procfs/resolver records, and does not
+manage DHCP or change routes. The offline host fixture
+`tests/network-diag.py` covers gateway endianness, bad route flags,
+missing interface and invalid DNS input. A guest rebuild and QEMU check
+are still needed to validate the new framebuffer display in its VM.

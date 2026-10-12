@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include "preferences.h"
 #include "core_health.h"
+#include "network_diag.h"
 #include "lifetime.h"
 
 struct surface {
@@ -247,23 +248,21 @@ static void show_runtime_details(const struct surface *screen, int page,
             heading(screen, line, 32u, y, 2u, color);
         }
     } else if (page == 2) {
-        int fd = socket(AF_INET, SOCK_DGRAM, 0);
-        if (fd >= 0) {
-            struct ifreq request = {0};
-            snprintf(request.ifr_name, sizeof(request.ifr_name), "eth0");
-            if (ioctl(fd, SIOCGIFADDR, &request) == 0) {
-                const struct sockaddr_in *address =
-                    (const struct sockaddr_in *)&request.ifr_addr;
-                char ip[INET_ADDRSTRLEN];
-                if (inet_ntop(AF_INET, &address->sin_addr, ip, sizeof(ip)) != NULL) {
-                    snprintf(line, sizeof(line), "IP %s", ip);
-                    heading(screen, line, 32u, y, 2u, color);
-                }
-            } else {
-                heading(screen, "IP NOT ASSIGNED", 32u, y, 2u, color);
-            }
-            close(fd);
-        }
+        struct synveil_network_diag network;
+        synveil_network_snapshot("eth0", "/proc/net/route",
+                                 "/etc/resolv.conf", &network);
+        heading(screen, !network.present ? "ETH0 UNAVAILABLE" :
+                network.link_up ? "LINK READY" : "LINK DOWN",
+                32u, y, 2u, color);
+        snprintf(line, sizeof(line), "IP %s",
+                 network.address[0] ? network.address : "NOT ASSIGNED");
+        heading(screen, line, 32u, y + 34u, 2u, color);
+        snprintf(line, sizeof(line), "GW %s",
+                 network.gateway[0] ? network.gateway : "NOT ASSIGNED");
+        heading(screen, line, 32u, y + 68u, 2u, color);
+        snprintf(line, sizeof(line), "DNS %s",
+                 network.dns[0] ? network.dns : "NOT ASSIGNED");
+        heading(screen, line, 32u, y + 102u, 2u, color);
     }
 }
 
@@ -309,8 +308,7 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
         } else if (state->page == 1) {
             label = mounted_state() ? "STATE DISK MOUNTED" : "STATE DISK MISSING";
         } else {
-            label = access("/sys/class/net/eth0", F_OK) == 0 ?
-                "VIRTUAL NIC PRESENT" : "VIRTUAL NIC MISSING";
+            label = "NETWORK DETAILS";
         }
         heading(screen, label, 32u, h / 3u, 2u, muted);
         show_runtime_details(screen, state->page, h / 3u + 44u, muted);
