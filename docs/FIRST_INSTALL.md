@@ -235,3 +235,13 @@ manage DHCP or change routes. The offline host fixture
 `tests/network-diag.py` covers gateway endianness, bad route flags,
 missing interface and invalid DNS input. A guest rebuild and QEMU check
 are still needed to validate the new framebuffer display in its VM.
+
+## Offline release-gate state isolation
+
+The opt-in combined native QEMU guest runner now creates private disposable
+ext4 images for seat-crash authentication and independent two-boot state/home
+checks. It ignores any operator-provided `SYNVEIL_QEMU_STATE_DISK` path,
+so this developer test harness cannot silently reuse an owner's credential
+disk. A clean image-manifest match and every guest scenario passing remain
+mandatory before promotion. This does not replace a supported installer or
+account-enrollment process; no owner test is requested yet.

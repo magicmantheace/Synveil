@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("offline_checks", ROOT / "tools/offline_checks.py")
@@ -33,11 +34,65 @@ class OfflineValidationTests(unittest.TestCase):
         }
         self.assertTrue(expected_scenarios <= actual_scenarios)
         self.assertEqual(len(guest), len({entry[0] for entry in guest}))
+        self.assertTrue({
+            "qemu-seat-crash", "qemu-persistence", "qemu-ui-preferences",
+        } <= checker.GUEST_WITH_FRESH_STATE)
         self.assertIn("absent", {step[-1] for step in guest})
         self.assertIn("protocol", {step[-1] for step in guest})
         for step in guest:
             self.assertNotIn("gh", step)
             self.assertNotIn("curl", step)
+
+    def test_guest_state_does_not_inherit_operator_disk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            logfile = base / "case.log"
+            calls = []
+
+            def fake_run(command, log, timeout, env):
+                calls.append((command, log, timeout, dict(env)))
+                return "pass", 0, 0.01
+
+            environment = {"SYNVEIL_QEMU_STATE_DISK": "/home/owner/private.ext4"}
+            with patch.object(checker.shutil, "which", return_value="/sbin/mkfs.ext4"), \
+                 patch.object(checker, "run_check", side_effect=fake_run):
+                result = checker.run_guest_with_fresh_state(
+                    "qemu-seat-crash", ["bash", "build.sh", "recovery-smoke"],
+                    logfile, base, environment, 90,
+                )
+            self.assertEqual(result[0], "pass")
+            self.assertEqual(len(calls), 2)
+            self.assertIn("state_disk.py", calls[0][0][1])
+            self.assertEqual(calls[1][3]["SYNVEIL_QEMU_STATE_DISK"],
+                             str(base / "qemu-seat-crash-state.ext4"))
+            self.assertEqual(environment["SYNVEIL_QEMU_STATE_DISK"],
+                             "/home/owner/private.ext4")
+
+    def test_missing_ext4_formatter_blocks_guest_without_running(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            logfile = Path(tmp) / "blocked.log"
+            with patch.object(checker.shutil, "which", return_value=None), \
+                 patch.object(checker, "run_check") as mocked:
+                status, code, _ = checker.run_guest_with_fresh_state(
+                    "qemu-seat-crash", ["bash", "build.sh", "recovery-smoke"],
+                    logfile, Path(tmp), {}, 90,
+                )
+            self.assertEqual((status, code), ("blocked", None))
+            self.assertIn("mkfs.ext4", logfile.read_text())
+            mocked.assert_not_called()
+
+    def test_state_preparation_failure_is_not_reported_as_guest_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            logfile = Path(tmp) / "blocked.log"
+            with patch.object(checker.shutil, "which", return_value="/sbin/mkfs.ext4"), \
+                 patch.object(checker, "run_check", return_value=("fail", 1, 0.01)) as mocked:
+                status, code, _ = checker.run_guest_with_fresh_state(
+                    "qemu-seat-crash", ["bash", "build.sh", "recovery-smoke"],
+                    logfile, Path(tmp), {}, 90,
+                )
+            self.assertEqual((status, code), ("blocked", None))
+            self.assertEqual(mocked.call_count, 1)
+            self.assertIn("state-setup.log", logfile.read_text())
 
     def test_manifest_digest_and_commit_must_match(self):
         with tempfile.TemporaryDirectory() as tmp:

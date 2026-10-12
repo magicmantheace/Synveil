@@ -51,9 +51,14 @@ QEMU's user-mode network adapter.
 This is deliberately a more demanding gate than the earlier four-case guest
 plan. Its success would still apply only to the exact clean commit and native
 developer QEMU image, **not** physical hardware or a release installer.
-Some recovery cases (notably `seat-crash`) require a preformatted, disposable
-ext4 disk supplied through `SYNVEIL_QEMU_STATE_DISK`. Do not point it at
-personal VM data. Cross-reboot preferences/home evidence has its separate
-`ui-preferences-smoke` and `persistence-smoke` scripts and is **not yet**
-part of the combined receipt; run these separately before claiming the
-first-install persistence milestone.
+The guest runner now strips any operator-supplied `SYNVEIL_QEMU_STATE_DISK`
+before running tests. Seat-crash, two-boot raw persistence, and two-boot
+UI preferences/home each receive their **own newly formatted, mode-0600,
+128 MiB ext4 state image** inside that run's `out/local-validation/`
+receipt. A missing `mkfs.ext4` or failed disk creation records a **blocked**
+test, not a pass. Those images are disposable test artifacts; never distribute
+them as account or installation media.
+
+The dedicated persistence and UI two-boot smoke scripts are now part of the
+combined guest receipt. A successful run still cannot establish physical
+installer readiness, secure onboarding, or a non-root graphical compositor.

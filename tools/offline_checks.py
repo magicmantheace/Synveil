@@ -70,6 +70,10 @@ GUEST = (
      "--case", "state-missing", "--timeout", "90"),
     ("qemu-state-corrupt", "bash", "build.sh", "recovery-smoke",
      "--case", "state-corrupt", "--timeout", "90"),
+    ("qemu-persistence", "bash", "build.sh", "persistence-smoke",
+     "--timeout", "90"),
+    ("qemu-ui-preferences", "bash", "build.sh", "ui-preferences-smoke",
+     "--timeout", "90"),
     ("qemu-seat-crash", "bash", "build.sh", "recovery-smoke",
      "--case", "seat-crash", "--timeout", "120"),
     ("qemu-locked-seat", "bash", "build.sh", "recovery-smoke",
@@ -83,6 +87,14 @@ GUEST = (
     ("qemu-graphical-login", "bash", "build.sh", "guest-fixture",
      "--case", "graphical-login"),
 )
+
+
+# These scenarios *need* writable state. Never inherit a disk supplied by
+# the operator: that could contain private credentials or persistent data.
+# Each check receives a brand-new 128 MiB QEMU disk owned by its receipt.
+GUEST_WITH_FRESH_STATE = frozenset((
+    "qemu-seat-crash", "qemu-persistence", "qemu-ui-preferences",
+))
 
 
 def checks(level):
@@ -162,6 +174,28 @@ def run_check(command, logfile, timeout, environment):
     return status, code, round(time.monotonic() - started, 3)
 
 
+def run_guest_with_fresh_state(name, command, logfile, receipt_dir, environment, timeout):
+    """Isolate persistent guest scenarios from any operator-supplied disk."""
+    if shutil.which("mkfs.ext4") is None:
+        logfile.write_text("BLOCKED: mkfs.ext4 is required for an isolated guest state disk\n")
+        return "blocked", None, 0.0
+    image = receipt_dir / (name + "-state.ext4")
+    setup_log = receipt_dir / (name + "-state-setup.log")
+    setup_command = [
+        sys.executable, str(ROOT / "tools/state_disk.py"),
+        "--path", str(image), "--size-mib", "128",
+    ]
+    setup_status, _, seconds = run_check(setup_command, setup_log, 60, environment)
+    if setup_status != "pass":
+        logfile.write_text(
+            "BLOCKED: could not create an isolated state disk; see " +
+            setup_log.name + "\n"
+        )
+        return "blocked", None, seconds
+    guest_env = {**environment, "SYNVEIL_QEMU_STATE_DISK": str(image)}
+    return run_check(command, logfile, timeout, guest_env)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--level", choices=("quick", "host", "guest"),
@@ -198,6 +232,9 @@ def main():
     env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1",
            "CARGO_NET_OFFLINE": "true", "RUSTUP_AUTO_INSTALL": "0"}
     if args.level == "guest":
+        # Do not mount the user's disk, even if they have an existing
+        # SYNVEIL_QEMU_STATE_DISK setting in the calling shell.
+        env.pop("SYNVEIL_QEMU_STATE_DISK", None)
         env["SYNVEIL_QEMU_VIDEO"] = "1"
         env["SYNVEIL_QEMU_NETWORK"] = "1"
         env["SYNVEIL_SMOKE_REQUIRE_DISPLAY"] = "1"
@@ -220,7 +257,12 @@ def main():
             logfile.write_text("Rust toolchain absent; Rust validation not run\n")
         else:
             limit = max(args.timeout, 2400) if name == "qemu-graphical-login" else args.timeout
-            status, code, elapsed = run_check(command, logfile, limit, env)
+            if name in GUEST_WITH_FRESH_STATE:
+                status, code, elapsed = run_guest_with_fresh_state(
+                    name, command, logfile, output, env, limit
+                )
+            else:
+                status, code, elapsed = run_check(command, logfile, limit, env)
         receipt["checks"].append({
             "name": name, "command": command, "status": status,
             "exit_code": code, "seconds": elapsed, "log": logfile.name,
