@@ -185,8 +185,8 @@ static int launch_terminal(bool demo, bool authenticated) {
     if (terminal > STDERR_FILENO) close(terminal);
     const char *banner = authenticated ?
         "\033[2J\033[H"
-        "Synveil local console (AUTHENTICATED NON-ROOT)\r\n"
-        "VM evaluation only. Type exit to lock the graphical seat.\r\n\r\n" :
+        "Synveil graphical user session (AUTHENTICATED UID 1000)\r\n"
+        "VM evaluation only. ESC at the desktop logs out.\r\n\r\n" :
         demo ?
         "\033[2J\033[H"
         "Synveil demo console (NON-ROOT, NOT AUTHENTICATED)\r\n"

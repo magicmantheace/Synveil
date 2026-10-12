@@ -19,7 +19,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import (QMPError, type_test_secret, exit_authenticated_terminal,
+from qmp_input import (QMPError, type_test_secret, logout_user_desktop,
                        switch_to_login_vt)  # noqa: E402
 
 REQUIRED = {
@@ -53,9 +53,9 @@ CLEANUP = (
 )
 
 
-# Wait until the actual non-root interactive shell owns tty1 before
-# sending the fixed QMP "exit" sequence. ACTIVE is emitted earlier than
-# the terminal finishes VT activation, so a blind QMP send would race it.
+# Wait until the actual non-root *graphical* user session owns tty1 before
+# sending QMP navigation or logout. ACTIVE precedes VT activation and exec,
+# so a blind QMP send could hit the wrong terminal or login surface.
 CHECK_TTY = (
     "ready=0; for retry in $(seq 1 100); do "
     "for status in /proc/[0-9]*/status; do "
@@ -63,7 +63,8 @@ CHECK_TTY = (
     "grep -Eq '^Gid:[[:space:]]*1000' \"$status\" && "
     "grep -Eq '^NoNewPrivs:[[:space:]]*1$' \"$status\"; then "
     "pid=$(basename $(dirname \"$status\")); "
-    "if [ \"$(readlink /proc/$pid/fd/0)\" = /dev/tty1 ]; then "
+    "if [ \"$(readlink /proc/$pid/fd/0)\" = /dev/tty1 ] && "
+    "tr '\\000' ' ' < /proc/$pid/cmdline | grep -Fq -- '--session'; then "
     "ready=1; break; fi; fi; done; "
     "[ \"$ready\" = 1 ] && break; sleep 0.1; done; "
     "[ \"$ready\" = 1 ] && printf '\\n%s\\n' SYNVEIL_AUTH_TTY_READY\n"
@@ -189,8 +190,8 @@ def smoke(timeout_seconds: float) -> bool:
                         process.stdin.flush()
                         phase = "verifying-vt-relock"
                     if phase == "verifying-vt-relock" and b"SYNVEIL_RELOCK_NO_USER_SHELL" in seen:
-                        # The old shell must die on Ctrl+Alt+F2 without
-                        # relying on exit, timeout, or a UI crash.
+                        # The old graphical user session must die on VT switch
+                        # without relying on normal logout or a GUI crash.
                         seen.discard(b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE")
                         seen.discard(b"SYNVEIL_LOGIN_RELOCKED")
                         seen.discard(b"SYNVEIL_AUTH_TTY_READY")
@@ -208,7 +209,7 @@ def smoke(timeout_seconds: float) -> bool:
                         phase = "waiting-for-second-tty"
                     if phase == "waiting-for-second-tty" and b"SYNVEIL_AUTH_TTY_READY" in seen:
                         try:
-                            exit_authenticated_terminal(qmp_socket, timeout=8)
+                            logout_user_desktop(qmp_socket, timeout=8)
                         except (QMPError, OSError, ValueError) as error:
                             evidence.write(("[synveil] normal logout: " +
                                             str(error) + "\n").encode())

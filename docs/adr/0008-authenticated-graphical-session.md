@@ -200,3 +200,10 @@ window management, process-tree/cgroup teardown guarantees, interactive
 first-user enrollment, screen locking and complete guest tests remain
 open. It does not promote the root diagnostic menu to a user desktop, and
 is not ready for an owner install.
+
+The native graphical-login QMP test now waits for a real UID1000
+`synveil-display --session` process attached to tty1 before testing VT
+switch and normal logout. Its logout sequence uses one fixed Escape key,
+not the old shell's `exit` command; the fake-QMP host fixture asserts
+that behavior. This remains an **unexecuted guest test** until the
+matching native image is built and booted.

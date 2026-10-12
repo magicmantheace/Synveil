@@ -17,7 +17,6 @@ import time
 # value; QMP never receives an actual user credential.
 ALLOWED_KEYS = frozenset(("right", "left", "up", "down", "ret", "esc"))
 ALLOWED_TEST_KEYS = ALLOWED_KEYS | frozenset("0123456789abcdef")
-ALLOWED_LOGOUT_KEYS = ALLOWED_KEYS | frozenset("exit")
 
 
 class QMPError(RuntimeError):
@@ -155,11 +154,10 @@ def switch_to_login_vt(socket_path: Path, *, timeout=5.0):
             emit_command(sock, reader, {"execute": "input-send-event",
                                         "arguments": {"events": events}})
 
-def exit_authenticated_terminal(socket_path: Path, *, timeout=5.0):
-    """Type the fixed shell built-in `exit` during an isolated guest test.
+def logout_user_desktop(socket_path: Path, *, timeout=5.0):
+    """Exit the authenticated UID1000 desktop with a single Escape key.
 
-    This intentionally does not allow general shell-command injection.
-    The caller must first establish an authenticated tty1 shell.
+    No arbitrary shell text or command injection is possible through this
+    test operation; the guest must be on the top-level user dashboard.
     """
-    return send_keys(socket_path, ("e", "x", "i", "t", "ret"),
-                     timeout=timeout, allowed=ALLOWED_LOGOUT_KEYS)
+    return send_keys(socket_path, ("esc",), timeout=timeout)

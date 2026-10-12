@@ -28,9 +28,9 @@ class GraphicalLoginFixtureTests(unittest.TestCase):
                 "    assert re.fullmatch(r'[0-9a-f]{32}', value)\n"
                 "    with open(os.environ['QMP_SIGNALS'], 'a') as stream:\n"
                 "        stream.write(value + '\\n')\n"
-                "def exit_authenticated_terminal(path, *, timeout):\n"
+                "def logout_user_desktop(path, *, timeout):\n"
                 "    with open(os.environ['QMP_SIGNALS'], 'a') as stream:\n"
-                "        stream.write('EXIT\\n')\n"
+                "        stream.write('ESC_LOGOUT\\n')\n"
                 "def switch_to_login_vt(path, *, timeout):\n"
                 "    with open(os.environ['QMP_SIGNALS'], 'a') as stream:\n"
                 "        stream.write('VT_SWITCH\\n')\n"
@@ -89,7 +89,7 @@ check_tty = sys.stdin.readline()
 assert 'AUTH_TTY_READY' in check_tty and 'NoNewPrivs' in check_tty
 print('SYNVEIL_AUTH_TTY_READY', flush=True)
 wait_for(5)
-assert signal.read_text().splitlines()[4] == 'EXIT'
+assert signal.read_text().splitlines()[4] == 'ESC_LOGOUT'
 if mode == 'no-relock':
     sys.exit(0)
 print('SYNVEIL_LOGIN_RELOCKED', flush=True)
@@ -134,7 +134,7 @@ print('SYNVEIL_GRAPHICAL_LOGIN_CLEANED', flush=True)
         self.assertNotEqual(secrets[0], secrets[1])
         self.assertEqual(secrets[2], "VT_SWITCH")
         self.assertEqual(secrets[3], secrets[1])
-        self.assertEqual(secrets[4], "EXIT")
+        self.assertEqual(secrets[4], "ESC_LOGOUT")
         self.assertEqual(secrets[5], secrets[1])
         for secret in (secrets[0], secrets[1], secrets[3], secrets[5]):
             self.assertRegex(secret, r"^[a-f0-9]{32}$")
