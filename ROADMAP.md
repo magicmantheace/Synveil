@@ -17,8 +17,10 @@ ready; full AI optimization and package management are not prerequisites.
     [partial guest evidence](docs/validation/persistence-2e1e54c/README.md).
     The demo user's protected bind-mounted home and preferences survived
     separate QEMU boots at [f642d6f](docs/validation/native-f642d6f/README.md).
-    New state-path hardening and installed-system root storage, trusted mount
-    identity and installer remain open.
+    State-path hardening and missing/corrupt state-disk recovery passed
+    [full QEMU validation at 8c4290f](docs/validation/native-8c4290f/README.md).
+    Installed-system root storage, trusted mount identity and installer
+    remain open.
 - [ ] Provide a documented installation path on a supported test target
   - A guarded private QEMU boot/state bundle with SHA256 verification and
     an offline launcher is implemented; user-facing validation is still open.
@@ -33,9 +35,10 @@ ready; full AI optimization and package management are not prerequisites.
 - [ ] Select and build a minimal graphical session with terminal and launcher
   - QEMU framebuffer menu/autostart and fixed UID 1000 terminal guest
     checks passed at [d875da39](docs/validation/native-d875da39/README.md).
-    A bounded crash-restart supervisor is implemented and host-tested;
-    latest guest retest, authenticated login, compositor and physical
-    installation remain open.
+    The bounded crash-restart supervisor and QMP-initiated demo-shell
+    termination after display crash passed
+    [guest validation at 8c4290f](docs/validation/native-8c4290f/README.md).
+    Authenticated login, compositor and physical installation remain open.
 - [ ] Provide basic settings for the supported display/input/network setup
   - High-contrast/pointer-size controls now save a private versioned
     record when the QEMU ext4 state volume is mounted; host tests cover

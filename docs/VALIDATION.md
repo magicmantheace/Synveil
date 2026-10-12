@@ -69,6 +69,12 @@ Phase 1 is complete only when one committed Synveil revision demonstrates the fo
 
 Only after this evidence exists should the corresponding Phase 1 roadmap items be checked complete.
 
+The complete native target QEMU run
+[8c4290f](validation/native-8c4290f/README.md) passed, including
+absent/non-ext4 state devices, graphical crash recovery, actual QMP
+terminal launch and cleanup, and two independent boots for preferences
+and home data. It remains developer-only VM evidence.
+
 ## Phase 2 validation direction
 
 Phase 2 will require runtime evidence that:

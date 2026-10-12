@@ -51,8 +51,8 @@ the mount helper bind-mounts a UID 1000-owned private home from
 across reboot. The mount helper now rejects symlinked home/state paths
 and requires a root-owned parent before changing UID ownership. A failed
 bind, suspect directory, or restrictive remount leaves serial recovery
-available and cannot silently claim durable home storage. The new directory
-hardening remains pending validation in a QEMU guest.
+available and cannot silently claim durable home storage. Directory
+hardening passed [full native guest validation at 8c4290f](validation/native-8c4290f/README.md).
 A dedicated guest test now requires a VT1 shell with UID/GID 1000,
 `NoNewPrivs=1` and `/dev/tty1` stdin before claiming the demo terminal
 works. That exact UID 1000/no-new-privileges/tty1 guest check passed in the [d875da39 full native QEMU run](validation/native-d875da39/README.md). This is not a secure authenticated production login.
@@ -91,7 +91,7 @@ saved its two bounded preferences, then requires the launcher to load those
 preferences in a second QEMU process. The test also checks that a UID
 1000-owned demo-home file survived. Those two-boot checks passed at
 [f642d6f](validation/native-f642d6f/README.md); newer state-directory
-hardening remains pending guest validation. Display modes, authenticated
+hardening passed full QEMU validation at 8c4290f. Display modes, authenticated
 login and a production network UI remain open.
 No AI can request or authorize actions from this menu. The serial recovery
 shell stays independent.
