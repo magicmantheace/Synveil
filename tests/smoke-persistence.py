@@ -88,6 +88,8 @@ def main() -> int:
         (b"SYNVEIL_PERSIST_WRITE_OK",
          "printf '%s' synveil-persistence-v1 > /var/lib/synveil/roundtrip && "
          "sync && test -s /var/log/synveil/core-audit.jsonl && "
+         "[ \"$(stat -c '%a:%u:%h' /var/log/synveil/core-audit.jsonl)\" = 600:0:1 ] && "
+         "grep -Fq '\"schema\":\"synveil.audit/v1\"' /var/log/synveil/core-audit.jsonl && "
          "printf '\\n%s%s\\n' SYNVEIL_ PERSIST_WRITE_OK\n",
          logs / "qemu-persistence-write.log"),
         (b"SYNVEIL_PERSIST_READ_OK",
