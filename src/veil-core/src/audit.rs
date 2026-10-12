@@ -118,7 +118,6 @@ mod tests {
         assert!(record_at("start", json!({}), None)["unix_time_ms"].is_null());
     }
 
-
     fn test_dir(label: &str) -> std::path::PathBuf {
         let path = std::env::temp_dir().join(format!(
             "synveil-audit-{label}-{}-{}",
