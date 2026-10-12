@@ -10,7 +10,9 @@ use std::sync::atomic::{Ordering, compiler_fence};
 
 pub fn clear(bytes: &mut [u8]) {
     for byte in bytes {
-        unsafe { std::ptr::write_volatile(byte, 0); }
+        unsafe {
+            std::ptr::write_volatile(byte, 0);
+        }
     }
     compiler_fence(Ordering::SeqCst);
 }
