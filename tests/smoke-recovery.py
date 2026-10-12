@@ -71,7 +71,17 @@ ENROLL_RECOVERY = (
     "if [ \"$(sha256sum /var/lib/synveil/auth/credential.phc)\" = \"$old\" ]; then "
     "printf '\\n%s%s\\n' SYNVEIL_ ENROLL_SMOKE_OK; fi; fi; fi\n"
 )
+ENROLL_REBOOT = (
+    {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY"},
+    b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_ENROLL_REBOOT_OK",
+    "if [ -s /var/lib/synveil/auth/credential.phc ] && "
+    "[ \"$(stat -c '%a:%u:%h' /var/lib/synveil/auth/credential.phc)\" = 600:0:1 ] && "
+    "grep -q '^[$]argon2id[$]v=19[$]m=65536,t=3,p=1[$]' "
+    "/var/lib/synveil/auth/credential.phc; then "
+    "printf '\\n%s%s\\n' SYNVEIL_ ENROLL_REBOOT_OK; fi\n"
+)
 SCENARIOS = {
+    "enrolled-reboot": ENROLL_REBOOT,
     "enroll": ENROLL_RECOVERY,
     "desktop-terminal": TERMINAL_LIFETIME,
     "state-missing": STATE_RECOVERY,

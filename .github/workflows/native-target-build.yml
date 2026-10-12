@@ -193,6 +193,8 @@ jobs:
         run: |
           SYNVEIL_QEMU_STATE_DISK="$PWD/out/synveil-state.ext4" \
             bash build.sh recovery-smoke --case enroll --timeout 60
+          SYNVEIL_QEMU_STATE_DISK="$PWD/out/synveil-state.ext4" \
+            bash build.sh recovery-smoke --case enrolled-reboot --timeout 60
 
       - name: Verify graphical settings load across separate QEMU boots
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}

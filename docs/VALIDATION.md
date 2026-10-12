@@ -147,6 +147,14 @@ The [first user test-install contract](FIRST_INSTALL.md) adds desktop startup,
 persistent storage across reboot, input/network usability, and console fallback
 checks before a user-facing test image is offered.
 
+The pinned-source Argon2id verifier and one-shot developer-VM `veil-enroll`
+tool now have native packaging/link-map gates and host tests for valid/invalid
+credentials, unsafe file modes/links, and refusal to replace a credential.
+The QEMU workflow additionally checks enrollment using an ephemeral
+guest-generated test secret, then starts a *different* QEMU process to
+verify the private PHC record survived reboot. The new native guest evidence
+is pending; this is not an interactive login or an approved owner install.
+
 ## AI-related validation
 
 No AI planner result is accepted as validation of deterministic system behavior.
