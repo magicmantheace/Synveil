@@ -51,10 +51,33 @@ RUST = (
     ("clippy", "cargo", "clippy", "--workspace", "--all-targets",
      "--locked", "--offline", "--", "-D", "warnings"),
 )
+# The guest level is a combined *developer image* gate, not installation
+# certification. Reuse the project's real QEMU scenarios rather than
+# treating a successful login fixture alone as proof of recovery.
 GUEST = (
     ("qemu-boot", "bash", "build.sh", "native-smoke"),
+    ("qemu-core-crash", "bash", "build.sh", "recovery-smoke",
+     "--case", "crash", "--timeout", "90"),
+    ("qemu-core-supervision", "bash", "build.sh", "recovery-smoke",
+     "--case", "supervision", "--timeout", "90"),
+    ("qemu-observer", "bash", "build.sh", "recovery-smoke",
+     "--case", "observe", "--timeout", "90"),
+    ("qemu-desktop-restart", "bash", "build.sh", "recovery-smoke",
+     "--case", "desktop", "--timeout", "90"),
+    ("qemu-desktop-terminal", "bash", "build.sh", "recovery-smoke",
+     "--case", "desktop-terminal", "--timeout", "90"),
+    ("qemu-state-missing", "bash", "build.sh", "recovery-smoke",
+     "--case", "state-missing", "--timeout", "90"),
+    ("qemu-state-corrupt", "bash", "build.sh", "recovery-smoke",
+     "--case", "state-corrupt", "--timeout", "90"),
+    ("qemu-seat-crash", "bash", "build.sh", "recovery-smoke",
+     "--case", "seat-crash", "--timeout", "120"),
     ("qemu-locked-seat", "bash", "build.sh", "recovery-smoke",
      "--case", "seat-locked", "--timeout", "90"),
+    ("qemu-missing-core", "bash", "build.sh", "guest-fixture",
+     "--case", "absent"),
+    ("qemu-protocol", "bash", "build.sh", "guest-fixture",
+     "--case", "protocol"),
     ("qemu-serial-locked", "bash", "build.sh", "guest-fixture",
      "--case", "graphical-locked"),
     ("qemu-graphical-login", "bash", "build.sh", "guest-fixture",
@@ -176,8 +199,12 @@ def main():
            "CARGO_NET_OFFLINE": "true", "RUSTUP_AUTO_INSTALL": "0"}
     if args.level == "guest":
         env["SYNVEIL_QEMU_VIDEO"] = "1"
+        env["SYNVEIL_QEMU_NETWORK"] = "1"
         env["SYNVEIL_SMOKE_REQUIRE_DISPLAY"] = "1"
         env["SYNVEIL_SMOKE_REQUIRE_DESKTOP"] = "1"
+        env["SYNVEIL_SMOKE_REQUIRE_INPUT"] = "1"
+        env["SYNVEIL_SMOKE_REQUIRE_VT"] = "1"
+        env["SYNVEIL_SMOKE_REQUIRE_NETWORK"] = "1"
     image = Path(env.get("SYNVEIL_OUT_DIR", str(ROOT / "out"))) / "synveil-x86_64.img"
     guest_matched = guest_image_matches(image, head, clean) if args.level == "guest" else False
     for i, entry in enumerate(steps, start=1):

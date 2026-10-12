@@ -37,3 +37,23 @@ suite refuses to certify a stale image, a modified image digest or an image
 without the exact clean Git revision declared in its build manifest. QEMU,
 source-built Linux and isolated state disks are required for true guest
 evidence. Never run the experimental rootfs on a production machine.
+
+## Expanded opt-in guest evidence
+
+The `--level guest` plan now reuses the existing native QEMU harnesses for
+core crash/restart exhaustion, observer output, desktop restart, the demo
+terminal lifetime, absent/corrupt state devices, seat crash and locked seat,
+missing core, protocol rejection, locked serial console and authenticated
+graphical-login fixtures. The boot smoke additionally requires the actual
+network, framebuffer, keyboard, VT and desktop readiness markers and enables
+QEMU's user-mode network adapter.
+
+This is deliberately a more demanding gate than the earlier four-case guest
+plan. Its success would still apply only to the exact clean commit and native
+developer QEMU image, **not** physical hardware or a release installer.
+Some recovery cases (notably `seat-crash`) require a preformatted, disposable
+ext4 disk supplied through `SYNVEIL_QEMU_STATE_DISK`. Do not point it at
+personal VM data. Cross-reboot preferences/home evidence has its separate
+`ui-preferences-smoke` and `persistence-smoke` scripts and is **not yet**
+part of the combined receipt; run these separately before claiming the
+first-install persistence milestone.

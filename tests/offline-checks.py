@@ -22,6 +22,19 @@ class OfflineValidationTests(unittest.TestCase):
         self.assertLess(len(host), len(guest))
         self.assertNotIn("qemu-boot", [step[0] for step in quick])
         self.assertIn("qemu-graphical-login", [step[0] for step in guest])
+        expected_scenarios = {
+            "crash", "supervision", "observe", "desktop",
+            "desktop-terminal", "state-missing", "state-corrupt",
+            "seat-crash", "seat-locked",
+        }
+        actual_scenarios = {
+            step[step.index("--case") + 1] for step in guest
+            if "recovery-smoke" in step
+        }
+        self.assertTrue(expected_scenarios <= actual_scenarios)
+        self.assertEqual(len(guest), len({entry[0] for entry in guest}))
+        self.assertIn("absent", {step[-1] for step in guest})
+        self.assertIn("protocol", {step[-1] for step in guest})
         for step in guest:
             self.assertNotIn("gh", step)
             self.assertNotIn("curl", step)

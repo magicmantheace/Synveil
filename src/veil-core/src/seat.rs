@@ -122,7 +122,11 @@ fn peer_uid(stream: &UnixStream) -> io::Result<u32> {
 // A socket read timeout alone is insufficient: it resets on every recv,
 // allowing a peer to hold the single-threaded broker with one byte at a time.
 // All header and password bytes share a *single* monotonic deadline.
-fn read_exact_before(stream: &mut UnixStream, buffer: &mut [u8], deadline: Instant) -> io::Result<()> {
+fn read_exact_before(
+    stream: &mut UnixStream,
+    buffer: &mut [u8],
+    deadline: Instant,
+) -> io::Result<()> {
     let mut received = 0;
     while received < buffer.len() {
         let remaining = deadline.saturating_duration_since(Instant::now());
