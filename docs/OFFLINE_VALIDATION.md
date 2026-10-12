@@ -4,7 +4,7 @@ Synveil development does **not** require a GitHub Actions runner. Run the
 following from the repository checkout on a Linux host:
 
 ```bash
-python3 tools/validate_offline.py
+bash build.sh offline-check --level host
 ```
 
 The runner executes existing Python, C, shell and Rust host fixtures using
@@ -13,17 +13,17 @@ their committed inputs. Rust commands use `--offline --locked` and
 The correct Rust toolchain and any Rust crate dependencies therefore need
 to be installed or cached **before** running the check.
 
-Evidence goes to `out/offline-validation/<commit>/report.json` with
+Evidence goes to `out/local-validation/<timestamp>-<commit>/results.json` with
 one log and its SHA-256 per command. `failed` means a check failed;
 `blocked` means a missing executable, timeout, or the requested
-partial mode. A blocked or failed run never reports overall success.
+partial mode. A blocked or failed run never reports overall success. The canonical implementation is `tools/offline_checks.py`; `--level quick` is explicitly partial.
 
-If Rust is unavailable, use `--skip-rust` to run partial checks,
+If Rust is unavailable, use `--level quick` to run partial checks,
 but the result remains **blocked** even when all selected checks pass.
 
 ```bash
-python3 tools/validate_offline.py --skip-rust
-python3 tests/offline-validation-fixture.py
+bash build.sh offline-check --level quick
+python3 tests/offline-checks.py
 ```
 
 ## Optional isolated QEMU checks
@@ -33,7 +33,7 @@ image and prerequisites using the pinned toolchain. This is a deliberate
 opt-in, and never launches on an unbuilt machine.
 
 ```bash
-python3 tools/validate_offline.py --guest
+bash build.sh offline-check --level guest
 ```
 
 This runs native boot/status, locked-seat denial and a separately staged
