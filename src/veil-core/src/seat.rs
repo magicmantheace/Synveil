@@ -282,7 +282,8 @@ pub fn serve(path: &Path) -> io::Result<()> {
     }
     let listener = prepare_seat_socket(path, 0)?;
     let mut tracker = SessionTracker::default();
-    println!("SYNVEIL_SEAT_READY");
+    // Serial login/recovery may already be showing a prompt without newline.
+    println!("\nSYNVEIL_SEAT_READY");
     for accepted in listener.incoming() {
         match accepted {
             Ok(mut stream) => {
