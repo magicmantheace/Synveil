@@ -1,19 +1,56 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
-# QEMU-only DHCP helper; recovery is independent of networking.
+# Minimal opt-in wired DHCP for the developer VM; no arbitrary interface
+# commands, static IP changes, Wi-Fi credentials or AI policy.
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
+# Test fixtures supply a private tool path; the regular guest has no override.
+if [ -n "${SYNVEIL_NETWORK_PATH:-}" ]; then PATH="$SYNVEIL_NETWORK_PATH"; fi
 export PATH
-if [ ! -d /sys/class/net/eth0 ] || ! command -v udhcpc >/dev/null 2>&1; then
-    echo "[synveil-network] eth0/udhcpc unavailable"
+
+valid_interface() {
+    case "$1" in
+        ''|lo|.*|*[!a-zA-Z0-9_.-]*) return 1 ;;
+    esac
+    [ "${#1}" -le 15 ]
+}
+
+choose_interface() {
+    # Linux symlinks each device into sysfs. Never scan arbitrary /dev or
+    # interpolate an unchecked name into a privileged shell command.
+    base="${SYNVEIL_NET_CLASS_DIR:-/sys/class/net}"
+    fallback=
+    for node in "$base"/*; do
+        [ -d "$node" ] || continue
+        candidate="${node##*/}"
+        valid_interface "$candidate" || continue
+        if [ -r "$node/carrier" ] &&
+           [ "$(cat "$node/carrier" 2>/dev/null)" = 1 ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+        [ -n "$fallback" ] || fallback="$candidate"
+    done
+    if [ -n "$fallback" ]; then
+        printf '%s\n' "$fallback"
+        return 0
+    fi
+    return 1
+}
+
+if ! command -v udhcpc >/dev/null 2>&1 ||
+   ! command -v timeout >/dev/null 2>&1 ||
+   ! command -v ip >/dev/null 2>&1; then
+    echo "[synveil-network] required DHCP tools unavailable"
     exit 1
 fi
-if ! command -v timeout >/dev/null 2>&1 || ! command -v ip >/dev/null 2>&1; then
-    echo "[synveil-network] required network tools unavailable"
+interface=$(choose_interface) || {
+    echo "[synveil-network] no usable wired interface"
     exit 1
-fi
-if timeout -s KILL 8 udhcpc -i eth0 -n -q -t 3 -T 1 \
+}
+# BusyBox udhcpc supplies the same fixed interface to our bounded callback.
+if timeout -s KILL 8 udhcpc -i "$interface" -n -q -t 3 -T 1 \
     -s /usr/libexec/synveil/udhcpc-script >/dev/null 2>&1 &&
-   ip -4 addr show dev eth0 | grep -q 'inet '; then
+   ip -4 addr show dev "$interface" | grep -q 'inet '; then
     echo SYNVEIL_NETWORK_READY
     exit 0
 fi

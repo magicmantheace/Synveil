@@ -245,3 +245,15 @@ so this developer test harness cannot silently reuse an owner's credential
 disk. A clean image-manifest match and every guest scenario passing remain
 mandatory before promotion. This does not replace a supported installer or
 account-enrollment process; no owner test is requested yet.
+
+## Wired network bring-up in the developer target
+
+The opt-in DHCP helper now selects a present, safely named non-loopback
+network interface from sysfs, preferring one with carrier and otherwise
+falling back to an installed adapter. The callback applies address,
+default route and DNS to that bounded interface, rather than assuming
+that Linux named it `eth0`. Host fixtures cover another conventional
+wired name and reject unsafe names before mutation. This is limited
+developer DHCP plumbing, not an interactive production network manager:
+Wi-Fi, static IP, link selection UI, multi-homed route policy and
+physical-hardware driver support remain open.

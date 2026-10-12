@@ -9,6 +9,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 CALLBACK = ROOT / "build/rootfs/udhcpc-script"
+CONFIGURE = ROOT / "build/rootfs/configure-network"
 
 
 class DHCPTests(unittest.TestCase):
@@ -45,8 +46,44 @@ class DHCPTests(unittest.TestCase):
         self.assertEqual(self.resolv.read_text(),
                          "nameserver 10.0.2.3\nnameserver 1.1.1.1\n")
 
+    def test_selected_interface_is_used_for_all_dhcp_mutations(self):
+        result = self.run_hook(interface="enp0s3")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.log.read_text()
+        self.assertIn("ifconfig enp0s3 10.0.2.15", calls)
+        self.assertIn("route add default gw 10.0.2.2 dev enp0s3", calls)
+
+    def test_configure_selects_carrier_before_disconnected_interface(self):
+        sysnet = self.root / "net"
+        for name, carrier in (("lo", "1"), ("eth0", "0"), ("enp0s3", "1")):
+            path = sysnet / name
+            path.mkdir(parents=True)
+            (path / "carrier").write_text(carrier)
+        for name, body in {
+            "timeout": '#!/bin/sh\nshift 3\nexec "$@"\n',
+            "udhcpc": '#!/bin/sh\nprintf "udhcpc %s\\n" "$*" >> "$LOG"\n',
+            "ip": '#!/bin/sh\nprintf "ip %s\\n" "$*" >> "$LOG"\necho "inet 10.0.2.15/24"\n',
+        }.items():
+            path = self.bin / name
+            path.write_text(body)
+            path.chmod(0o755)
+        result = subprocess.run(
+            ["sh", str(CONFIGURE)], capture_output=True, text=True, timeout=3,
+            env={**os.environ, "SYNVEIL_NET_CLASS_DIR": str(sysnet),
+                 "SYNVEIL_NETWORK_PATH": str(self.bin) + ":" + os.environ.get("PATH", ""),
+                 "LOG": str(self.log)},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("SYNVEIL_NETWORK_READY", result.stdout)
+        self.assertIn("udhcpc -i enp0s3", self.log.read_text())
+        self.assertIn("ip -4 addr show dev enp0s3", self.log.read_text())
+
     def test_invalid_interface_ip_and_action_do_not_mutate(self):
-        for action, env in (("bound", {"interface": "wlan0"}),
+        for action, env in (("bound", {"interface": "../lo"}),
+                            ("bound", {"interface": "lo"}),
+                            ("bound", {"interface": "invalid name"}),
+                            ("bound", {"interface": "0123456789abcdef"}),
+                            ("bound", {"interface": "eth0;rm"}),
                             ("bound", {"ip": "not-an-ip"}),
                             ("bound", {"subnet": "255.999.255.0"}),
                             ("shutdown", {})):
