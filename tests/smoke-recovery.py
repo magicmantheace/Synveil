@@ -56,7 +56,23 @@ TERMINAL_LIFETIME = (
     "printf '\\n%s%s\\n' SYNVEIL_ TERMINAL_LIFETIME_OK; fi; break; fi; "
     "sleep 0.1; done; fi\n"
 )
+ENROLL_RECOVERY = (
+    {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY"},
+    b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_ENROLL_SMOKE_OK",
+    "if [ ! -e /var/lib/synveil/auth/credential.phc ]; then "
+    "secret=$(cat /proc/sys/kernel/random/uuid); "
+    "if [ -n \"$secret\" ] && "
+    "printf '%s' \"$secret\" | /usr/sbin/veil-enroll --password-stdin >/tmp/veil-enroll.log 2>&1 && "
+    "grep -Fxq SYNVEIL_CREDENTIAL_ENROLLED /tmp/veil-enroll.log && "
+    "[ \"$(stat -c '%a:%u:%h' /var/lib/synveil/auth/credential.phc)\" = 600:0:1 ] && "
+    "[ \"$(stat -c '%a:%u' /var/lib/synveil/auth)\" = 700:0 ] && "
+    "old=$(sha256sum /var/lib/synveil/auth/credential.phc); "
+    "! printf '%s' \"$secret\" | /usr/sbin/veil-enroll --password-stdin >/dev/null 2>&1; then "
+    "if [ \"$(sha256sum /var/lib/synveil/auth/credential.phc)\" = \"$old\" ]; then "
+    "printf '\\n%s%s\\n' SYNVEIL_ ENROLL_SMOKE_OK; fi; fi; fi\n"
+)
 SCENARIOS = {
+    "enroll": ENROLL_RECOVERY,
     "desktop-terminal": TERMINAL_LIFETIME,
     "state-missing": STATE_RECOVERY,
     "state-corrupt": STATE_RECOVERY,

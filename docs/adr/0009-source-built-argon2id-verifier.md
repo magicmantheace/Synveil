@@ -65,6 +65,25 @@ state file shipped in any public image.**
 - Verify the target has enough free memory for the selected work factor.
   Failure must deny login safely, not reduce hashing cost automatically.
 
+## Developer-only enrollment foundation
+
+A one-time `veil-enroll --password-stdin` tool is now compiled alongside
+the native core, and its static ELF/link map must be audited by the native
+target pipeline. This intentionally takes a password only from a **non-TTY
+protected input stream** and refuses existing credentials without replacement.
+It generates 16 random salt bytes from the kernel CSPRNG, hashes with the
+pinned RustCrypto implementation, and synchronizes a root-owned mode-0600
+PHC record under the private mode-0700
+`/var/lib/synveil/auth/` directory. Enrollment and verification require a
+real mounted ext4 /var state volume; an ephemeral boot does not establish
+an account. The root/serial developer console is still unauthenticated;
+this is not a public onboarding procedure.
+
+The development QEMU workflow now exercises one-time enrollment using a
+random **test-only** password generated inside the guest, asserts permissions
+and refuses a second write. The test password is never embedded in a build
+artifact. Guest validation is pending at this revision.
+
 ## Current status
 
 The developer QEMU desktop remains **unauthenticated**. The existing

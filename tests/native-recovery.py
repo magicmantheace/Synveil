@@ -36,6 +36,8 @@ ready = 'SYNVEIL_CORE_UNAVAILABLE' if case == 'absent' else 'SYNVEIL_CORE_READY'
 print(ready + '\\r\\nSYNVEIL_BOOT_OK', flush=True)
 if case in ('state-missing', 'state-corrupt'):
     print('SYNVEIL_STATE_UNAVAILABLE', flush=True)
+if case == 'enroll':
+    print('SYNVEIL_STATE_READY', flush=True)
 if case in ('demo', 'desktop', 'desktop-terminal'):
     print('SYNVEIL_VT_READY\\nSYNVEIL_DESKTOP_READY', flush=True)
 command = ''
@@ -59,6 +61,9 @@ if mode == 'pass':
         assert 'kill -KILL' in command and 'pidof synveil-display' in command
         assert 'synctl --json status' in command
         print('SYNVEIL_DESKTOP_RESTARTING', flush=True)
+    elif case == 'enroll':
+        assert 'veil-enroll --password-stdin' in command
+        assert 'sha256sum' in command and '600:0:1' in command
     elif case == 'desktop-terminal':
         assert 'kill -KILL' in command and 'pidof synveil-display' in command
         assert 'NoNewPrivs' in command and '/dev/tty1' in command
@@ -77,6 +82,7 @@ if mode == 'pass':
     marker = {'crash': 'RECOVERY', 'absent': 'ABSENT', 'protocol': 'PROTOCOL',
               'observe': 'OBSERVE', 'demo': 'DEMO',
               'desktop': 'DESKTOP_RECOVERY', 'desktop-terminal': 'TERMINAL_LIFETIME',
+              'enroll': 'ENROLL_SMOKE',
               'state-missing': 'STATE_RECOVERY',
               'state-corrupt': 'STATE_RECOVERY', 'supervision': 'SUPERVISION'}[case]
     print('SYNVEIL_' + marker + '_OK', flush=True)
@@ -147,6 +153,10 @@ elif mode == 'timeout':
     def test_display_crash_closes_the_non_root_demo_terminal(self):
         self.assertEqual(self.fixture("pass", "desktop-terminal")[0], 0)
         self.assertNotEqual(self.fixture("echo", "desktop-terminal")[0], 0)
+
+    def test_enrollment_fixture_requires_private_record_and_no_replacement(self):
+        self.assertEqual(self.fixture("pass", "enroll")[0], 0)
+        self.assertNotEqual(self.fixture("echo", "enroll")[0], 0)
 
     def test_no_state_disk_keeps_independent_recovery(self):
         self.assertEqual(self.fixture("pass", "state-missing")[0], 0)
