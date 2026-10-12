@@ -26,6 +26,8 @@ on:
       - tests/native-protocol-probe.py
       - tests/native-guest-fixture.py
       - tests/graphical-login-fixture.py
+      - tests/graphical-onboard-fixture.py
+      - tests/smoke-graphical-onboard.py
       - tests/smoke-graphical-login.py
       - tests/protocol-probe.c
       - tests/build-guest-fixture.py
@@ -66,6 +68,7 @@ jobs:
           python3 tests/native-protocol-probe.py
           python3 tests/native-guest-fixture.py
           python3 tests/graphical-login-fixture.py
+          python3 tests/graphical-onboard-fixture.py
 
       - name: Install pinned Rust toolchain
         run: |

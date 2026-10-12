@@ -36,6 +36,7 @@ HOST = (
     ("protocol-fixtures", "python3", "tests/native-protocol-probe.py"),
     ("guest-fixtures", "python3", "tests/native-guest-fixture.py"),
     ("graphical-login-fixtures", "python3", "tests/graphical-login-fixture.py"),
+    ("graphical-onboard-fixtures", "python3", "tests/graphical-onboard-fixture.py"),
     ("core-health", "python3", "tests/core-health.py"),
     ("network-diag", "python3", "tests/network-diag.py"),
     ("display-build", "python3", "tests/display-build.py"),
@@ -86,6 +87,8 @@ GUEST = (
      "--case", "graphical-locked"),
     ("qemu-graphical-login", "bash", "build.sh", "guest-fixture",
      "--case", "graphical-login"),
+    ("qemu-graphical-onboard", "bash", "build.sh", "guest-fixture",
+     "--case", "graphical-onboard"),
 )
 
 

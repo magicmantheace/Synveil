@@ -8,6 +8,8 @@ on:
       - tests/display-lifetime.c
       - tests/desktop-lifetime.py
       - tests/display-build.py
+      - tests/graphical-onboard-fixture.py
+      - tests/smoke-graphical-onboard.py
       - tests/desktop-supervisor.py
       - build/rootfs/start-desktop
       - build/rootfs/mount-state
@@ -39,6 +41,8 @@ jobs:
         uses: actions/checkout@v6
       - name: Compile framebuffer diagnostic and check memory bounds
         run: python3 tests/display-build.py
+      - name: Test locked-serial first-user onboarding with fake QEMU
+        run: python3 tests/graphical-onboard-fixture.py
       - name: Test two-boot UI smoke verdicts with fake QEMU
         run: python3 tests/ui-preferences-smoke-fixture.py
       - name: Validate typed QMP keyboard events with fake monitor

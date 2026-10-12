@@ -86,7 +86,7 @@ The bootstrap is documented in [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md).
 
 ## Project status
 
-**Phase 1 and the developer QEMU graphical image are validated.**
+**Phase 1 and the authenticated graphical QEMU prototype are validated.**
 
 The pinned-source bootstrap pipeline has built and booted an x86_64 UEFI image
 in QEMU. See the [Phase 1 evidence record](docs/validation/phase1-4c40d41/README.md)
@@ -94,8 +94,12 @@ and the [native image status evidence](docs/validation/native-image-79a41c2/READ
 Core supervision/recovery, read-only observation, QEMU graphics, UID 1000
 demo terminal, opt-in DHCP and two-boot state storage passed together in
 the [d875da39 full QEMU run](docs/validation/native-d875da39/README.md).
-This remains a developer-only VM prototype, **not** an authenticated
-production desktop or physical installer. The first hands-on test contract
+The authenticated framebuffer login, credential enrollment through the
+developer serial fixture, non-root graphical session, and guest session
+revocation also passed at [5cf3fb5](https://github.com/magicmantheace/Synveil/actions/runs/38297915844).
+The next change adds masked graphical first-user setup; its independent
+two-boot guest validation is pending. This remains a developer-only VM
+prototype, **not** a production desktop or physical installer. The first hands-on test contract
 is in [ROADMAP.md](ROADMAP.md) and [docs/FIRST_INSTALL.md](docs/FIRST_INSTALL.md).
 
 ## Licensing
