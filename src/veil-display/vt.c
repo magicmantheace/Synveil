@@ -2,10 +2,12 @@
 // Local VM terminal on Linux fbcon. No model-to-shell execution path.
 #define _GNU_SOURCE
 #include <errno.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <grp.h>
 #include <linux/vt.h>
 #include <linux/fb.h>
+#include <linux/input.h>
 #include <poll.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -32,6 +34,52 @@ static int has_graphical_vt(void) {
     return is_character_device("/dev/fb0") &&
            is_character_device("/dev/tty0") &&
            is_character_device("/dev/tty1");
+}
+
+// A narrow optional pointer handle is delegated after authentication.
+static int input_bit(const unsigned char *bits, size_t bytes, unsigned key) {
+    return key / 8u < bytes && (bits[key / 8u] & (1u << (key % 8u))) != 0;
+}
+
+static int event_number(const char *name) {
+    if (strncmp(name, "event", 5u) != 0 || name[5] == '\0') return 0;
+    for (const char *p = name + 5u; *p; p++)
+        if (*p < '0' || *p > '9') return 0;
+    return 1;
+}
+
+static int open_session_pointer(void) {
+    DIR *dir = opendir("/dev/input");
+    if (!dir) return -1;
+    int result = -1;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (!event_number(entry->d_name)) continue;
+        char name[256];
+        int size = snprintf(name, sizeof(name), "/dev/input/%s", entry->d_name);
+        if (size < 0 || (size_t)size >= sizeof(name)) continue;
+        int fd = open(name, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW);
+        if (fd < 0) continue;
+        struct stat info;
+        unsigned char keys[(KEY_MAX + 8u) / 8u] = {0};
+        unsigned char axes[(ABS_MAX + 8u) / 8u] = {0};
+        struct input_absinfo x, y;
+        if (fstat(fd, &info) == 0 && S_ISCHR(info.st_mode) &&
+            ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keys)), keys) >= 0 &&
+            ioctl(fd, EVIOCGBIT(EV_ABS, sizeof(axes)), axes) >= 0 &&
+            input_bit(keys, sizeof(keys), BTN_LEFT) &&
+            input_bit(axes, sizeof(axes), ABS_X) &&
+            input_bit(axes, sizeof(axes), ABS_Y) &&
+            ioctl(fd, EVIOCGABS(ABS_X), &x) >= 0 &&
+            ioctl(fd, EVIOCGABS(ABS_Y), &y) >= 0 &&
+            x.maximum > x.minimum && y.maximum > y.minimum) {
+            result = fd;
+            break;
+        }
+        close(fd);
+    }
+    closedir(dir);
+    return result;
 }
 
 static int is_demo_mode(int argc, char **argv) {
@@ -84,6 +132,8 @@ static int self_test(void) {
     char *unconfirmed[] = {"synveil-vt", "--developer-terminal", NULL};
     char *confirmed[] = {"synveil-vt", "--developer-terminal",
                          "--i-understand-root-shell", NULL};
+    if (!event_number("event14") || event_number("event14-link") ||
+        event_number("event")) return 1;
     if (!is_demo_mode(2, demo) || !is_authenticated_mode(2, authenticated) ||
         is_authenticated_mode(2, demo) || is_root_debug_mode(2, unconfirmed) ||
         !is_root_debug_mode(3, confirmed) || is_root_debug_mode(2, demo)) {
