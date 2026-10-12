@@ -133,7 +133,11 @@ image passes validation; it is not a physical installer, user release, or
 authenticated graphical login. Packaging now explicitly rejects both
 `auth-desktop` and `developer-serial-recovery` rootfs markers, including
 symlinked markers, so an authenticated preview or deliberate root-serial
-override cannot be mistaken for the ordinary demo VM bundle.
+override cannot be mistaken for the ordinary demo VM bundle. The bundle
+checker also checks the build manifest's SHA-256 for the **embedded newc
+initramfs** and inspects its archive entries: the kernel input must contain
+the developer console/menu components but neither forbidden marker. A clean
+staging tree alone is insufficient.
 
 ## Controlled QEMU persistence prototype
 

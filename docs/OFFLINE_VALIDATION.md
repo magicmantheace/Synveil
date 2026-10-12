@@ -38,6 +38,10 @@ include the separately staged, disposable graphical-login image/state disk.
 They must never target a physical device or be interpreted as installer proof.
 
 The canonical runner's tests are in `tests/offline-checks.py`.
+The developer VM bundle now scans the manifest-matched *embedded newc
+initramfs*, not just editable rootfs staging. The
+`tests/initramfs-profile.py` fixture covers forbidden markers,
+truncated records, duplicate paths and missing boot components.
 No additional parallel/competing offline runner should be introduced.
 
 ## Current native validation blocker
