@@ -17,7 +17,7 @@ FIXTURES = (
     "native-protocol-probe", "native-guest-fixture", "graphical-login-fixture",
     "display-build", "ui-preferences-smoke-fixture", "qmp-input",
     "state-mount-safety", "desktop-lifetime", "desktop-supervisor",
-    "qemu-options",
+    "qemu-options", "offline-validation-fixture",
 )
 SHELL_FILES = (
     ("bash", "build/scripts/qemu.sh"),
