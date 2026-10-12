@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
-"""QMP-drive a fresh test credential through the *actual* graphical login.
+"""QMP-drive graphical login, VT-switch auto-lock, logout and crash cleanup.
 
 The host secret is generated independently for every VM run and is never
 embedded in a Synveil image, source artifact, or recorded console log.
@@ -19,7 +19,8 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, type_test_secret, exit_authenticated_terminal  # noqa: E402
+from qmp_input import (QMPError, type_test_secret, exit_authenticated_terminal,
+                       switch_to_login_vt)  # noqa: E402
 
 REQUIRED = {
     b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY",
@@ -177,6 +178,36 @@ def smoke(timeout_seconds: float) -> bool:
                         phase = "waiting-for-tty"
                     if phase == "waiting-for-tty" and b"SYNVEIL_AUTH_TTY_READY" in seen:
                         try:
+                            switch_to_login_vt(qmp_socket, timeout=8)
+                        except (QMPError, OSError, ValueError) as error:
+                            evidence.write(("[synveil] VT switch: " +
+                                            str(error) + "\n").encode())
+                            return False
+                        phase = "switching-vt"
+                    if phase == "switching-vt" and b"SYNVEIL_LOGIN_RELOCKED" in seen:
+                        process.stdin.write(CHECK_RELOCK.encode())
+                        process.stdin.flush()
+                        phase = "verifying-vt-relock"
+                    if phase == "verifying-vt-relock" and b"SYNVEIL_RELOCK_NO_USER_SHELL" in seen:
+                        # The old shell must die on Ctrl+Alt+F2 without
+                        # relying on exit, timeout, or a UI crash.
+                        seen.discard(b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE")
+                        seen.discard(b"SYNVEIL_LOGIN_RELOCKED")
+                        seen.discard(b"SYNVEIL_AUTH_TTY_READY")
+                        seen.discard(b"SYNVEIL_RELOCK_NO_USER_SHELL")
+                        try:
+                            type_test_secret(qmp_socket, secret, timeout=17)
+                        except (QMPError, OSError, ValueError) as error:
+                            evidence.write(("[synveil] second login: " +
+                                            str(error) + "\n").encode())
+                            return False
+                        phase = "logging-in-again"
+                    if phase == "logging-in-again" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
+                        process.stdin.write(CHECK_TTY.encode())
+                        process.stdin.flush()
+                        phase = "waiting-for-second-tty"
+                    if phase == "waiting-for-second-tty" and b"SYNVEIL_AUTH_TTY_READY" in seen:
+                        try:
                             exit_authenticated_terminal(qmp_socket, timeout=8)
                         except (QMPError, OSError, ValueError) as error:
                             evidence.write(("[synveil] normal logout: " +
@@ -191,15 +222,13 @@ def smoke(timeout_seconds: float) -> bool:
                         try:
                             type_test_secret(qmp_socket, secret, timeout=17)
                         except (QMPError, OSError, ValueError) as error:
-                            evidence.write(("[synveil] second login: " +
+                            evidence.write(("[synveil] third login: " +
                                             str(error) + "\n").encode())
                             return False
-                        # Clear the first ACTIVE from the marker set so this
-                        # phase cannot be advanced by stale serial evidence.
                         seen.discard(b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE")
-                        phase = "logging-in-again"
-                    if phase == "logging-in-again" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
-                        # Re-verify UID, NoNewPrivs and tty1 after the second
+                        phase = "logging-in-third-time"
+                    if phase == "logging-in-third-time" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
+                        # Re-verify UID, NoNewPrivs and tty1 after the third
                         # login; forcibly kill the UI to prove lease cleanup.
                         script = CLEANUP.replace("; ", ";\n") + "# SYNVEIL_TEST_COMMAND_END\n"
                         process.stdin.write(script.encode())
