@@ -58,7 +58,12 @@ UID/GID 1000 and enables NoNewPrivs.
 
 The authenticating client must retain an open socket lease; disconnect,
 crash or explicit client close terminates the fixed terminal parent and
-relocks the seat. Denials and malformed frames cannot start a shell.
+relocks the seat. The fixed launcher now also requests Linux
+`PR_SET_PDEATHSIG(SIGKILL)` in a guarded pre-exec child, then checks its
+expected parent to close the fork/exit race. Thus a fatal *broker* failure
+must kill its VT launcher, which in turn kills the unprivileged child.
+A separate fresh QEMU disk and guest recovery case exercise this harder
+path rather than treating ordinary logout as proof. Denials and malformed frames cannot start a shell.
 Only the test/developer tool `veil-seat --login-stdin` can currently use
 this path. **The framebuffer developer menu does not yet use it**, and
 the bootstrap serial recovery console remains root; no secure owner-facing

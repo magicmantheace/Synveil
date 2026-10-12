@@ -205,6 +205,13 @@ jobs:
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: bash build.sh ui-preferences-smoke --timeout 60
 
+      - name: Revoke authenticated nonroot terminal on seat broker crash
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: |
+          bash build.sh state-disk --path "$PWD/out/seat-crash-state.ext4" --size-mib 128
+          SYNVEIL_QEMU_STATE_DISK="$PWD/out/seat-crash-state.ext4" \
+            bash build.sh recovery-smoke --case seat-crash --timeout 120
+
       - name: Authenticate via real framebuffer and revoke on GUI crash
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |

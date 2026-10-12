@@ -36,11 +36,11 @@ ready = 'SYNVEIL_CORE_UNAVAILABLE' if case == 'absent' else 'SYNVEIL_CORE_READY'
 print(ready + '\\r\\nSYNVEIL_BOOT_OK', flush=True)
 if case in ('state-missing', 'state-corrupt'):
     print('SYNVEIL_STATE_UNAVAILABLE', flush=True)
-if case in ('enroll', 'enrolled-reboot'):
+if case in ('enroll', 'enrolled-reboot', 'seat-crash'):
     print('SYNVEIL_STATE_READY', flush=True)
-if case in ('enroll', 'seat-locked'):
+if case in ('enroll', 'seat-locked', 'seat-crash'):
     print('SYNVEIL_SEAT_READY', flush=True)
-if case in ('demo', 'desktop', 'desktop-terminal'):
+if case in ('demo', 'desktop', 'desktop-terminal', 'seat-crash'):
     print('SYNVEIL_VT_READY\\nSYNVEIL_DESKTOP_READY', flush=True)
 command = ''
 while not command.endswith('# SYNVEIL_TEST_COMMAND_END\\n'):
@@ -70,6 +70,12 @@ if mode == 'pass':
         assert 'veil-seat --login-stdin' in command and 'kill -TERM' in command
         assert 'NoNewPrivs' in command and '/dev/tty1' in command
         assert 'sha256sum' in command and '600:0:1' in command
+    elif case == 'seat-crash':
+        assert 'veil-enroll --password-stdin' in command
+        assert 'veil-seat --login-stdin' in command
+        assert 'NoNewPrivs' in command and '/dev/tty1' in command
+        assert 'kill -KILL "$broker"' in command
+        assert 'synctl --json status' in command
     elif case == 'seat-locked':
         assert 'veil-seat --login-stdin' in command
         assert '600:0' in command and 'login denied' in command
@@ -92,7 +98,7 @@ if mode == 'pass':
               'observe': 'OBSERVE', 'demo': 'DEMO',
               'desktop': 'DESKTOP_RECOVERY', 'desktop-terminal': 'TERMINAL_LIFETIME',
               'enroll': 'ENROLL_SMOKE', 'enrolled-reboot': 'ENROLL_REBOOT',
-              'seat-locked': 'SEAT_LOCKED',
+              'seat-locked': 'SEAT_LOCKED', 'seat-crash': 'SEAT_CRASH',
               'state-missing': 'STATE_RECOVERY',
               'state-corrupt': 'STATE_RECOVERY', 'supervision': 'SUPERVISION'}[case]
     print('SYNVEIL_' + marker + '_OK', flush=True)
@@ -163,6 +169,10 @@ elif mode == 'timeout':
     def test_display_crash_closes_the_non_root_demo_terminal(self):
         self.assertEqual(self.fixture("pass", "desktop-terminal")[0], 0)
         self.assertNotEqual(self.fixture("echo", "desktop-terminal")[0], 0)
+
+    def test_broker_crash_revokes_non_root_terminal(self):
+        self.assertEqual(self.fixture("pass", "seat-crash")[0], 0)
+        self.assertNotEqual(self.fixture("echo", "seat-crash")[0], 0)
 
     def test_non_enrolled_seat_denies_default_credentials(self):
         self.assertEqual(self.fixture("pass", "seat-locked")[0], 0)

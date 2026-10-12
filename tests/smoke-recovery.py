@@ -113,7 +113,39 @@ SEAT_LOCKED = (
     "timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then "
     "printf '\\n%s%s\\n' SYNVEIL_ SEAT_LOCKED_OK; fi\n"
 )
+SEAT_CRASH = (
+    {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY",
+     b"SYNVEIL_SEAT_READY", b"SYNVEIL_VT_READY"},
+    b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_SEAT_CRASH_OK",
+    "secret=$(cat /proc/sys/kernel/random/uuid); "
+    "if [ ! -e /var/lib/synveil/auth/credential.phc ] && "
+    "[ -n \"$secret\" ] && "
+    "printf '%s' \"$secret\" | /usr/sbin/veil-enroll --password-stdin >/dev/null; then "
+    "printf '%s' \"$secret\" | /usr/sbin/veil-seat --login-stdin >/tmp/seat-crash-client.log 2>&1 & "
+    "holder=$!; broker=; terminal=; "
+    "for retry in $(seq 1 100); do "
+    "for status in /proc/[0-9]*/status; do "
+    "if grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' \"$status\" && "
+    "grep -Eq '^NoNewPrivs:[[:space:]]*1$' \"$status\"; then "
+    "pid=$(basename $(dirname \"$status\")); "
+    "if [ \"$(readlink /proc/$pid/fd/0)\" = /dev/tty1 ]; then "
+    "terminal=$pid; break; fi; fi; done; "
+    "[ -n \"$terminal\" ] && break; sleep 0.1; done; "
+    "for candidate in $(pidof veil-seat); do "
+    "child=$(cat /proc/$candidate/task/$candidate/children 2>/dev/null); "
+    "if [ -n \"$child\" ]; then broker=$candidate; break; fi; done; "
+    "if [ -n \"$terminal\" ] && [ -n \"$broker\" ] && "
+    "grep -Fxq SYNVEIL_SEAT_ACTIVE /tmp/seat-crash-client.log && "
+    "kill -KILL \"$broker\"; then "
+    "for retry in $(seq 1 60); do "
+    "if ! kill -0 \"$terminal\" 2>/dev/null || "
+    "grep -q '^State:.*Z' /proc/$terminal/status 2>/dev/null; then "
+    "if timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then "
+    "printf '\\n%s%s\\n' SYNVEIL_ SEAT_CRASH_OK; fi; break; fi; "
+    "sleep 0.1; done; fi; fi\n"
+)
 SCENARIOS = {
+    "seat-crash": SEAT_CRASH,
     "seat-locked": SEAT_LOCKED,
     "enrolled-reboot": ENROLL_REBOOT,
     "enroll": ENROLL_RECOVERY,
