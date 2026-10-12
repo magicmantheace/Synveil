@@ -59,11 +59,11 @@ class DisplaySourceTests(unittest.TestCase):
                 check=True,
             )
             subprocess.run([str(executable), "--self-test"], check=True, timeout=3)
-            # The inherited-fbdev authenticated UI is not root-invokable.
-            if __import__("os").geteuid() != 1000:
-                denied = subprocess.run([str(executable), "--session"],
-                                        capture_output=True, timeout=3)
-                self.assertNotEqual(denied.returncode, 0)
+            # Even when the host runs as UID 1000, an unleased process
+            # with no inherited framebuffer must not start a user desktop.
+            denied = subprocess.run([str(executable), "--session"],
+                                    close_fds=True, capture_output=True, timeout=3)
+            self.assertNotEqual(denied.returncode, 0)
 
 
 if __name__ == "__main__":

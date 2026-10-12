@@ -11,7 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys, type_test_secret, logout_user_desktop, switch_to_login_vt
+from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys, type_test_secret, logout_user_desktop, switch_to_login_vt, open_user_terminal, exit_user_terminal
 
 
 class QMPTests(unittest.TestCase):
@@ -91,6 +91,31 @@ class QMPTests(unittest.TestCase):
                        for item in commands[1:]
                        if item["arguments"]["events"][0]["data"]["down"]]
             self.assertEqual(pressed, list("ab01" * 8) + ["ret"])
+
+    def test_user_terminal_commands_are_fixed_and_bounded(self):
+        for helper, expected in (
+            (open_user_terminal, ["right", "right", "right", "ret", "ret"]),
+            (exit_user_terminal, ["e", "x", "i", "t", "ret"]),
+        ):
+            with tempfile.TemporaryDirectory() as tmp:
+                endpoint = Path(tmp) / "qmp.sock"
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+                    listener.bind(str(endpoint))
+                    listener.listen(1)
+                    commands = []
+                    worker = threading.Thread(target=self.serve, args=(listener, commands))
+                    worker.start()
+                    helper(endpoint, timeout=6)
+                    worker.join(timeout=3)
+                    self.assertFalse(worker.is_alive())
+                keys = [
+                    item["arguments"]["events"][0]["data"]["key"]["data"]
+                    for item in commands[1:]
+                    if item["arguments"]["events"][0]["data"]["down"]
+                ]
+                self.assertEqual(keys, expected)
+        with self.assertRaises(ValueError):
+            send_keys(Path("/unused.sock"), ("x", "y"), timeout=1)
 
     def test_fixed_logout_exits_desktop_without_shell_text(self):
         with tempfile.TemporaryDirectory() as tmp:

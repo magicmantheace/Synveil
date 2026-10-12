@@ -1284,6 +1284,9 @@ static int self_test(void) {
     if (auth_vt_restore_expired(&before, &early) ||
         !auth_vt_restore_expired(&before, &deadline) ||
         !auth_vt_restore_expired(&before, &late)) return 1;
+    struct menu_state user = {.selected = 0u, .page = -1, .authenticated = 1};
+    menu_key(&user, KEY_ESC);
+    if (!user.quit) return 1;
     if (session_input_code('h') != KEY_LEFT ||
         session_input_code('l') != KEY_RIGHT ||
         session_input_code('a') != KEY_A ||
