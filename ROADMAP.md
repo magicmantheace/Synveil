@@ -135,6 +135,10 @@ Durable audit rotation, integrity and disk-full policy remain open.
     diskstats is explicitly unavailable, not estimated or fabricated;
     interval-based throughput and persistent history remain open.
 - [ ] network metrics
+  - Strict, bounded `/proc/net/dev` counters now report per-interface RX/TX
+    bytes, packets, errors, and drops through read-only `synctl observe`.
+    Missing procfs data is explicitly unavailable; instantaneous bandwidth,
+    connection inventory, network traffic inspection and history remain open.
 - [ ] thermal/power interface where available
 - [ ] event normalization
 - [ ] ephemeral telemetry storage
