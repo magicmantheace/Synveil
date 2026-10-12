@@ -6,13 +6,17 @@ This module is a *host-side test helper*, not a guest service or AI action.
 The QMP socket grants complete emulator control and must stay private.
 """
 import json
+import re
 from pathlib import Path
 import socket
 import time
 
 # QEMU QKeyCode enumerators. Only short allowlisted sequences for isolated
 # settings and demo-terminal guest smoke tests are permitted.
+# Restrict password typing to a fresh, test-only 128-bit lowercase hex
+# value; QMP never receives an actual user credential.
 ALLOWED_KEYS = frozenset(("right", "left", "up", "down", "ret", "esc"))
+ALLOWED_TEST_KEYS = ALLOWED_KEYS | frozenset("0123456789abcdef")
 
 
 class QMPError(RuntimeError):
@@ -46,8 +50,8 @@ def emit_command(sock, reader, command):
     return _read_reply(reader)
 
 
-def press(sock, reader, key):
-    if key not in ALLOWED_KEYS:
+def press(sock, reader, key, allowed=ALLOWED_KEYS):
+    if key not in allowed:
         raise ValueError("unsupported QMP test key")
     event = {
         "type": "key",
@@ -60,9 +64,10 @@ def press(sock, reader, key):
                                 "arguments": {"events": [event]}})
 
 
-def send_keys(socket_path: Path, keys: tuple[str, ...], *, timeout=5.0):
+def send_keys(socket_path: Path, keys: tuple[str, ...], *, timeout=5.0,
+              allowed=ALLOWED_KEYS):
     """Send a fixed, fully allowlisted test sequence over private host QMP."""
-    if not keys or any(key not in ALLOWED_KEYS for key in keys):
+    if not keys or any(key not in allowed for key in keys):
         raise ValueError("unsupported QMP test sequence")
     socket_path = Path(socket_path)
     if not socket_path.is_absolute():
@@ -85,7 +90,7 @@ def send_keys(socket_path: Path, keys: tuple[str, ...], *, timeout=5.0):
             for key in keys:
                 if time.monotonic() >= deadline:
                     raise QMPError("QMP keyboard sequence exceeded deadline")
-                press(sock, reader, key)
+                press(sock, reader, key, allowed=allowed)
                 time.sleep(0.075)
 
 
@@ -100,3 +105,11 @@ def open_demo_terminal(socket_path: Path, *, timeout=5.0):
     """Select Terminal and confirm, never opening privileged debug terminal."""
     return send_keys(socket_path, ("right", "right", "right", "ret", "ret"),
                      timeout=timeout)
+
+
+def type_test_secret(socket_path: Path, secret: str, *, timeout=15.0):
+    """Type only a fresh test-generated 128-bit lowercase hex password."""
+    if not isinstance(secret, str) or re.fullmatch(r"[a-f0-9]{32}", secret) is None:
+        raise ValueError("QMP test secrets must be 128-bit lowercase hexadecimal")
+    return send_keys(socket_path, (*secret, "ret"), timeout=timeout,
+                     allowed=ALLOWED_TEST_KEYS)

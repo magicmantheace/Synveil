@@ -11,7 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys
+from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys, type_test_secret
 
 
 class QMPTests(unittest.TestCase):
@@ -70,6 +70,27 @@ class QMPTests(unittest.TestCase):
                 if item["arguments"]["events"][0]["data"]["down"]
             ]
             self.assertEqual(presses, ["right", "right", "right", "ret", "ret"])
+
+    def test_test_only_hex_password_is_strictly_bounded(self):
+        for secret in ("short", "not-a-real-password", "A" * 32, "a" * 40,
+                       "a" * 31 + "/", "secret-from-user"):
+            with self.assertRaises(ValueError):
+                type_test_secret(Path("/unused.sock"), secret)
+        with tempfile.TemporaryDirectory() as tmp:
+            endpoint = Path(tmp) / "qmp.sock"
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+                listener.bind(str(endpoint))
+                listener.listen(1)
+                commands = []
+                worker = threading.Thread(target=self.serve, args=(listener, commands))
+                worker.start()
+                type_test_secret(endpoint, "ab01" * 8, timeout=15)
+                worker.join(timeout=3)
+                self.assertFalse(worker.is_alive())
+            pressed = [item["arguments"]["events"][0]["data"]["key"]["data"]
+                       for item in commands[1:]
+                       if item["arguments"]["events"][0]["data"]["down"]]
+            self.assertEqual(pressed, list("ab01" * 8) + ["ret"])
 
     def test_error_and_unapproved_key_fail(self):
         with tempfile.TemporaryDirectory() as tmp:
