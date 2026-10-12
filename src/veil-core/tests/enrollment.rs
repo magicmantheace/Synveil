@@ -39,3 +39,16 @@ fn argument_supplied_password_is_refused_without_echo() {
     assert!(!String::from_utf8_lossy(&output.stdout).contains(secret));
     assert!(!String::from_utf8_lossy(&output.stderr).contains(secret));
 }
+
+#[test]
+fn seat_password_client_rejects_secret_arguments() {
+    let secret = "do-not-allow-credentials-on-argv";
+    let output = Command::new(env!("CARGO_BIN_EXE_veil-seat"))
+        .args(["--login-stdin", secret])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(!String::from_utf8_lossy(&output.stdout).contains(secret));
+    assert!(!String::from_utf8_lossy(&output.stderr).contains(secret));
+}
+

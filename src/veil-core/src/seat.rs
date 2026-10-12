@@ -209,6 +209,63 @@ where
     Ok(())
 }
 
+/// Developer-only password-pipe client. The socket lease stays open until
+/// the non-root VT shell terminates. The client never receives a UID, an
+/// executable name, a session token or a privileged command capability.
+pub fn login_from_reader<R: Read>(mut input: R, socket: &Path) -> io::Result<bool> {
+    let mut password = Vec::new();
+    input.take((MAX_SECRET + 1) as u64).read_to_end(&mut password)?;
+    if !(MIN_SECRET..=MAX_SECRET).contains(&password.len()) {
+        password.fill(0);
+        return Ok(false);
+    }
+    let mut stream = match UnixStream::connect(socket) {
+        Ok(stream) => stream,
+        Err(error) => {
+            password.fill(0);
+            return Err(error);
+        }
+    };
+    stream.set_write_timeout(Some(IO_TIMEOUT))?;
+    let len = u16::try_from(password.len())
+        .map_err(|_| io::Error::other("invalid password size"))?;
+    let mut write = stream.write_all(HEADER_MAGIC);
+    if write.is_ok() {
+        write = stream.write_all(&len.to_be_bytes());
+    }
+    if write.is_ok() {
+        write = stream.write_all(&password);
+    }
+    password.fill(0);
+    write?;
+    stream.set_read_timeout(Some(IO_TIMEOUT))?;
+    let mut response = Vec::new();
+    let mut byte = [0u8; 1];
+    while response.len() <= 16 {
+        if stream.read_exact(&mut byte).is_err() {
+            return Ok(false);
+        }
+        response.push(byte[0]);
+        if byte[0] == b'\n' {
+            break;
+        }
+    }
+    if response != b"ACTIVE\n" {
+        return Ok(false);
+    }
+    println!("SYNVEIL_SEAT_ACTIVE");
+    // Preserve the lease. A client crash closes the FD and causes the root
+    // broker to revoke the child session.
+    stream.set_read_timeout(None)?;
+    loop {
+        match stream.read(&mut byte) {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {}
+        }
+    }
+    Ok(true)
+}
+
 pub fn serve(path: &Path) -> io::Result<()> {
     if unsafe { native_euid() } != 0 {
         return Err(io::Error::new(
