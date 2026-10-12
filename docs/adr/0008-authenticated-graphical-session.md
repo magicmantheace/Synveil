@@ -195,7 +195,8 @@ starts only a fixed UID1000 shell; exiting returns to the user dashboard.
 Escape from the top-level launcher logs out. The seat broker still owns the
 socket lease and revokes the process chain on lost login display or VT switch.
 
-This is a **keyboard-first, single-app prototype**: graphical mouse input,
+This is a **single-app prototype** with keyboard and optional delegated
+absolute QEMU tablet input: general physical mouse support,
 window management, process-tree/cgroup teardown guarantees, interactive
 first-user enrollment, screen locking and complete guest tests remain
 open. It does not promote the root diagnostic menu to a user desktop, and
@@ -239,3 +240,16 @@ The graphical guest crash check now kills **only the root-owned login
 display**, identified by both UID 0 and its fixed '--login' command
 line, and then checks whether the separate UID1000 session died. Killing
 both processes would not establish socket-lease revocation.
+
+## Guest evidence for actual user-terminal lifecycle
+
+The QMP guest test no longer equates a UID1000 tty1 process with a
+functional desktop. On a separate test-only authenticated login, it
+navigates the Terminal tile using fixed key events, requires a **child
+UID1000 sh process** of the graphical dashboard, sends only the literal
+shell `exit` built-in and verifies that the **same dashboard PID**
+remains alive. It then logs out via Escape and checks full UID1000
+relock. Separate checks test Ctrl+Alt+F2 lease revocation, wrong passwords,
+and destruction of a user session after killing *only* the root graphical
+login process. Host-only fake-QMP fixtures are required to reject any
+missing intermediate evidence, but QEMU/image evidence is still pending.

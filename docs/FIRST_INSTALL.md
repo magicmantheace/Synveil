@@ -265,9 +265,10 @@ framebuffer dashboard through the root seat's one-time inherited framebuffer
 fd. Its terminal is also non-root, and Esc on the top-level menu ends the
 session and returns to graphical login. Its view and settings reuse the
 existing diagnostic renderer but do not carry privileged mutation powers.
-The prototype is keyboard-only in the authenticated session; pointing
-input, app windows, secure recovery/onboarding, installed storage, and
-actual QEMU validation still block first installation.
+The prototype initially launched keyboard-only; optional QEMU absolute
+tablet input was added subsequently. General pointing-device support,
+app windows, secure recovery/onboarding, installed storage, and actual QEMU
+validation still block first installation.
 
 ## Authenticated keyboard and tablet session
 

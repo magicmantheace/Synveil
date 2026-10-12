@@ -160,11 +160,17 @@ image with the *explicit* authenticated-desktop marker while leaving the
 default developer menu image untouched. Its fresh, separately formatted
 QEMU state disk receives a host-generated 128-bit test-only password only
 after serial echo is disabled, and a private QMP monitor types that secret
-into the actual framebuffer login screen. The guest must show a real
-UID/GID 1000, NoNewPrivs=1 VT1 shell, and killing the GUI must revoke the
-session while serial `synctl status` continues. This stronger end-to-end
-gate is newly added and **awaits native QEMU validation**; host keyboard
-and fixture tests cannot substitute for guest proof.
+into the actual framebuffer login screen. The guest must first show a real
+UID/GID 1000, NoNewPrivs=1 VT1 **graphical session**, then demonstrate
+that a fixed on-desktop Terminal tile starts a child UID1000 shell and
+the shell's `exit` returns to the **same living dashboard**. Next, Escape
+must log out and remove all living UID1000 session descendants. Changing
+VTs must also revoke the lease, and killing only the root login GUI (not
+the user session) must cause its separate UID1000 session to die while
+serial `synctl status` continues. Test-only QMP commands are allowlisted
+and never include an arbitrary privileged shell command. This stronger
+end-to-end gate **awaits native QEMU validation**; host keyboard and
+fixture tests cannot substitute for guest proof.
 
 ## AI-related validation
 
