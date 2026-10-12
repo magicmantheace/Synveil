@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Deterministic graphical session lifecycle, without a login or IPC endpoint.
 //!
-//! A verified identity can only be constructed inside this module today. A
-//! later, separately reviewed local credential verifier must be the sole
-//! authority permitted to create it. Preferences and planner output are not
-//! credentials. This state machine does not yet authenticate or start users.
+//! A verified identity can only be constructed here, following the
+//! root-owned credential verifier. Preferences and planner output are not
+//! credentials. This state machine does not yet accept login IPC, launch
+//! user programs, or authenticate the provisional framebuffer developer UI.
+
+use std::time::{Duration, Instant};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SessionState {
@@ -21,6 +23,7 @@ pub enum SessionError {
     PrivilegedIdentity,
     IdentifierExhausted,
     Denied,
+    Throttled,
 }
 
 /// Not constructible by external callers. The future credential verifier
@@ -35,6 +38,8 @@ pub struct VerifiedIdentity {
 pub struct SessionTracker {
     state: SessionState,
     sequence: u64,
+    consecutive_denials: u8,
+    next_allowed: Option<Instant>,
 }
 
 impl Default for SessionTracker {
@@ -42,6 +47,8 @@ impl Default for SessionTracker {
         Self {
             state: SessionState::Locked,
             sequence: 0,
+            consecutive_denials: 0,
+            next_allowed: None,
         }
     }
 }
@@ -52,10 +59,18 @@ impl SessionTracker {
         self.state
     }
 
-    /// Start a *new* attempt. Old attempt identifiers cannot unlock a session.
+    /// Start a *new* attempt. Only a monotonic clock controls cooldown;
+    /// changing the system wall clock cannot bypass the failure budget.
     pub fn begin_login(&mut self) -> Result<u64, SessionError> {
+        self.begin_login_at(Instant::now())
+    }
+
+    fn begin_login_at(&mut self, now: Instant) -> Result<u64, SessionError> {
         if self.state != SessionState::Locked {
             return Err(SessionError::InvalidState);
+        }
+        if self.next_allowed.is_some_and(|until| now < until) {
+            return Err(SessionError::Throttled);
         }
         let attempt = self
             .sequence
@@ -123,11 +138,33 @@ impl SessionTracker {
     where
         F: FnOnce(&str, &[u8]) -> bool,
     {
+        self.complete_with_verifier_at(attempt, username, password, Instant::now(), verifier)
+    }
+
+    fn complete_with_verifier_at<F>(
+        &mut self,
+        attempt: u64,
+        username: &str,
+        password: &[u8],
+        now: Instant,
+        verifier: F,
+    ) -> Result<u64, SessionError>
+    where
+        F: FnOnce(&str, &[u8]) -> bool,
+    {
         self.check_attempt(attempt)?;
         if !verifier(username, password) {
             self.state = SessionState::Locked;
+            self.consecutive_denials = self.consecutive_denials.saturating_add(1);
+            if self.consecutive_denials >= 3 {
+                let exponent = u32::from(self.consecutive_denials - 3).min(6);
+                let seconds = (1u64 << exponent).min(60);
+                self.next_allowed = now.checked_add(Duration::from_secs(seconds));
+            }
             return Err(SessionError::Denied);
         }
+        self.consecutive_denials = 0;
+        self.next_allowed = None;
         self.complete_login(
             attempt,
             VerifiedIdentity {
@@ -186,6 +223,60 @@ mod tests {
 
     fn verified(uid: u32, gid: u32) -> VerifiedIdentity {
         VerifiedIdentity { uid, gid }
+    }
+
+    #[test]
+    fn repeated_denials_throttle_by_monotonic_time_and_reset_after_success() {
+        let mut tracker = SessionTracker::default();
+        let start = Instant::now();
+        for _ in 0..3 {
+            let attempt = tracker.begin_login_at(start).unwrap();
+            assert_eq!(
+                tracker.complete_with_verifier_at(
+                    attempt,
+                    "synveil",
+                    b"incorrect-password",
+                    start,
+                    |_, _| false,
+                ),
+                Err(SessionError::Denied)
+            );
+        }
+        assert_eq!(tracker.begin_login_at(start), Err(SessionError::Throttled));
+        let later = start + Duration::from_secs(2);
+        let good = tracker.begin_login_at(later).unwrap();
+        assert_eq!(
+            tracker.complete_with_verifier_at(
+                good,
+                "synveil",
+                b"correct-password",
+                later,
+                |_, _| true,
+            ),
+            Ok(good)
+        );
+        tracker.request_logout().unwrap();
+        tracker.cleanup_finished(good).unwrap();
+        assert_eq!(tracker.consecutive_denials, 0);
+        assert_eq!(tracker.next_allowed, None);
+        assert!(tracker.begin_login_at(later).is_ok());
+    }
+
+    #[test]
+    fn rejected_stale_attempt_never_invokes_password_verifier() {
+        let mut tracker = SessionTracker::default();
+        let initial = tracker.begin_login().unwrap();
+        tracker.deny_login(initial).unwrap();
+        let _second = tracker.begin_login().unwrap();
+        let mut called = false;
+        assert_eq!(
+            tracker.complete_with_verifier(initial, "synveil", b"password", |_, _| {
+                called = true;
+                true
+            }),
+            Err(SessionError::StaleAttempt)
+        );
+        assert!(!called);
     }
 
     #[test]
@@ -296,6 +387,8 @@ mod tests {
         let mut tracker = SessionTracker {
             state: SessionState::Locked,
             sequence: u64::MAX,
+            consecutive_denials: 0,
+            next_allowed: None,
         };
         assert_eq!(
             tracker.begin_login(),
