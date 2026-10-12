@@ -117,6 +117,8 @@ required; this is not a production network manager.
 a separate preformatted ext4 state disk, read-only boot image, checksums,
 build identity, and a launcher. It refuses incomplete desktop builds, stale
 or dirty build manifests, invalid kernels, or existing output destinations.
+The launcher revalidates immutable checksums and private state-disk
+permissions before every QEMU process starts. These are not signatures.
 This enables a controlled, **developer-only VM setup** once the full guest
 image passes validation; it is not a physical installer, user release, or
 authenticated graphical login.

@@ -102,14 +102,38 @@ def create_bundle(out: Path, rootfs: Path, dest: Path,
             "user_install_validated": False,
         }, indent=2) + "\n")
         script = """#!/bin/sh
-# Set SYNVEIL_REPO_ROOT to your Synveil checkout before starting.
+# Developer-only VM runner. All guest artifacts remain private/offline.
 set -eu
-: "$SYNVEIL_REPO_ROOT"
+: "${SYNVEIL_REPO_ROOT:?set SYNVEIL_REPO_ROOT to a Synveil checkout}"
 bundle="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+if [ -L "$bundle" ] || [ "$(stat -c '%a' "$bundle")" != 700 ] ||
+   [ "$(stat -c '%u' "$bundle")" != "$(id -u)" ]; then
+    echo "[synveil-vm] expected a private owner-owned mode 0700 bundle" >&2
+    exit 1
+fi
+for file in synveil-x86_64.img build.json kernel.config SHA256SUMS; do
+    if [ ! -f "$bundle/$file" ] || [ -L "$bundle/$file" ]; then
+        echo "[synveil-vm] missing or symlinked immutable artifact: $file" >&2
+        exit 1
+    fi
+done
+if [ ! -f "$bundle/synveil-state.ext4" ] ||
+   [ -L "$bundle/synveil-state.ext4" ] ||
+   [ "$(stat -c '%a' "$bundle/synveil-state.ext4")" != 600 ]; then
+    echo "[synveil-vm] state disk missing, symlinked, or not mode 0600" >&2
+    exit 1
+fi
+# Detect accidental post-packaging changes before any emulator process starts.
+# This is integrity checking, NOT a digital signature or trusted boot.
+if ! (cd "$bundle" && sha256sum --status --check SHA256SUMS); then
+    echo "[synveil-vm] immutable artifact checksum mismatch; refusing to boot" >&2
+    exit 1
+fi
 export SYNVEIL_OUT_DIR="$bundle"
 export SYNVEIL_QEMU_STATE_DISK="$bundle/synveil-state.ext4"
 export SYNVEIL_QEMU_DISPLAY=gtk
 export SYNVEIL_QEMU_NETWORK=0
+unset SYNVEIL_QEMU_QMP_SOCKET SYNVEIL_QEMU_VIDEO
 exec bash "$SYNVEIL_REPO_ROOT/build.sh" qemu
 """
         launcher = dest / "run-vm.sh"
@@ -120,8 +144,11 @@ exec bash "$SYNVEIL_REPO_ROOT/build.sh" qemu
             "NOT a hardware installer, signed release or authenticated desktop.\n"
             "The demo shell is non-root but unauthenticated; use only in a private VM.\n\n"
             "From the Synveil checkout: set SYNVEIL_REPO_ROOT to the checkout path,\n"
-            "then run the bundle's run-vm.sh script. The launcher defaults to\n"
-            "offline graphics (GTK). To explicitly enable networking, invoke\n"
+            "then run the bundle's run-vm.sh script. The launcher verifies\n"
+            "private directory/state-disk permissions and immutable checksums\n"
+            "before every boot. This detects accidental tampering, not hostile\n"
+            "modification of both checksums and image; nothing is signed.\n"
+            "It defaults to offline graphics (GTK). To enable networking, invoke\n"
             "build.sh qemu directly with SYNVEIL_OUT_DIR set to this bundle and\n"
             "SYNVEIL_QEMU_NETWORK=1. The EFI disk is read-only while the separate\n"
             "ext4 state disk is writable. Preserve the state disk for saved data.\n"

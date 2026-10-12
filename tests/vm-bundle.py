@@ -4,6 +4,8 @@
 import hashlib
 import json
 from pathlib import Path
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -85,9 +87,49 @@ class BundleTests(unittest.TestCase):
         launch = (self.destination / "run-vm.sh").read_text()
         self.assertIn("SYNVEIL_QEMU_NETWORK=0", launch)
         self.assertIn("SYNVEIL_QEMU_STATE_DISK=", launch)
-        import subprocess
         subprocess.run(["sh", "-n", str(self.destination / "run-vm.sh")],
                        check=True)
+
+    def _launch_with_fake_repo(self, original_root=None):
+        """Run bundle launcher against a stub checkout, no QEMU installed."""
+        repo = self.root / "fake-repo"
+        repo.mkdir(exist_ok=True)
+        stub = repo / "build.sh"
+        stub.write_text('#!/bin/sh\nprintf "%s" "$SYNVEIL_QEMU_NETWORK" > "$VM_CALL_LOG"\n')
+        stub.chmod(0o755)
+        logged = self.root / "launched"
+        logged.unlink(missing_ok=True)
+        env = {**os.environ, "SYNVEIL_REPO_ROOT": str(repo),
+               "VM_CALL_LOG": str(logged)}
+        result = subprocess.run(["sh", str(self.destination / "run-vm.sh")],
+                                capture_output=True, text=True, env=env, timeout=4)
+        return result, logged
+
+    def test_bundle_verifies_integrity_and_privacy_before_launch(self):
+        with patch("state_disk.subprocess.run"):
+            create_bundle(self.out, self.rootfs, self.destination, REV, 64)
+        result, logged = self._launch_with_fake_repo()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(logged.read_text(), "0")
+        image = self.destination / "synveil-x86_64.img"
+        image.chmod(0o600)
+        image.write_bytes(b"modified")
+        result, logged = self._launch_with_fake_repo()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("checksum mismatch", result.stderr)
+        self.assertFalse(logged.exists())
+        image.write_bytes(b"stand-in UEFI image")
+        image.chmod(0o400)
+        state = self.destination / "synveil-state.ext4"
+        state.chmod(0o644)
+        result, logged = self._launch_with_fake_repo()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(logged.exists())
+        state.chmod(0o600)
+        self.destination.chmod(0o755)
+        result, logged = self._launch_with_fake_repo()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(logged.exists())
 
     def test_refuses_existing_directory_without_mutation(self):
         self.destination.mkdir()

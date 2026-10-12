@@ -292,7 +292,12 @@ requires the resolved framebuffer/input kernel options and packaged desktop
 binaries, and creates the destination **exclusively** (never overwrites
 an existing VM or state disk). The EFI image is read-only, while the ext4
 state disk is a separate, writable developer volume. The launcher defaults to
-a GTK display and **no network access**.
+a GTK display and **no network access**. It now checks immutable boot,
+manifest and kernel checksums **again before every launch**, and refuses
+symlinked artifacts, non-private state disks and bundles not owned by the
+launching user with mode 0700. This is accidental-integrity detection, not
+a signed/trusted release: a local attacker who can edit the bundle and its
+checksums can replace both.
 
 This is not a physical disk installer or a validated user release. A stale or
 incomplete build is rejected. The demo shell is unprivileged but intentionally
