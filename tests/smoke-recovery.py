@@ -66,7 +66,7 @@ ENROLL_RECOVERY = (
     "grep -Fxq SYNVEIL_CREDENTIAL_ENROLLED /tmp/veil-enroll.log && "
     "[ \"$(stat -c '%a:%u:%h' /var/lib/synveil/auth/credential.phc)\" = 600:0:1 ] && "
     "[ \"$(stat -c '%a:%u' /var/lib/synveil/auth)\" = 700:0 ] && "
-    "old=$(sha256sum /var/lib/synveil/auth/credential.phc); "
+    "old=$(sha256sum /var/lib/synveil/auth/credential.phc) && "
     "! printf '%s' \"$secret\" | /usr/sbin/veil-enroll --password-stdin >/dev/null 2>&1; then "
     "if [ \"$(sha256sum /var/lib/synveil/auth/credential.phc)\" = \"$old\" ]; then "
     "printf '\\n%s%s\\n' SYNVEIL_ ENROLL_SMOKE_OK; fi; fi; fi\n"
