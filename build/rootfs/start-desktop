@@ -1,0 +1,30 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# Development GUI supervisor; recovery console remains separately available.
+desktop="${SYNVEIL_DESKTOP_BINARY:-/usr/bin/synveil-display}"
+pause="${SYNVEIL_DESKTOP_RETRY_DELAY:-1}"
+case "$pause" in
+    0|1) ;;
+    *) echo "[synveil-desktop] invalid retry delay" >&2; exit 2 ;;
+esac
+if [ ! -x "$desktop" ]; then
+    echo SYNVEIL_DESKTOP_UNAVAILABLE
+    exit 1
+fi
+attempt=1
+while [ "$attempt" -le 3 ]; do
+    "$desktop" --menu
+    status=$?
+    if [ "$status" -eq 0 ]; then
+        echo SYNVEIL_DESKTOP_EXITED
+        exit 0
+    fi
+    if [ "$attempt" -ge 3 ]; then
+        echo SYNVEIL_DESKTOP_RESTART_EXHAUSTED
+        exit 1
+    fi
+    echo SYNVEIL_DESKTOP_RESTARTING
+    attempt=$((attempt + 1))
+    sleep "$pause"
+done
+exit 1
