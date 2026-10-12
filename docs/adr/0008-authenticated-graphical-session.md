@@ -42,9 +42,13 @@ must remain independent of graphics and of any optional intelligence layer.
    authority. Local operation must not require a network connection.
 7. Revoke device access, clean session-owned processes, and recover the
    lock/login surface on logout, GUI crash, or supervisor recovery.
-8. Preserve serial recovery independently. Before an owner-facing image, replace
-   or explicitly protect the bootstrap's unauthenticated privileged serial
-   shell. A production login must never assume an unlocked developer console.
+8. Preserve explicit developer serial recovery, but do not expose it on
+   the authenticated-preview image. A rootfs build marker now locks all
+   unprotected serial root-shell paths, including early mount-failure
+   recovery, while a second deliberately unsafe developer-only marker can
+   re-enable the serial shell in isolated QEMU credential-enrollment tests.
+   An owner-facing install still needs first-user enrollment and a separate,
+   authenticated recovery environment.
 
 ## Seat broker implementation progress
 

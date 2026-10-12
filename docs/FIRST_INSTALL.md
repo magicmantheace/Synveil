@@ -141,6 +141,27 @@ passed write -> stop first QEMU -> start new QEMU -> read. This validates
 the experimental VM /var state volume, not installed-system persistence. This mechanism deliberately does not pick or format
 hardware disks, and it is not an installation path.
 
+## Authentication preview serial recovery boundary
+
+An authenticated-preview initramfs now **refuses to open an unauthenticated
+serial root shell** by default. The check runs both after normal startup and
+when mandatory early procfs/sysfs mounts fail. A failed GUI or seat broker
+does not change that decision; a locked serial port remains visible for
+diagnostics but never reads shell commands.
+
+Developer-only QEMU enrollment/guest tests deliberately stage a second,
+rootfs-owned `/etc/synveil/developer-serial-recovery` marker alongside
+`auth-desktop`. This allows the synthetic one-time test password to be
+enrolled through a trusted fixture shell. In a production-oriented preview,
+the override is **not installed** and there is no serial command shell.
+
+`SYNVEIL_DEV_SERIAL_ROOTFS=1` is an explicitly unsafe, developer-only
+build option requiring `SYNVEIL_AUTH_DESKTOP_ROOTFS=1`.
+Do not enable it in a physical installer or user-facing image. Disabling
+developer serial recovery before implementing graphical first-user
+enrollment means a fresh image still has **no usable onboarding path**;
+Synveil is not ready for a physical installation.
+
 ## Experimental seat-backed graphical login preview
 
 The framebuffer binary now has a separate, explicitly invoked `--login`

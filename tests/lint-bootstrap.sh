@@ -45,6 +45,7 @@ python3 tests/vm-bundle.py
 python3 tests/network-config.py
 python3 tests/qemu-options.py
 python3 tests/desktop-supervisor.py
+python3 tests/serial-console-policy.py
 python3 tests/display-build.py
 python3 tests/ui-preferences-smoke-fixture.py
 python3 tests/qmp-input.py
