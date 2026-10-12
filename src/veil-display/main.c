@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <linux/input.h>
+#include <linux/vt.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -599,6 +600,32 @@ static int run_menu(const struct surface *screen) {
 // Match the verifier's byte-size bound, not a shorter UI-only limit.
 #define AUTH_MAX_UI_PASSWORD 1024u
 #define AUTH_SEAT_SOCKET "/run/synveil/veil-seat.sock"
+// Dedicated graphical login VT. Authenticated shells temporarily use tty1.
+// Returning to tty2 is required: merely repainting /dev/fb0 while fbcon
+// still owns tty1 can expose the preceding terminal or hide the login.
+#define AUTH_LOGIN_VT 2
+
+static int auth_restore_login_vt(void) {
+    int controller = open("/dev/tty0", O_RDWR | O_CLOEXEC | O_NOCTTY);
+    if (controller < 0) return -1;
+    int activated = ioctl(controller, VT_ACTIVATE, AUTH_LOGIN_VT);
+    int ready = activated == 0 ? ioctl(controller, VT_WAITACTIVE, AUTH_LOGIN_VT) : -1;
+    close(controller);
+    return activated == 0 && ready == 0 ? 0 : -1;
+}
+
+static int auth_open_private_keyboard(void) {
+    int keyboard = open_keyboard();
+    if (keyboard < 0) return -1;
+    // No tty consumer or second evdev reader may receive password keys.
+    // Closing this FD before launching the shell automatically releases
+    // the kernel's exclusive grab and restores terminal keyboard input.
+    if (ioctl(keyboard, EVIOCGRAB, 1) != 0) {
+        close(keyboard);
+        return -1;
+    }
+    return keyboard;
+}
 
 struct auth_input {
     unsigned char password[AUTH_MAX_UI_PASSWORD];
@@ -713,7 +740,7 @@ static void auth_render(const struct surface *screen, const struct auth_input *s
         heading(screen, "PASSWORD LIMIT", 36u, h*3u/5u, 2u, muted);
     if (state->denied) heading(screen, "LOGIN DENIED", 36u, h*3u/5u, 2u, muted);
     heading(screen, "ENTER TO LOGIN", 36u, h*4u/5u, 2u, text);
-    heading(screen, "ESC TO EXIT", 36u, h*4u/5u+32u, 2u, muted);
+    heading(screen, "ESC TO CLEAR", 36u, h*4u/5u+32u, 2u, muted);
 }
 
 static int auth_send_all(int fd, const unsigned char *bytes, size_t len) {
@@ -785,14 +812,16 @@ denied:
 }
 
 static int run_auth_login(const struct surface *screen) {
-    int keyboard = open_keyboard();
+    // Fail closed if the graphical login cannot own a dedicated VT.
+    if (auth_restore_login_vt() != 0) return 1;
+    int keyboard = auth_open_private_keyboard();
     if (keyboard < 0) return 1;
     struct auth_input state = {0};
     auth_render(screen, &state);
     puts("\nSYNVEIL_LOGIN_READY");
     fflush(stdout);
-    int quit = 0;
-    while (!quit) {
+    // The preview has no unauthenticated exit-to-desktop shortcut.
+    for (;;) {
         struct pollfd fd = {.fd = keyboard, .events = POLLIN};
         int n = poll(&fd, 1u, 1000);
         if (n < 0) {
@@ -805,7 +834,8 @@ static int run_auth_login(const struct surface *screen) {
         if (read(keyboard, &event, sizeof(event)) != (ssize_t)sizeof(event) ||
             event.type != EV_KEY) continue;
         if (event.value == 1 && event.code == KEY_ESC) {
-            quit = 1;
+            auth_clear(&state);
+            state.denied = 0;
         } else if (event.value == 1 &&
                    (event.code == KEY_ENTER || event.code == KEY_KPENTER)) {
             // The login process must not retain an evdev keyboard reader
@@ -818,17 +848,23 @@ static int run_auth_login(const struct surface *screen) {
             if (state.denied) {
                 puts("\nSYNVEIL_GRAPHICAL_AUTH_DENIED");
                 fflush(stdout);
+            } else {
+                // The authenticated shell ran on tty1. Restore tty2
+                // before painting the locked screen or reading secrets.
+                if (auth_restore_login_vt() != 0) break;
+                puts("\nSYNVEIL_LOGIN_RELOCKED");
+                fflush(stdout);
             }
-            keyboard = open_keyboard();
+            keyboard = auth_open_private_keyboard();
             if (keyboard < 0) break;
         } else {
             auth_input_key(&state, event.code, event.value);
         }
-        if (!quit) auth_render(screen, &state);
+        auth_render(screen, &state);
     }
     auth_clear(&state);
     if (keyboard >= 0) close(keyboard);
-    return quit ? 0 : 1;
+    return 1;
 }
 
 static int self_test(void) {

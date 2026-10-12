@@ -68,10 +68,14 @@ expected parent to close the fork/exit race. Thus a fatal *broker* failure
 must kill its VT launcher, which in turn kills the unprivileged child.
 A separate fresh QEMU disk and guest recovery case exercise this harder
 path rather than treating ordinary logout as proof. Denials and malformed frames cannot start a shell.
-Only the test/developer tool `veil-seat --login-stdin` can currently use
-this path. **The framebuffer developer menu does not yet use it**, and
-the bootstrap serial recovery console remains root; no secure owner-facing
-graphical login or installer is claimed.
+The opt-in framebuffer `--login` client now uses this seat-bound password
+protocol, with a dedicated graphical tty2, exclusive evdev keyboard capture
+for secret entry, explicit tty2 restoration after a tty1 terminal session,
+and no unauthenticated Escape-to-menu shortcut. The normal developer menu
+remains separate and unauthenticated; this is still a **developer-only**
+preview, not a production-grade compositor or installer. Its authenticated
+preview profile locks normal serial root recovery; the QEMU enrollment
+fixture alone uses the explicitly unsafe developer override.
 
 A dedicated QEMU guest scenario now checks no default login works without
 state, and another enrolls a fresh *guest-generated* secret, launches the
