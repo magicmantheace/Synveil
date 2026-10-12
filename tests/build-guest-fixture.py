@@ -9,13 +9,17 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+from state_disk import create_state_disk  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", choices=("absent", "protocol"), required=True)
+    parser.add_argument("--case", choices=("absent", "protocol", "graphical-login"), required=True)
     args = parser.parse_args()
     work = Path(os.environ.get("SYNVEIL_WORK_DIR", ROOT / "build/work")).resolve()
     rootfs = Path(os.environ.get("SYNVEIL_ROOTFS_DIR", work / "rootfs")).resolve()
@@ -31,6 +35,10 @@ def main():
     fixture_out.mkdir(parents=True, exist_ok=True)
     if args.case == "absent":
         (tree / "usr/sbin/veil-core").unlink()
+    elif args.case == "graphical-login":
+        marker = tree / "etc/synveil/auth-desktop"
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.touch(exist_ok=False)
     else:
         toolchain = Path(os.environ.get("SYNVEIL_TOOLCHAIN_DIR", ROOT / "build/toolchain/out"))
         target = os.environ.get("SYNVEIL_TARGET", "x86_64-synveil-linux-gnu")
@@ -57,8 +65,18 @@ def main():
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
         identity["artifacts"][name] = {"sha256": digest, "bytes": path.stat().st_size}
     (fixture_out / "manifests/fixture.json").write_text(json.dumps(identity, indent=2) + "\n")
-    subprocess.run(["python3", str(ROOT / "tests/smoke-recovery.py"),
-                    "--case", args.case, "--timeout", "60"], env=env, check=True)
+    if args.case == "graphical-login":
+        # Separate, never-reused synthetic state volume and fresh test-only
+        # credential. The baseline source/image and other VM disks are intact.
+        disk = fixture_out / "graphical-login-state.ext4"
+        create_state_disk(disk, 128)
+        env.update({"SYNVEIL_QEMU_STATE_DISK": str(disk),
+                    "SYNVEIL_QEMU_VIDEO": "1"})
+        subprocess.run(["python3", str(ROOT / "tests/smoke-graphical-login.py"),
+                        "--timeout", "150"], env=env, check=True)
+    else:
+        subprocess.run(["python3", str(ROOT / "tests/smoke-recovery.py"),
+                        "--case", args.case, "--timeout", "60"], env=env, check=True)
     return 0
 
 
