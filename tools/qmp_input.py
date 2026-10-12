@@ -17,6 +17,7 @@ import time
 # value; QMP never receives an actual user credential.
 ALLOWED_KEYS = frozenset(("right", "left", "up", "down", "ret", "esc"))
 ALLOWED_TEST_KEYS = ALLOWED_KEYS | frozenset("0123456789abcdef")
+ALLOWED_TERMINAL_RETURN = ALLOWED_KEYS | frozenset("exit")
 
 
 class QMPError(RuntimeError):
@@ -153,6 +154,18 @@ def switch_to_login_vt(socket_path: Path, *, timeout=5.0):
             )
             emit_command(sock, reader, {"execute": "input-send-event",
                                         "arguments": {"events": events}})
+
+def open_user_terminal(socket_path: Path, *, timeout=5.0):
+    """Navigate to the fixed non-root terminal tile inside an active desktop."""
+    return send_keys(socket_path, ("right", "right", "right", "ret", "ret"),
+                     timeout=timeout)
+
+
+def exit_user_terminal(socket_path: Path, *, timeout=5.0):
+    """Issue only the literal 'exit' built-in, never arbitrary shell input."""
+    return send_keys(socket_path, ("e", "x", "i", "t", "ret"),
+                     timeout=timeout, allowed=ALLOWED_TERMINAL_RETURN)
+
 
 def logout_user_desktop(socket_path: Path, *, timeout=5.0):
     """Exit the authenticated UID1000 desktop with a single Escape key.
