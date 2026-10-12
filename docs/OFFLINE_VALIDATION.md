@@ -1,55 +1,52 @@
-# Offline validation while GitHub Actions are unavailable
+# Offline validation during GitHub Actions unavailability
 
-Synveil development does **not** require a GitHub Actions runner. Run the
-following from the repository checkout on a Linux host:
-
-```bash
-bash build.sh offline-check --level host
-```
-
-The runner executes existing Python, C, shell and Rust host fixtures using
-their committed inputs. Rust commands use `--offline --locked` and
-`CARGO_NET_OFFLINE=true` to prevent unexpected registry downloads.
-The correct Rust toolchain and any Rust crate dependencies therefore need
-to be installed or cached **before** running the check.
-
-Evidence goes to `out/local-validation/<timestamp>-<commit>/results.json` with
-one log and its SHA-256 per command. `failed` means a check failed;
-`blocked` means a missing executable, timeout, or the requested
-partial mode. A blocked or failed run never reports overall success. The canonical implementation is `tools/offline_checks.py`; `--level quick` is explicitly partial.
-
-If Rust is unavailable, use `--level quick` to run partial checks,
-but the result remains **blocked** even when all selected checks pass.
+The **single canonical command** is `bash build.sh offline-check`,
+implemented by `tools/offline_checks.py`. It never calls the
+GitHub Actions API or starts a GitHub-hosted runner.
 
 ```bash
+# Python, C, shell, and local build-fixture checks; no Rust or QEMU
 bash build.sh offline-check --level quick
-python3 tests/offline-checks.py
+
+# All host checks including Rust formatting, tests and Clippy
+bash build.sh offline-check --level host
+
+# See the exact planned commands without running them
+bash build.sh offline-check --level guest --plan
 ```
 
-## Optional isolated QEMU checks
+The pinned Rust toolchain and all required crates must already be available
+locally. Host Rust commands use Cargo `--locked --offline`.
+Missing prerequisites are reported as blocked; a partial quick-tier pass
+**is not** a Rust/native-build or QEMU pass.
 
-Use `--guest` **only** after building the developer-QEMU EFI
-image and prerequisites using the pinned toolchain. This is a deliberate
-opt-in, and never launches on an unbuilt machine.
+Each invocation saves
+`out/local-validation/<UTC-time>-<commit>-<pid>/results.json`
+with per-check logs, result types and checkout identity. The runner also
+checks whether the tracked working tree is clean.
+
+After building the native developer VM image with the pinned source/toolchain,
+the QEMU gates may be explicitly enabled:
 
 ```bash
 bash build.sh offline-check --level guest
 ```
 
-This runs native boot/status, locked-seat denial and a separately staged
-graphical-login guest fixture. The graphical fixture creates its own state
-disk and never formats or selects a physical disk. A passing host-only report
-does **not** validate native target linking, QEMU behavior or a physical
-installer.
+The runner refuses guest validation of an image whose build-manifest commit
+or SHA-256 digest doesn't match the current clean Git revision. Guest tests
+include the separately staged, disposable graphical-login image/state disk.
+They must never target a physical device or be interpreted as installer proof.
 
-### Known last build issue
+The canonical runner's tests are in `tests/offline-checks.py`.
+No additional parallel/competing offline runner should be introduced.
 
-The archived QEMU native run at commit `9d441279a2ff` failed when
-compiling `src/veil-core/src/seat.rs` because the `FileTypeExt`
-trait was not imported. The next development commit added that import and
-corrected Rust formatting, but its native x86_64 target link remains to be
-validated locally. Do not infer passing native evidence from the fix alone.
+## Current native validation blocker
 
-Do not test-install on a physical computer yet. The current bootstrap
-developer console is unauthenticated and the graphical login is a gated
-preview, not first-use account enrollment or a production display manager.
+The previously archived native build at commit `9d441279a2ff`
+failed compilation because `src/veil-core/src/seat.rs` lacked
+the Unix `FileTypeExt` import needed for `is_socket`.
+That source issue was corrected on the development branch, but **a fresh
+native target build has not yet verified the correction**. Without a
+complete native build and QEMU pass, the authenticated framebuffer preview
+remains experimental. The default developer boot still has an
+unauthenticated serial recovery shell and is not safe as an installer.
