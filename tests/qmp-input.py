@@ -11,7 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys, type_test_secret, exit_authenticated_terminal
+from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys, type_test_secret, exit_authenticated_terminal, switch_to_login_vt
 
 
 class QMPTests(unittest.TestCase):
@@ -111,6 +111,32 @@ class QMPTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 send_keys(endpoint, ("s", "u"), timeout=1)
 
+    def test_fixed_vt_switch_chord_cannot_inject_any_other_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            endpoint = Path(tmp) / "qmp.sock"
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+                listener.bind(str(endpoint))
+                listener.listen(1)
+                commands = []
+                worker = threading.Thread(target=self.serve, args=(listener, commands))
+                worker.start()
+                switch_to_login_vt(endpoint, timeout=5)
+                worker.join(timeout=3)
+                self.assertFalse(worker.is_alive())
+            self.assertEqual(commands[0]["execute"], "qmp_capabilities")
+            self.assertEqual(len(commands), 2)
+            self.assertEqual(commands[1]["execute"], "input-send-event")
+            events = commands[1]["arguments"]["events"]
+            self.assertEqual(
+                [(event["data"]["key"]["data"], event["data"]["down"])
+                 for event in events],
+                [("ctrl", True), ("alt", True), ("f2", True),
+                 ("f2", False), ("alt", False), ("ctrl", False)]
+            )
+            for event in events:
+                self.assertEqual(event["type"], "key")
+                self.assertEqual(event["data"]["key"]["type"], "qcode")
+
     def test_error_and_unapproved_key_fail(self):
         with tempfile.TemporaryDirectory() as tmp:
             endpoint = Path(tmp) / "qmp.sock"
@@ -132,6 +158,8 @@ class QMPTests(unittest.TestCase):
     def test_non_absolute_paths_are_refused(self):
         with self.assertRaises(ValueError):
             settings_toggle(Path("relative.sock"))
+        with self.assertRaises(ValueError):
+            switch_to_login_vt(Path("relative.sock"))
 
 
 if __name__ == "__main__":
