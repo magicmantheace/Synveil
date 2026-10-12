@@ -8,6 +8,8 @@ on:
       - tests/display-build.py
       - tests/desktop-supervisor.py
       - build/rootfs/start-desktop
+      - build/rootfs/mount-state
+      - tests/state-mount-safety.py
       - tests/smoke-ui-preferences.py
       - tests/ui-preferences-smoke-fixture.py
       - tests/qmp-input.py
@@ -39,6 +41,8 @@ jobs:
         run: python3 tests/ui-preferences-smoke-fixture.py
       - name: Validate typed QMP keyboard events with fake monitor
         run: python3 tests/qmp-input.py
+      - name: Test state path safety without privileged mounts
+        run: python3 tests/state-mount-safety.py
       - name: Test bounded desktop crash recovery
         run: python3 tests/desktop-supervisor.py
       - name: Test QEMU device configuration
@@ -50,3 +54,4 @@ jobs:
           bash -n build/scripts/qemu.sh
           bash -n tests/smoke-boot.sh
           sh -n build/rootfs/start-desktop
+          sh -n build/rootfs/mount-state

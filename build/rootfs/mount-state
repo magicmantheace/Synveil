@@ -2,42 +2,82 @@
 # SPDX-License-Identifier: MPL-2.0
 # Opt-in QEMU state volume; no guest-side formatting or disk discovery.
 state=/dev/vdb
+
+# Check each component *before* mkdir/chmod/chown. A writable state image
+# might contain symlinks; mkdir -p and chmod follow them if used unchecked.
+root_directory() {
+    [ ! -L "$1" ] && [ -d "$1" ] || return 1
+    [ "$(stat -c '%u:%g' "$1" 2>/dev/null)" = 0:0 ] || return 1
+    permissions=$(stat -c '%a' "$1") || return 1
+    case "$permissions" in ''|*[!0-7]*) return 1 ;; esac
+    [ "$((0$permissions & 0022))" -eq 0 ]
+}
+
+private_directory() {
+    if [ ! -e "$1" ] && [ ! -L "$1" ]; then
+        mkdir "$1" || return 1
+    fi
+    root_directory "$1" && chmod 0700 "$1"
+}
+
+# /var/tmp is the only deliberately world-writable state directory.
+sticky_directory() {
+    if [ ! -e "$1" ] && [ ! -L "$1" ]; then
+        mkdir "$1" || return 1
+    fi
+    [ ! -L "$1" ] && [ -d "$1" ] &&
+        [ "$(stat -c '%u:%g' "$1" 2>/dev/null)" = 0:0 ] || return 1
+    permissions=$(stat -c '%a' "$1") || return 1
+    if [ "$permissions" != 1777 ]; then
+        root_directory "$1" || return 1
+    fi
+    chmod 1777 "$1"
+}
+
 if [ ! -b "$state" ]; then
     echo "[synveil-state] expected state device missing; booting without persistence"
     exit 1
 fi
-mkdir -p /var
+if [ -L /var ] || [ ! -d /var ]; then
+    echo "[synveil-state] unsafe /var mountpoint; booting without persistence"
+    exit 1
+fi
 if ! mount -t ext4 -o nosuid,nodev,noatime "$state" /var; then
     echo "[synveil-state] ext4 mount failed; recovery remains available"
     exit 1
 fi
-mkdir -p /var/log/synveil /var/lib/synveil /var/tmp || exit 1
-chmod 0700 /var/log/synveil /var/lib/synveil || exit 1
-chmod 1777 /var/tmp || exit 1
 
-# The disposable VM desktop user's home is persistent only when the
-# explicitly supplied /var disk is mounted. Its parent stays root-private,
-# preventing the guest user from substituting a link for its own home path.
-# A failure does not prevent the separate serial recovery shell.
+# Fail closed and unmount the state volume if its privileged parents are
+# suspicious. Do not let core audit logging write through an untrusted link.
+if ! root_directory /var ||
+   ! private_directory /var/log ||
+   ! private_directory /var/log/synveil ||
+   ! private_directory /var/lib ||
+   ! private_directory /var/lib/synveil ||
+   ! sticky_directory /var/tmp; then
+    echo "[synveil-state] unsafe state directory; disabling persistence"
+    umount /var || true
+    exit 1
+fi
+
+# Keep the home parent root-private: the demo account may write to its own
+# directory but must not be able to replace the mount source with a symlink.
 if [ -d /home/synveil ]; then
-    # The ext4 volume is writable by root, but stale or deliberately
-    # symlinked state paths must never redirect privileged chown/mount.
-    # Keep the parent root-owned and inaccessible to the demo account.
-    if [ ! -L /var/lib/synveil ] &&
-       [ ! -L /var/lib/synveil/home ] &&
+    if private_directory /var/lib/synveil/home &&
        [ ! -L /var/lib/synveil/home/synveil ] &&
        [ ! -L /home/synveil ] &&
-       mkdir -p /var/lib/synveil/home/synveil &&
-       [ "$(stat -c '%u:%g' /var/lib/synveil/home)" = 0:0 ] &&
-       chmod 0700 /var/lib/synveil/home &&
+       { [ -d /var/lib/synveil/home/synveil ] ||
+         mkdir /var/lib/synveil/home/synveil; } &&
        [ "$(stat -c '%F' /var/lib/synveil/home/synveil)" = directory ] &&
+       { [ "$(stat -c '%u:%g' /var/lib/synveil/home/synveil)" = 0:0 ] ||
+         [ "$(stat -c '%u:%g' /var/lib/synveil/home/synveil)" = 1000:1000 ]; } &&
+       [ "$((0$(stat -c '%a' /var/lib/synveil/home/synveil) & 0022))" -eq 0 ] &&
        chown 1000:1000 /var/lib/synveil/home/synveil &&
        chmod 0700 /var/lib/synveil/home/synveil &&
        mount -o bind /var/lib/synveil/home/synveil /home/synveil; then
         if mount -o remount,bind,nosuid,nodev /home/synveil; then
             echo SYNVEIL_HOME_READY
         else
-            # Never retain a bind mount if its restrictive flags failed.
             umount /home/synveil || true
             echo SYNVEIL_HOME_UNAVAILABLE
         fi
