@@ -297,3 +297,15 @@ added and developer diagnostics retain their previous behavior. A host
 fork/mincore fixture confirms the exact isolation helper makes an
 anonymous mapping absent in the child; fbdev-specific behavior remains
 a native-QEMU runtime gate before installation.
+
+## Prevent same-UID introspection of the running dashboard
+
+Even with framebuffer `MADV_DONTFORK` and close-on-exec descriptors,
+a UID1000 terminal program could otherwise inspect its same-UID GUI
+parent with `ptrace` or `/proc/PID/mem`. The fixed authenticated
+dashboard now calls `PR_SET_DUMPABLE,0` before accepting input, denying
+same-UID ptrace-style access to its framebuffer mapping and pointer state.
+The change is local to the GUI process; it does not mutate the unprivileged
+shell's privileges or confer new authority. A host fork fixture checks
+that the exact helper sets `PR_GET_DUMPABLE` to zero. Guest privilege
+and session lifecycle checks must still pass before release.

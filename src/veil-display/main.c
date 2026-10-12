@@ -32,6 +32,7 @@
 #include "network_diag.h"
 #include "lifetime.h"
 #include "mapping.h"
+#include "seat_privacy.h"
 
 struct surface {
     unsigned char *mapped;
@@ -713,6 +714,11 @@ static struct pointer_device session_pointer(void) {
 static int run_user_session(const struct surface *screen) {
     if (geteuid() != 1000 || getuid() != 1000 || !isatty(STDIN_FILENO))
         return 1;
+    // User programs launched in the fixed shell have the same UID and could
+    // otherwise ptrace the dashboard to read its mapped framebuffer or
+    // injected input state. Refuse the session if the kernel cannot block
+    // same-UID introspection of the privileged seat's delegated resources.
+    if (synveil_protect_authenticated_ui() != 0) return 1;
     struct termios original, raw;
     if (tcgetattr(STDIN_FILENO, &original) != 0) return 1;
     raw = original;

@@ -265,3 +265,12 @@ now includes `tests/display-mapping.c`, which forks a real child after
 marking a mapping and observes `ENOMEM` from `mincore` in the child.
 That is host helper validation only; the actual fbdev driver mapping still
 needs exact-image guest validation.
+
+### UID1000 GUI memory privacy
+
+The host display suite now compiles and executes
+`tests/display-seat-privacy.c`, which invokes the same
+`PR_SET_DUMPABLE,0` helper used by the authenticated dashboard and
+verifies the resulting kernel state in a child. The GUI fails closed if
+this call cannot be honored. This does not prove framebuffer or UI security
+under a full native guest with multiple UID1000 processes.

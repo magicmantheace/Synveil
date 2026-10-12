@@ -22,6 +22,17 @@ class DisplaySourceTests(unittest.TestCase):
             )
             subprocess.run([str(executable)], check=True, timeout=3)
 
+    def test_authenticated_dashboard_disables_same_uid_ptrace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            executable = Path(tmp) / "synveil-seat-privacy-test"
+            subprocess.run(
+                ["gcc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                 "-I", str(ROOT / "src/veil-display"),
+                 str(ROOT / "tests/display-seat-privacy.c"), "-o", str(executable)],
+                check=True, timeout=15,
+            )
+            subprocess.run([str(executable)], check=True, timeout=3)
+
     def test_user_terminal_cannot_inherit_framebuffer_mappings(self):
         with tempfile.TemporaryDirectory() as tmp:
             executable = Path(tmp) / "synveil-mapping-test"
