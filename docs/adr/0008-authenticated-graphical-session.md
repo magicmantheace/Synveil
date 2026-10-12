@@ -1,6 +1,6 @@
 # ADR 0008: Authenticated Non-Root Graphical Session Boundary
 
-- Status: Accepted (security boundary; implementation pending)
+- Status: Accepted (security boundary; developer preview implemented; production pending)
 - Date: 2026-10-11
 - Supersedes: none
 - Superseded by: none
@@ -57,7 +57,7 @@ root-owned mode-0600 Unix socket and a fixed `SVL1` bounded password
 frame. Linux SO_PEERCRED checks require the already-privileged developer
 graphical peer. It never accepts a client-provided UID, GID, executable,
 command or password hash. After Argon2id verification it can only launch
-the existing fixed `synveil-vt --demo-terminal` path, which drops to
+the existing fixed `synveil-vt --authenticated-terminal` path, which drops to
 UID/GID 1000 and enables NoNewPrivs.
 
 The authenticating client must retain an open socket lease; disconnect,
