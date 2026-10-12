@@ -102,7 +102,9 @@ fn parse_loadavg(input: &str) -> io::Result<Value> {
     let mut fields = input.split_whitespace();
     let mut averages = [0.0f64; 3];
     for average in &mut averages {
-        let raw = fields.next().ok_or_else(|| invalid_data("missing load average"))?;
+        let raw = fields
+            .next()
+            .ok_or_else(|| invalid_data("missing load average"))?;
         *average = raw
             .parse::<f64>()
             .map_err(|_| invalid_data("invalid load average"))?;
@@ -110,7 +112,9 @@ fn parse_loadavg(input: &str) -> io::Result<Value> {
             return Err(invalid_data("non-finite or negative load average"));
         }
     }
-    let tasks = fields.next().ok_or_else(|| invalid_data("missing load task counts"))?;
+    let tasks = fields
+        .next()
+        .ok_or_else(|| invalid_data("missing load task counts"))?;
     let (runnable, total) = tasks
         .split_once('/')
         .ok_or_else(|| invalid_data("invalid load task counts"))?;
@@ -123,7 +127,9 @@ fn parse_loadavg(input: &str) -> io::Result<Value> {
     if total == 0 || runnable > total {
         return Err(invalid_data("inconsistent runnable task count"));
     }
-    let last_pid = fields.next().ok_or_else(|| invalid_data("missing last PID"))?;
+    let last_pid = fields
+        .next()
+        .ok_or_else(|| invalid_data("missing last PID"))?;
     last_pid
         .parse::<u64>()
         .map_err(|_| invalid_data("invalid last PID"))?;
