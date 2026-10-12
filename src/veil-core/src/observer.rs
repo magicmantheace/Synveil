@@ -19,6 +19,10 @@ pub fn sample() -> io::Result<Value> {
         Ok(raw) => parse_diskstats(&raw)?,
         Err(_) => json!({"status": "unavailable", "devices": []}),
     };
+    snapshot["network"] = match fs::read_to_string("/proc/net/dev") {
+        Ok(raw) => parse_net_dev(&raw)?,
+        Err(_) => json!({"status": "unavailable", "interfaces": []}),
+    };
     Ok(snapshot)
 }
 
@@ -216,6 +220,70 @@ fn parse_diskstats(input: &str) -> io::Result<Value> {
     }))
 }
 
+/// Cumulative Linux interface counters from /proc/net/dev. These are NOT
+/// bandwidth or an instantaneous utilization percentage. No interface is
+/// opened, configured or mutated; a VPN or virtual NIC stays a separate row.
+fn parse_net_dev(input: &str) -> io::Result<Value> {
+    const MAX_INTERFACES: usize = 32;
+    let mut lines = input.lines();
+    let first = lines
+        .next()
+        .ok_or_else(|| invalid_data("missing netdev header"))?;
+    let second = lines
+        .next()
+        .ok_or_else(|| invalid_data("missing netdev columns"))?;
+    if !first.contains("Inter-") || !first.contains("Receive")
+        || !second.contains("bytes") || !second.contains("packets")
+    {
+        return Err(invalid_data("invalid netdev header"));
+    }
+    let mut interfaces = Vec::new();
+    let mut omitted = 0u64;
+    for line in lines.filter(|line| !line.trim().is_empty()) {
+        let (raw_name, raw_fields) = line
+            .split_once(':')
+            .ok_or_else(|| invalid_data("missing netdev interface separator"))?;
+        let name = raw_name.trim();
+        if name.is_empty() || name.len() > 15
+            || !name.bytes().all(|b| {
+                b.is_ascii_alphanumeric() || b == b'_' || b == b'.' || b == b'-'
+            })
+        {
+            return Err(invalid_data("invalid netdev interface name"));
+        }
+        let fields = raw_fields.split_whitespace().collect::<Vec<_>>();
+        if fields.len() != 16 {
+            return Err(invalid_data("invalid netdev counter count"));
+        }
+        let counters = fields
+            .iter()
+            .map(|field| field.parse::<u64>().map_err(|_| invalid_data("invalid netdev counter")))
+            .collect::<io::Result<Vec<_>>>()?;
+        if interfaces.len() == MAX_INTERFACES {
+            omitted = omitted
+                .checked_add(1)
+                .ok_or_else(|| invalid_data("netdev interface overflow"))?;
+            continue;
+        }
+        interfaces.push(json!({
+            "name": name,
+            "rx_bytes": counters[0],
+            "rx_packets": counters[1],
+            "rx_errors": counters[2],
+            "rx_dropped": counters[3],
+            "tx_bytes": counters[8],
+            "tx_packets": counters[9],
+            "tx_errors": counters[10],
+            "tx_dropped": counters[11],
+        }));
+    }
+    Ok(json!({
+        "status": if omitted == 0 { "ready" } else { "truncated" },
+        "interfaces": interfaces,
+        "omitted_interfaces": omitted,
+    }))
+}
+
 fn parse_sample(meminfo: &str, stat: &str, uptime: &str, loadavg: &str) -> io::Result<Value> {
     let total_bytes = meminfo_kib(meminfo, "MemTotal")?;
     let available_bytes = meminfo_kib(meminfo, "MemAvailable")?;
@@ -297,6 +365,48 @@ mod tests {
         assert_eq!(parsed["status"], "truncated");
         assert_eq!(parsed["devices"].as_array().unwrap().len(), 128);
         assert_eq!(parsed["omitted_devices"], 2);
+    }
+
+    const NET_HEADER: &str =
+        "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n";
+
+    #[test]
+    fn network_snapshot_reports_only_cumulative_counters() {
+        let input = format!(
+            "{NET_HEADER}    lo: 100 2 0 0 0 0 0 0 100 2 0 0 0 0 0 0\n"
+        );
+        let parsed = parse_net_dev(&input).unwrap();
+        assert_eq!(parsed["status"], "ready");
+        assert_eq!(parsed["interfaces"][0]["name"], "lo");
+        assert_eq!(parsed["interfaces"][0]["rx_bytes"], 100);
+        assert_eq!(parsed["interfaces"][0]["tx_packets"], 2);
+        assert_eq!(parsed["omitted_interfaces"], 0);
+        assert!(parsed.get("bandwidth_bytes_per_second").is_none());
+    }
+
+    #[test]
+    fn network_snapshot_rejects_untrusted_names_and_malformed_counters() {
+        for row in [
+            "evil/path: 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0",
+            "eth0: -1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0",
+            "eth0: 1 1 0 0 0 0 0 0 1 1 0",
+            "no-colon 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0",
+        ] {
+            assert!(parse_net_dev(&format!("{NET_HEADER}{row}\n")).is_err());
+        }
+        assert!(parse_net_dev("invalid header\n").is_err());
+        let input = format!(
+            "{NET_HEADER}{}",
+            (0..34)
+                .map(|i| format!(
+                    "dev{i}: 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0\n"
+                ))
+                .collect::<String>()
+        );
+        let parsed = parse_net_dev(&input).unwrap();
+        assert_eq!(parsed["status"], "truncated");
+        assert_eq!(parsed["interfaces"].as_array().unwrap().len(), 32);
+        assert_eq!(parsed["omitted_interfaces"], 2);
     }
 
     #[test]
