@@ -343,3 +343,13 @@ These are product-level tests the architecture should eventually make possible:
 3. **Local AI workload:** reserve GPU/RAM resources for inference while respecting foreground responsiveness.
 4. **Laptop workload:** adapt performance, battery, thermals, and acoustics based on explicit priorities and context.
 5. **Regression recovery:** identify that a previous optimization degraded the target metric and automatically roll it back with a clear explanation.
+
+### Current authenticated desktop implementation (guest proof outstanding)
+
+A fixed UID1000 framebuffer dashboard with keyboard, optional QEMU absolute
+pointer, Status/Storage/Network/Terminal/Settings pages, private preferences,
+and fixed user-shell handoff is now connected to the experimental seat broker.
+The root login and developer menu remain distinct. The new path has not yet
+passed a native QEMU build/boot and does not satisfy the first-install
+requirements until authenticated session/VT/input/persistence/recovery
+evidence is recorded for the exact current commit.

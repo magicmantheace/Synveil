@@ -207,3 +207,20 @@ switch and normal logout. Its logout sequence uses one fixed Escape key,
 not the old shell's `exit` command; the fake-QMP host fixture asserts
 that behavior. This remains an **unexecuted guest test** until the
 matching native image is built and booted.
+
+## Mouse input and device lease hardening (implemented, unvalidated)
+
+The fixed root VT launcher now optionally opens one Linux evdev pointer with
+a left button and valid absolute X/Y axes. It delegates only this read-only
+descriptor to the authenticated UID1000 framebuffer dashboard; the user
+process never receives root privilege or general /dev/input access. It uses
+the existing tile hit-testing and pointer cursor renderer. A missing or
+unplugged pointer leaves keyboard navigation functional. Before opening
+the fixed non-root shell, the dashboard closes the original inheritable
+framebuffer/pointer descriptors and retains only CLOEXEC copies, so the
+interactive shell does not receive these handles.
+
+The initial target is QEMU's absolute USB tablet, not all physical mice.
+Pointer isolation, guest rendering, logout, and device revocation require
+native QEMU validation. No full non-root desktop installation milestone is
+marked complete by this source change.

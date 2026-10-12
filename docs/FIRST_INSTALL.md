@@ -268,3 +268,14 @@ existing diagnostic renderer but do not carry privileged mutation powers.
 The prototype is keyboard-only in the authenticated session; pointing
 input, app windows, secure recovery/onboarding, installed storage, and
 actual QEMU validation still block first installation.
+
+## Authenticated keyboard and tablet session
+
+The experimental authenticated user desktop supports keyboard navigation
+through tty1 and, when available, an absolute Linux evdev pointer delegated
+by the root VT helper. It reuses the existing five-page framebuffer
+launcher, with non-root terminal execution and user-private preferences.
+The root-owned login UI is separate and remains responsible for password
+capture. Device nodes are not chmodded or exposed to the user account,
+and no generic privileged command channel is added. Host C compilation
+and QEMU login/pointer/logout integration checks remain to be executed.
