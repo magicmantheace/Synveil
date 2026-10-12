@@ -71,6 +71,7 @@ jobs:
           python3 tests/qemu-lock.py
           python3 tests/native-protocol-probe.py
           python3 tests/native-guest-fixture.py
+          python3 tests/graphical-login-fixture.py
 
       - name: Install and authenticate pinned Rust sources
         run: |
