@@ -21,7 +21,6 @@ pub const DEFAULT_SEAT_SOCKET: &str = "/run/synveil/veil-seat.sock";
 const HEADER_MAGIC: &[u8; 4] = b"SVL1";
 const MAX_SECRET: usize = 1024;
 const MIN_SECRET: usize = 8;
-const MAX_FRAME: usize = MAX_SECRET + 6;
 const IO_TIMEOUT: Duration = Duration::from_secs(4);
 const LEASE_POLL: Duration = Duration::from_millis(100);
 
@@ -179,8 +178,9 @@ where
     stream.set_read_timeout(Some(LEASE_POLL))?;
     let mut signal = [0u8; 8];
     loop {
-        if child.try_wait()?.is_some() {
-            break;
+        match child.try_wait() {
+            Ok(Some(_)) | Err(_) => break,
+            Ok(None) => {}
         }
         match stream.read(&mut signal) {
             Ok(0) | Ok(_) => break,

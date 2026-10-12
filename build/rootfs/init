@@ -37,6 +37,12 @@ if [ -x /usr/libexec/synveil/start-core ]; then
     }
 fi
 
+# Experimental root-owned seat broker: separate from read-only core IPC.
+# It does not authorize the developer menu's unauthenticated terminal.
+if [ -x /usr/sbin/veil-seat ] && [ -d /run/synveil ]; then
+    /usr/sbin/veil-seat || echo SYNVEIL_SEAT_UNAVAILABLE &
+fi
+
 if [ -x /usr/libexec/synveil/configure-network ]; then
     /usr/libexec/synveil/configure-network || echo SYNVEIL_NETWORK_UNAVAILABLE
 fi
