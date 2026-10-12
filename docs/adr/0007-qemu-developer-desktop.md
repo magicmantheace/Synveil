@@ -82,3 +82,15 @@ authorization is inferred from saved display preferences. Host tests
 validate corrupt records, refused symlinks and file permissions; on-device
 cross-reboot tests remain outstanding. Broader profiles, authenticated user
 sessions, and display/input management are separate milestones.
+
+## Locked graphical keyboard hotplug
+
+The authenticated preview keeps its VT locked while evdev input is unavailable,
+shows a disconnected-keyboard prompt, and retries an **exclusive** keyboard
+grab once per second. Disconnect and reconnect events always clear the full
+password buffer, Shift state and transient denial indicator. A missing keyboard
+never enables the developer menu or a root serial shell. Neither the absence
+of an input device nor reacquisition constitutes a successful login.
+
+This is still a developer-only framebuffer session; it has no user-facing
+installer and does not replace a production compositor or input policy.

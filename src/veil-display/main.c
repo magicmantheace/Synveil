@@ -632,6 +632,7 @@ struct auth_input {
     unsigned shift;     // bit 0 = left, bit 1 = right
     int caps_lock;      // only affects letters, not symbols
     int denied;
+    int keyboard_missing;
 };
 
 static void auth_clear(struct auth_input *state) {
@@ -642,6 +643,22 @@ static void auth_clear(struct auth_input *state) {
     // Evdev is closed while the terminal owns the seat; old held-key
     // events cannot remain logically pressed after that device is reopened.
     state->shift = 0u;
+}
+
+// Device loss must never keep a partially entered password, held Shift,
+// previous denial or stale Caps Lock state. Reacquisition requires EVIOCGRAB.
+static void auth_keyboard_disconnected(struct auth_input *state) {
+    auth_clear(state);
+    state->caps_lock = 0;
+    state->denied = 0;
+    state->keyboard_missing = 1;
+}
+
+static void auth_keyboard_connected(struct auth_input *state) {
+    auth_clear(state);
+    state->caps_lock = 0;
+    state->denied = 0;
+    state->keyboard_missing = 0;
 }
 
 static unsigned char auth_key_char(unsigned code, int shift) {
@@ -737,7 +754,12 @@ static void auth_render(const struct surface *screen, const struct auth_input *s
         heading(screen, "CAPS LOCK ON", 36u, h*3u/5u - 27u, 2u, muted);
     if (state->length >= AUTH_MAX_UI_PASSWORD)
         heading(screen, "PASSWORD LIMIT", 36u, h*3u/5u, 2u, muted);
-    if (state->denied) heading(screen, "LOGIN DENIED", 36u, h*3u/5u, 2u, muted);
+    if (state->keyboard_missing) {
+        heading(screen, "KEYBOARD DISCONNECTED", 36u, h*3u/5u, 2u, muted);
+        heading(screen, "RECONNECT TO CONTINUE", 36u, h*3u/5u+32u, 2u, muted);
+    } else if (state->denied) {
+        heading(screen, "LOGIN DENIED", 36u, h*3u/5u, 2u, muted);
+    }
     heading(screen, "ENTER TO LOGIN", 36u, h*4u/5u, 2u, text);
     heading(screen, "ESC TO CLEAR", 36u, h*4u/5u+32u, 2u, muted);
 }
@@ -814,33 +836,66 @@ static int run_auth_login(const struct surface *screen) {
     // Fail closed if the graphical login cannot own a dedicated VT.
     if (auth_restore_login_vt() != 0) return 1;
     int keyboard = auth_open_private_keyboard();
-    if (keyboard < 0) return 1;
     struct auth_input state = {0};
+    if (keyboard < 0) auth_keyboard_disconnected(&state);
     auth_render(screen, &state);
-    puts("\nSYNVEIL_LOGIN_READY");
+    if (keyboard >= 0) {
+        puts("\nSYNVEIL_LOGIN_READY");
+    } else {
+        puts("\nSYNVEIL_LOGIN_INPUT_UNAVAILABLE");
+    }
     fflush(stdout);
-    // The preview has no unauthenticated exit-to-desktop shortcut.
+    // Remain locked through missing/unplugged keyboards. Bounded restarts
+    // cannot repair a keyboard absent for more than a few seconds, but
+    // retrying the exclusive grab every second can recover a hotplug.
+    // Never continue with a partially typed secret across device changes.
     for (;;) {
+        if (keyboard < 0) {
+            if (poll(NULL, 0u, 1000) < 0 && errno != EINTR) break;
+            keyboard = auth_open_private_keyboard();
+            if (keyboard < 0) continue;
+            auth_keyboard_connected(&state);
+            auth_render(screen, &state);
+            puts("\nSYNVEIL_LOGIN_READY");
+            fflush(stdout);
+            continue;
+        }
         struct pollfd fd = {.fd = keyboard, .events = POLLIN};
         int n = poll(&fd, 1u, 1000);
         if (n < 0) {
             if (errno == EINTR) continue;
             break;
         }
-        if (fd.revents & (POLLERR | POLLHUP | POLLNVAL)) break;
+        if (fd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+            close(keyboard);
+            keyboard = -1;
+            auth_keyboard_disconnected(&state);
+            auth_render(screen, &state);
+            puts("\nSYNVEIL_LOGIN_INPUT_UNAVAILABLE");
+            fflush(stdout);
+            continue;
+        }
         if ((fd.revents & POLLIN) == 0) continue;
         struct input_event event;
-        if (read(keyboard, &event, sizeof(event)) != (ssize_t)sizeof(event) ||
-            event.type != EV_KEY) continue;
+        ssize_t received = read(keyboard, &event, sizeof(event));
+        if (received != (ssize_t)sizeof(event)) {
+            if (received < 0 && (errno == EINTR || errno == EAGAIN ||
+                                 errno == EWOULDBLOCK)) continue;
+            close(keyboard);
+            keyboard = -1;
+            auth_keyboard_disconnected(&state);
+            auth_render(screen, &state);
+            puts("\nSYNVEIL_LOGIN_INPUT_UNAVAILABLE");
+            fflush(stdout);
+            continue;
+        }
+        if (event.type != EV_KEY) continue;
         if (event.value == 1 && event.code == KEY_ESC) {
             auth_clear(&state);
             state.denied = 0;
         } else if (event.value == 1 &&
                    (event.code == KEY_ENTER || event.code == KEY_KPENTER)) {
-            // The login process must not retain an evdev keyboard reader
-            // while the authenticated VT shell owns the keyboard. Reopen
-            // only after the seat lease has ended; reopening also drops
-            // any terminal keystrokes buffered on the old reader.
+            // Drop EVIOCGRAB before switching to the authenticated shell.
             close(keyboard);
             keyboard = -1;
             state.denied = !auth_attempt(&state);
@@ -853,9 +908,13 @@ static int run_auth_login(const struct surface *screen) {
                 if (auth_restore_login_vt() != 0) break;
             }
             keyboard = auth_open_private_keyboard();
-            if (keyboard < 0) break;
+            if (keyboard < 0) {
+                auth_keyboard_disconnected(&state);
+                puts("\nSYNVEIL_LOGIN_INPUT_UNAVAILABLE");
+                fflush(stdout);
+            }
             auth_render(screen, &state);
-            if (!state.denied) {
+            if (keyboard >= 0 && !state.denied) {
                 // Evidence only once VT2 is visible, painted and securely
                 // receiving keystrokes; never report a premature relock.
                 puts("\nSYNVEIL_LOGIN_RELOCKED");
@@ -956,6 +1015,16 @@ static int self_test(void) {
     if (auth.password[4] != 92u || auth.password[5] != '7') return 1;
     auth_clear(&auth);
     if (auth.length || auth.shift || auth.password[0] || auth.password[5]) return 1;
+    // A hot-unplug discards all secret bytes and volatile modifier state.
+    auth_input_key(&auth, KEY_LEFTSHIFT, 1);
+    auth_input_key(&auth, KEY_Q, 1);
+    auth.denied = 1;
+    auth_keyboard_disconnected(&auth);
+    if (!auth.keyboard_missing || auth.length || auth.shift ||
+        auth.caps_lock || auth.denied || auth.password[0]) return 1;
+    auth_keyboard_connected(&auth);
+    if (auth.keyboard_missing || auth.length || auth.shift ||
+        auth.caps_lock || auth.denied || auth.password[0]) return 1;
     // The UI must accept the complete verifier policy limit, reject all
     // further characters, then wipe the entire 1024-byte secret buffer.
     for (unsigned i = 0; i < AUTH_MAX_UI_PASSWORD + 4u; i++)
