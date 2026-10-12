@@ -17,6 +17,7 @@ import time
 # value; QMP never receives an actual user credential.
 ALLOWED_KEYS = frozenset(("right", "left", "up", "down", "ret", "esc"))
 ALLOWED_TEST_KEYS = ALLOWED_KEYS | frozenset("0123456789abcdef")
+ALLOWED_LOGOUT_KEYS = ALLOWED_KEYS | frozenset("exit")
 
 
 class QMPError(RuntimeError):
@@ -113,3 +114,13 @@ def type_test_secret(socket_path: Path, secret: str, *, timeout=15.0):
         raise ValueError("QMP test secrets must be 128-bit lowercase hexadecimal")
     return send_keys(socket_path, (*secret, "ret"), timeout=timeout,
                      allowed=ALLOWED_TEST_KEYS)
+
+
+def exit_authenticated_terminal(socket_path: Path, *, timeout=5.0):
+    """Type the fixed shell built-in `exit` during an isolated guest test.
+
+    This intentionally does not allow general shell-command injection.
+    The caller must first establish an authenticated tty1 shell.
+    """
+    return send_keys(socket_path, ("e", "x", "i", "t", "ret"),
+                     timeout=timeout, allowed=ALLOWED_LOGOUT_KEYS)

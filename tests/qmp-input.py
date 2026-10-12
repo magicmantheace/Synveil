@@ -11,7 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys, type_test_secret
+from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys, type_test_secret, exit_authenticated_terminal
 
 
 class QMPTests(unittest.TestCase):
@@ -91,6 +91,25 @@ class QMPTests(unittest.TestCase):
                        for item in commands[1:]
                        if item["arguments"]["events"][0]["data"]["down"]]
             self.assertEqual(pressed, list("ab01" * 8) + ["ret"])
+
+    def test_fixed_logout_sequence_cannot_inject_other_shell_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            endpoint = Path(tmp) / "qmp.sock"
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+                listener.bind(str(endpoint))
+                listener.listen(1)
+                commands = []
+                worker = threading.Thread(target=self.serve, args=(listener, commands))
+                worker.start()
+                exit_authenticated_terminal(endpoint, timeout=5)
+                worker.join(timeout=3)
+                self.assertFalse(worker.is_alive())
+            pressed = [item["arguments"]["events"][0]["data"]["key"]["data"]
+                       for item in commands[1:]
+                       if item["arguments"]["events"][0]["data"]["down"]]
+            self.assertEqual(pressed, ["e", "x", "i", "t", "ret"])
+            with self.assertRaises(ValueError):
+                send_keys(endpoint, ("s", "u"), timeout=1)
 
     def test_error_and_unapproved_key_fail(self):
         with tempfile.TemporaryDirectory() as tmp:

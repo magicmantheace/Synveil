@@ -19,7 +19,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, type_test_secret  # noqa: E402
+from qmp_input import QMPError, type_test_secret, exit_authenticated_terminal  # noqa: E402
 
 REQUIRED = {
     b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY",
@@ -51,6 +51,31 @@ CLEANUP = (
     "sleep 0.1; done; fi\n"
 )
 
+
+# Wait until the actual non-root interactive shell owns tty1 before
+# sending the fixed QMP "exit" sequence. ACTIVE is emitted earlier than
+# the terminal finishes VT activation, so a blind QMP send would race it.
+CHECK_TTY = (
+    "ready=0; for retry in $(seq 1 100); do "
+    "for status in /proc/[0-9]*/status; do "
+    "if grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' \"$status\" && "
+    "grep -Eq '^Gid:[[:space:]]*1000' \"$status\" && "
+    "grep -Eq '^NoNewPrivs:[[:space:]]*1$' \"$status\"; then "
+    "pid=$(basename $(dirname \"$status\")); "
+    "if [ \"$(readlink /proc/$pid/fd/0)\" = /dev/tty1 ]; then "
+    "ready=1; break; fi; fi; done; "
+    "[ \"$ready\" = 1 ] && break; sleep 0.1; done; "
+    "[ \"$ready\" = 1 ] && printf '\\n%s\\n' SYNVEIL_AUTH_TTY_READY\\n"
+)
+
+# A terminated session must not leave any *living* UID1000 terminal.
+# Exclude zombies, which can remain temporarily awaiting init reaping.
+CHECK_RELOCK = (
+    "active=0; for status in /proc/[0-9]*/status; do "
+    "if grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' \"$status\" && "
+    "! grep -Eq '^State:[[:space:]]*Z' \"$status\"; then active=1; fi; done; "
+    "[ \"$active\" = 0 ] && printf '\\n%s\\n' SYNVEIL_RELOCK_NO_USER_SHELL\\n"
+)
 
 def smoke(timeout_seconds: float) -> bool:
     out = Path(os.environ.get("SYNVEIL_OUT_DIR", ROOT / "out"))
@@ -96,7 +121,8 @@ def smoke(timeout_seconds: float) -> bool:
                         line = line.rstrip(b"\r")
                         # Redact even if the guest's terminal unexpectedly
                         # echoed a secret across multiple read() chunks.
-                        evidence.write(line.replace(secret.encode(), b"[REDACTED]") + b"\n")
+                        evidence.write(line.replace(secret.encode(), b"[REDACTED]")
+                                       .replace(incorrect.encode(), b"[REDACTED]") + b"\n")
                         evidence.flush()
                         if line.startswith(b"SYNVEIL_"):
                             seen.add(line)
@@ -146,8 +172,35 @@ def smoke(timeout_seconds: float) -> bool:
                             return False
                         phase = "logging-in"
                     if phase == "logging-in" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
-                        # Verify actual spawned UID 1000 NoNewPrivs tty1 shell,
-                        # kill the GUI lease holder and assert the shell dies.
+                        process.stdin.write(CHECK_TTY.encode())
+                        process.stdin.flush()
+                        phase = "waiting-for-tty"
+                    if phase == "waiting-for-tty" and b"SYNVEIL_AUTH_TTY_READY" in seen:
+                        try:
+                            exit_authenticated_terminal(qmp_socket, timeout=8)
+                        except (QMPError, OSError, ValueError) as error:
+                            evidence.write(("[synveil] normal logout: " +
+                                            str(error) + "\n").encode())
+                            return False
+                        phase = "logging-out"
+                    if phase == "logging-out" and b"SYNVEIL_LOGIN_RELOCKED" in seen:
+                        process.stdin.write(CHECK_RELOCK.encode())
+                        process.stdin.flush()
+                        phase = "verifying-relock"
+                    if phase == "verifying-relock" and b"SYNVEIL_RELOCK_NO_USER_SHELL" in seen:
+                        try:
+                            type_test_secret(qmp_socket, secret, timeout=17)
+                        except (QMPError, OSError, ValueError) as error:
+                            evidence.write(("[synveil] second login: " +
+                                            str(error) + "\n").encode())
+                            return False
+                        # Clear the first ACTIVE from the marker set so this
+                        # phase cannot be advanced by stale serial evidence.
+                        seen.discard(b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE")
+                        phase = "logging-in-again"
+                    if phase == "logging-in-again" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
+                        # Re-verify UID, NoNewPrivs and tty1 after the second
+                        # login; forcibly kill the UI to prove lease cleanup.
                         script = CLEANUP.replace("; ", ";\n") + "# SYNVEIL_TEST_COMMAND_END\n"
                         process.stdin.write(script.encode())
                         process.stdin.flush()

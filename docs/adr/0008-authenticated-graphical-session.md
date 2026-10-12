@@ -102,3 +102,14 @@ a particular hash library, or a windowing framework. The existing framebuffer
 diagnostic remains a temporary developer interface and is not promoted to a
 secure display manager by this decision. No current QEMU success is evidence
 of authenticated graphical sessions.
+
+## Graphical VT/logout hardening (developer preview)
+
+The direct-framebuffer login now explicitly owns VT2, releases its exclusive
+Linux evdev keyboard grab before authenticated tty1 use, and restores VT2
+before showing the locked screen again. Escape clears password text rather
+than dismissing the login. The isolated guest graphical smoke has separate
+observations for invalid-password denial, normal `exit`/relock, a second
+login, and a GUI crash that revokes the seat lease. These source-level
+checks are **not** claims of QEMU success until a local native target run
+provides evidence from the corresponding exact Git commit.
