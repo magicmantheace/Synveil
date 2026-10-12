@@ -17,6 +17,19 @@ from vm_bundle import create_bundle, verify_build  # noqa: E402
 
 REV = "a" * 40
 
+def synthetic_newc(names):
+    """Tiny valid newc archive, with zero-byte regular-file records."""
+    blob = bytearray()
+    for name in (*names, "TRAILER!!!"):
+        raw = name.encode() + b"\0"
+        fields = [1, 0o100644, 0, 0, 1, 0, 0, 0, 0, 0, 0, len(raw), 0]
+        blob.extend(b"070701" + b"".join(f"{field:08x}".encode() for field in fields))
+        blob.extend(raw)
+        blob.extend(b"\0" * ((-len(blob)) % 4))
+    blob.extend(b"\0" * ((-len(blob)) % 512))
+    return bytes(blob)
+
+
 
 class BundleTests(unittest.TestCase):
     def setUp(self):
@@ -49,12 +62,22 @@ class BundleTests(unittest.TestCase):
         archive = self.out / "synveil-rootfs.tar.zst"
         archive.write_bytes(b"fixture rootfs archive")
         archive_digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        self.cpio = self.out / "synveil-initramfs.cpio"
+        self.cpio.write_bytes(synthetic_newc([
+            "./init", "./usr/bin/synveil-display",
+            "./usr/bin/synveil-vt",
+            "./etc/synveil/desktop-autostart",
+        ]))
         manifest = {
             "schema": "synveil.build/v1",
             "git": {"commit": REV, "dirty": False},
             "artifacts": {
                 image.name: {"sha256": digest},
                 archive.name: {"sha256": archive_digest},
+                self.cpio.name: {
+                    "sha256": hashlib.sha256(self.cpio.read_bytes()).hexdigest(),
+                    "bytes": self.cpio.stat().st_size,
+                },
             },
         }
         (self.out / "manifests/build.json").write_text(json.dumps(manifest))
@@ -171,6 +194,28 @@ class BundleTests(unittest.TestCase):
             "synveil:x:1000:1000:Demo:/home/synveil:/bin/sh\n")
         (self.out / "manifests/kernel.config").write_text("CONFIG_DRM_VIRTIO_GPU=y\n")
         with self.assertRaises(ValueError):
+            verify_build(self.out, self.rootfs, REV)
+
+    def test_rejects_embedded_serial_override_even_if_staging_is_clean(self):
+        content = synthetic_newc([
+            "init", "usr/bin/synveil-display", "usr/bin/synveil-vt",
+            "etc/synveil/desktop-autostart",
+            "etc/synveil/developer-serial-recovery",
+        ])
+        self.cpio.write_bytes(content)
+        manifest = self.out / "manifests/build.json"
+        data = json.loads(manifest.read_text())
+        data["artifacts"][self.cpio.name] = {
+            "sha256": hashlib.sha256(content).hexdigest(),
+            "bytes": len(content),
+        }
+        manifest.write_text(json.dumps(data))
+        with self.assertRaisesRegex(ValueError, "embedded initramfs"):
+            verify_build(self.out, self.rootfs, REV)
+
+    def test_rejects_modified_embedded_initramfs(self):
+        self.cpio.write_bytes(b"modified")
+        with self.assertRaisesRegex(ValueError, "manifest verification"):
             verify_build(self.out, self.rootfs, REV)
 
     def test_rejects_authenticated_preview_and_serial_root_bypass(self):
