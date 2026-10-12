@@ -280,3 +280,32 @@ The root-owned login UI is separate and remains responsible for password
 capture. Device nodes are not chmodded or exposed to the user account,
 and no generic privileged command channel is added. Host C compilation
 and QEMU login/pointer/logout integration checks remain to be executed.
+
+## Masked local first-user setup prototype (October 2026)
+
+A clean authenticated boot image can now offer a two-stage masked Create
+Password / Retype Password screen on VT2, **only** when its separate /var
+filesystem is mounted, the root-private state directory is safe and no
+credential exists. The immutable auth-desktop marker is required and the
+unsafe developer-serial-recovery marker must be absent. A direct invocation
+outside those conditions must remain locked. Passwords are 8–1024 bytes,
+compared over fixed-length slots, and wiped before returning to ordinary
+login. The privileged operation is a bounded, fixed execution of
+/usr/sbin/veil-enroll --password-stdin using a private socketpair, never
+a shell or an arbitrary user-supplied executable. The Rust utility still
+rejects existing records, symlinks and nonprivate state and writes the
+Argon2id record once.
+
+The new isolated 'graphical-onboard' QEMU fixture has **no developer serial
+shell**. It drives both masked entry prompts and graphical authentication,
+then boots an entirely new QEMU process using the same disposable state disk
+and requires ordinary login (not another enrollment). It also insists on
+locked serial on both boots. Host-only fake-QMP fixtures reject early exit,
+missing confirmation, re-enrollment on the second boot, bad reboot login and
+serial-root bypass. Passing those host tests does not constitute system
+validation; actual full native QEMU results are required.
+
+This removes one developer-shell dependency for first-user creation, but
+**does not authorize a physical installation**. Missing pieces include an
+independent secure recovery mechanism, persistent installed rootfs,
+hardware support and a production-quality input/compositor design.

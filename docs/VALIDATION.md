@@ -307,3 +307,23 @@ the still-running guest for the full three-second security window. The fixture
 now stays alive for that observation period, and a new `early-exit` case
 explicitly verifies that premature EOF still fails. No root serial access is
 weakened. This requires new host CI confirmation.
+
+## Graphical first-user provisioning gate
+
+At the exact image revision offered to an owner, require a QEMU run of the
+isolated 'graphical-onboard' fixture that:
+
+- boots an authenticated image with locked serial and a separate blank ext4
+  state volume;
+- enters a fresh synthetic password twice through the private QMP keyboard,
+  proves successful one-shot enrollment, then authenticates to a non-root
+  graphical session without exposing a root console;
+- boots a second, different QEMU process using the same state and refuses to
+  present first-user enrollment again while accepting the existing password;
+- rejects failure and echo-only scenarios in the host fixture; and
+- retains existing authenticated seat lease, crash and VT restoration checks.
+
+At October 12, 2026 the new source, positive QMP scenario and negative host
+fixtures are implemented; end-to-end new guest evidence is pending. None of
+the first-install or full production security boxes is satisfied solely by
+host validation.

@@ -321,3 +321,19 @@ emits the denied marker. If regrab fails, it reports input unavailable
 instead of claiming it is ready. Positive relock evidence follows the same
 post-grab rule. The original failing native guest needs to be rebuilt and
 retested to determine whether other problems remain.
+
+## First-owner enrollment: separate from developer serial
+
+The root graphical login may provision a credential only with the immutable
+auth-desktop marker, an independently mounted persistent /var, a root-private
+/var/lib/synveil directory, no existing credential and **no** developer
+serial-recovery marker. The keyboard remains exclusively grabbed during
+first-entry and confirmation. On match, the GUI launches only the pinned
+Rust one-shot enroller through a private CLOEXEC Unix socketpair, with no
+password in argv, environment, shell, logs or plaintext files. Both input
+buffers are wiped after the attempt; the subprocess has a bounded deadline
+and its inherited framebuffer mapping is excluded by MADV_DONTFORK. The
+backend does not change existing file-ownership, authentication or seat
+policy. Re-enrollment is refused by both UI gating and the Rust verifier.
+The new two-boot locked-serial QEMU scenario is pending validation and
+owner recovery is still unimplemented.

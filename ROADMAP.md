@@ -353,3 +353,13 @@ The root login and developer menu remain distinct. The new path has not yet
 passed a native QEMU build/boot and does not satisfy the first-install
 requirements until authenticated session/VT/input/persistence/recovery
 evidence is recorded for the exact current commit.
+
+### Experimental masked first-user setup (guest proof pending)
+
+The authenticated preview has an isolated, keyboard-only two-stage first
+password enrollment path using the existing one-shot Argon2id credential
+utility. The persistent-state and no-developer-root guard are mandatory.
+The new 'graphical-onboard' guest fixture boots a locked-serial image,
+completes graphical setup, logs in, reboots with the same test state disk and
+requires ordinary login. It remains an incomplete dependency until an
+exact-revision native QEMU run and independent recovery design are validated.
