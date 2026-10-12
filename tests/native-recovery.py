@@ -38,6 +38,8 @@ if case in ('state-missing', 'state-corrupt'):
     print('SYNVEIL_STATE_UNAVAILABLE', flush=True)
 if case in ('enroll', 'enrolled-reboot'):
     print('SYNVEIL_STATE_READY', flush=True)
+if case in ('enroll', 'seat-locked'):
+    print('SYNVEIL_SEAT_READY', flush=True)
 if case in ('demo', 'desktop', 'desktop-terminal'):
     print('SYNVEIL_VT_READY\\nSYNVEIL_DESKTOP_READY', flush=True)
 command = ''
@@ -65,7 +67,12 @@ if mode == 'pass':
         assert 'credential.phc' in command and 'argon2id' in command
     elif case == 'enroll':
         assert 'veil-enroll --password-stdin' in command
+        assert 'veil-seat --login-stdin' in command and 'kill -TERM' in command
+        assert 'NoNewPrivs' in command and '/dev/tty1' in command
         assert 'sha256sum' in command and '600:0:1' in command
+    elif case == 'seat-locked':
+        assert 'veil-seat --login-stdin' in command
+        assert '600:0' in command and 'login denied' in command
     elif case == 'desktop-terminal':
         assert 'kill -KILL' in command and 'pidof synveil-display' in command
         assert 'NoNewPrivs' in command and '/dev/tty1' in command
@@ -85,6 +92,7 @@ if mode == 'pass':
               'observe': 'OBSERVE', 'demo': 'DEMO',
               'desktop': 'DESKTOP_RECOVERY', 'desktop-terminal': 'TERMINAL_LIFETIME',
               'enroll': 'ENROLL_SMOKE', 'enrolled-reboot': 'ENROLL_REBOOT',
+              'seat-locked': 'SEAT_LOCKED',
               'state-missing': 'STATE_RECOVERY',
               'state-corrupt': 'STATE_RECOVERY', 'supervision': 'SUPERVISION'}[case]
     print('SYNVEIL_' + marker + '_OK', flush=True)
@@ -155,6 +163,10 @@ elif mode == 'timeout':
     def test_display_crash_closes_the_non_root_demo_terminal(self):
         self.assertEqual(self.fixture("pass", "desktop-terminal")[0], 0)
         self.assertNotEqual(self.fixture("echo", "desktop-terminal")[0], 0)
+
+    def test_non_enrolled_seat_denies_default_credentials(self):
+        self.assertEqual(self.fixture("pass", "seat-locked")[0], 0)
+        self.assertNotEqual(self.fixture("echo", "seat-locked")[0], 0)
 
     def test_enrollment_reboot_probe_requires_persisted_phc(self):
         self.assertEqual(self.fixture("pass", "enrolled-reboot")[0], 0)

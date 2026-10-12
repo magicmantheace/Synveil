@@ -57,7 +57,8 @@ TERMINAL_LIFETIME = (
     "sleep 0.1; done; fi\n"
 )
 ENROLL_RECOVERY = (
-    {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY"},
+    {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY",
+     b"SYNVEIL_SEAT_READY"},
     b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_ENROLL_SMOKE_OK",
     "if [ ! -e /var/lib/synveil/auth/credential.phc ]; then "
     "secret=$(cat /proc/sys/kernel/random/uuid); "
@@ -68,8 +69,27 @@ ENROLL_RECOVERY = (
     "[ \"$(stat -c '%a:%u' /var/lib/synveil/auth)\" = 700:0 ] && "
     "old=$(sha256sum /var/lib/synveil/auth/credential.phc) && "
     "! printf '%s' \"$secret\" | /usr/sbin/veil-enroll --password-stdin >/dev/null 2>&1; then "
-    "if [ \"$(sha256sum /var/lib/synveil/auth/credential.phc)\" = \"$old\" ]; then "
-    "printf '\\n%s%s\\n' SYNVEIL_ ENROLL_SMOKE_OK; fi; fi; fi\n"
+    "if [ \"$(sha256sum /var/lib/synveil/auth/credential.phc)\" = \"$old\" ] && "
+    "[ -S /run/synveil/veil-seat.sock ]; then "
+    "printf '%s' \"$secret\" | /usr/sbin/veil-seat --login-stdin > /tmp/seat-client.log 2>&1 & "
+    "holder=$!; terminal=; "
+    "for retry in $(seq 1 100); do "
+    "for status in /proc/[0-9]*/status; do "
+    "if grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' \"$status\" && "
+    "grep -Eq '^NoNewPrivs:[[:space:]]*1$' \"$status\"; then "
+    "pid=$(basename $(dirname \"$status\")); "
+    "if [ \"$(readlink /proc/$pid/fd/0)\" = /dev/tty1 ]; then "
+    "terminal=$pid; break; fi; fi; done; "
+    "[ -n \"$terminal\" ] && break; sleep 0.1; done; "
+    "if [ -n \"$terminal\" ] && "
+    "grep -Fxq SYNVEIL_SEAT_ACTIVE /tmp/seat-client.log; then "
+    "kill -TERM \"$holder\" && wait \"$holder\" 2>/dev/null || true; "
+    "for retry in $(seq 1 60); do "
+    "if ! kill -0 \"$terminal\" 2>/dev/null || "
+    "grep -q '^State:.*Z' /proc/$terminal/status 2>/dev/null; then "
+    "if timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then "
+    "printf '\\n%s%s\\n' SYNVEIL_ ENROLL_SMOKE_OK; fi; break; fi; "
+    "sleep 0.1; done; fi; fi; fi; fi\n"
 )
 ENROLL_REBOOT = (
     {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY"},
@@ -80,7 +100,21 @@ ENROLL_REBOOT = (
     "/var/lib/synveil/auth/credential.phc; then "
     "printf '\\n%s%s\\n' SYNVEIL_ ENROLL_REBOOT_OK; fi\n"
 )
+SEAT_LOCKED = (
+    {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_SEAT_READY"},
+    b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_SEAT_LOCKED_OK",
+    "if [ -S /run/synveil/veil-seat.sock ] && "
+    "[ \"$(stat -c '%a:%u' /run/synveil/veil-seat.sock)\" = 600:0 ] && "
+    "[ ! -e /var/lib/synveil/auth/credential.phc ] && "
+    "pidof veil-seat >/dev/null && "
+    "! printf '%s' guest-no-default-login | /usr/sbin/veil-seat --login-stdin "
+    ">/tmp/seat-denied.log 2>&1 && "
+    "grep -q 'login denied' /tmp/seat-denied.log && "
+    "timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then "
+    "printf '\\n%s%s\\n' SYNVEIL_ SEAT_LOCKED_OK; fi\n"
+)
 SCENARIOS = {
+    "seat-locked": SEAT_LOCKED,
     "enrolled-reboot": ENROLL_REBOOT,
     "enroll": ENROLL_RECOVERY,
     "desktop-terminal": TERMINAL_LIFETIME,

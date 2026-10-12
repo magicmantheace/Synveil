@@ -46,6 +46,30 @@ must remain independent of graphics and of any optional intelligence layer.
    or explicitly protect the bootstrap's unauthenticated privileged serial
    shell. A production login must never assume an unlocked developer console.
 
+## Seat broker implementation progress
+
+The experimental `veil-seat` runs separately from `veil-core` with a
+root-owned mode-0600 Unix socket and a fixed `SVL1` bounded password
+frame. Linux SO_PEERCRED checks require the already-privileged developer
+graphical peer. It never accepts a client-provided UID, GID, executable,
+command or password hash. After Argon2id verification it can only launch
+the existing fixed `synveil-vt --demo-terminal` path, which drops to
+UID/GID 1000 and enables NoNewPrivs.
+
+The authenticating client must retain an open socket lease; disconnect,
+crash or explicit client close terminates the fixed terminal parent and
+relocks the seat. Denials and malformed frames cannot start a shell.
+Only the test/developer tool `veil-seat --login-stdin` can currently use
+this path. **The framebuffer developer menu does not yet use it**, and
+the bootstrap serial recovery console remains root; no secure owner-facing
+graphical login or installer is claimed.
+
+A dedicated QEMU guest scenario now checks no default login works without
+state, and another enrolls a fresh *guest-generated* secret, launches the
+real non-root VT through the seat, kills its lease client and checks the
+session is gone while core status remains accessible. Full guest evidence
+is required before upgrading this progress claim.
+
 ## Implementation sequencing
 
 - Stabilize QEMU graphics, storage, UI persistence and graphical crash

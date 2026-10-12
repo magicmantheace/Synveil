@@ -149,6 +149,10 @@ jobs:
           bash build.sh recovery-smoke --case state-missing --timeout 60
           bash build.sh recovery-smoke --case state-corrupt --timeout 60
 
+      - name: Require locked seat and no default password on ephemeral VM
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: bash build.sh recovery-smoke --case seat-locked --timeout 60
+
       - name: Validate virtual framebuffer in headless QEMU
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         env:
@@ -192,7 +196,7 @@ jobs:
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |
           SYNVEIL_QEMU_STATE_DISK="$PWD/out/synveil-state.ext4" \
-            bash build.sh recovery-smoke --case enroll --timeout 60
+            bash build.sh recovery-smoke --case enroll --timeout 120
           SYNVEIL_QEMU_STATE_DISK="$PWD/out/synveil-state.ext4" \
             bash build.sh recovery-smoke --case enrolled-reboot --timeout 60
 
