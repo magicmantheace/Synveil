@@ -36,6 +36,7 @@ HOST = (
     ("protocol-fixtures", "python3", "tests/native-protocol-probe.py"),
     ("guest-fixtures", "python3", "tests/native-guest-fixture.py"),
     ("graphical-login-fixtures", "python3", "tests/graphical-login-fixture.py"),
+    ("core-health", "python3", "tests/core-health.py"),
     ("display-build", "python3", "tests/display-build.py"),
     ("desktop-lifetime", "python3", "tests/desktop-lifetime.py"),
     ("state-mount", "python3", "tests/state-mount-safety.py"),

@@ -53,6 +53,7 @@ class DisplaySourceTests(unittest.TestCase):
                 ["gcc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror",
                  str(ROOT / "src/veil-display/main.c"),
                  str(ROOT / "src/veil-display/preferences.c"),
+                 str(ROOT / "src/veil-display/core_health.c"),
                  "-o", str(executable)],
                 check=True,
             )

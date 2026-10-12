@@ -25,6 +25,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "preferences.h"
+#include "core_health.h"
 #include "lifetime.h"
 
 struct surface {
@@ -303,8 +304,8 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
         }
         const char *label = "";
         if (state->page == 0) {
-            label = access("/run/synveil/veil-core.sock", F_OK) == 0 ?
-                "CORE SOCKET PRESENT" : "CORE SOCKET MISSING";
+            label = synveil_core_health("/run/synveil/veil-core.sock") ?
+                "CORE READY" : "CORE UNAVAILABLE";
         } else if (state->page == 1) {
             label = mounted_state() ? "STATE DISK MOUNTED" : "STATE DISK MISSING";
         } else {

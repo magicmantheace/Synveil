@@ -211,3 +211,15 @@ encrypted disk, signed boot and account onboarding are not implemented.
 These decisions should follow implementation evidence and the target's needs.
 No installer, desktop, hardware compatibility, or persistent rootfs is currently
 validated by the native-image status smoke test.
+
+## Live core status in the developer launcher
+
+The Status tile now sends a fixed, read-only `synveil.core/v1` status
+request over the root-owned core Unix socket. A leftover socket pathname,
+failed connect, malformed/wrong-version response or hung service reports
+`CORE UNAVAILABLE` rather than claiming the service is online. The
+nonblocking probe has a single 350 ms monotonic deadline, is not a shell or
+AI command path, and does not grant authentication authority. The host
+fixture (`tests/core-health.py`) simulates partial, invalid and stalled
+peers. Native guest validation of this updated framebuffer image remains
+outstanding; do not confuse the diagnostic menu with a desktop compositor.
