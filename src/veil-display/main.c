@@ -596,7 +596,8 @@ static int run_menu(const struct surface *screen) {
 // Experimental *developer-only* graphical login client for veil-seat.
 // Never renders raw password bytes, grants root commands or authorizes a
 // session itself. A production compositor/input isolation layer is pending.
-#define AUTH_MAX_UI_PASSWORD 128u
+// Match the verifier's byte-size bound, not a shorter UI-only limit.
+#define AUTH_MAX_UI_PASSWORD 1024u
 #define AUTH_SEAT_SOCKET "/run/synveil/veil-seat.sock"
 
 struct auth_input {
@@ -706,8 +707,10 @@ static void auth_render(const struct surface *screen, const struct auth_input *s
     for (unsigned i = 0; i < visible; i++) {
         rectangle(screen, 40u + i*15u, h/2u, 8u, 8u, text);
     }
-    if (state->caps_lock)
+    if (state->caps_lock && h*3u/5u > 27u)
         heading(screen, "CAPS LOCK ON", 36u, h*3u/5u - 27u, 2u, muted);
+    if (state->length >= AUTH_MAX_UI_PASSWORD)
+        heading(screen, "PASSWORD LIMIT", 36u, h*3u/5u, 2u, muted);
     if (state->denied) heading(screen, "LOGIN DENIED", 36u, h*3u/5u, 2u, muted);
     heading(screen, "ENTER TO LOGIN", 36u, h*4u/5u, 2u, text);
     heading(screen, "ESC TO EXIT", 36u, h*4u/5u+32u, 2u, muted);
@@ -738,7 +741,12 @@ static int auth_attempt(struct auth_input *state) {
     if (strlen(name) >= sizeof(addr.sun_path)) goto denied;
     memcpy(addr.sun_path, name, strlen(name)+1u);
     if (connect(connected, (struct sockaddr *)&addr, sizeof(addr)) != 0) goto denied;
-    unsigned char header[] = {'S','V','L','1',0,(unsigned char)state->length};
+    // The broker uses a network-order u16 length (8..1024).
+    unsigned char header[] = {
+        'S','V','L','1',
+        (unsigned char)(state->length >> 8u),
+        (unsigned char)(state->length & 0xffu)
+    };
     if (auth_send_all(connected, header, sizeof(header)) != 0 ||
         auth_send_all(connected, state->password, state->length) != 0)
         goto denied;
@@ -908,6 +916,16 @@ static int self_test(void) {
     if (auth.password[4] != 92u || auth.password[5] != '7') return 1;
     auth_clear(&auth);
     if (auth.length || auth.shift || auth.password[0] || auth.password[5]) return 1;
+    // The UI must accept the complete verifier policy limit, reject all
+    // further characters, then wipe the entire 1024-byte secret buffer.
+    for (unsigned i = 0; i < AUTH_MAX_UI_PASSWORD + 4u; i++)
+        auth_input_key(&auth, KEY_M, 1);
+    if (auth.length != AUTH_MAX_UI_PASSWORD) return 1;
+    if ((auth.length >> 8u) != 4u || (auth.length & 0xffu) != 0u)
+        return 1;
+    auth_clear(&auth);
+    if (auth.length || auth.password[0] ||
+        auth.password[AUTH_MAX_UI_PASSWORD - 1u]) return 1;
     if (glyph_for('4') == NULL || glyph_for('.') == NULL ||
         glyph_for('N') == NULL || glyph_for('@') != NULL) return 1;
     if (absolute_pixel(-20, 0, 100, 900u) != 0u ||
