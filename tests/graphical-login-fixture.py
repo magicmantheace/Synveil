@@ -98,7 +98,7 @@ wait_for(5)
 assert signal.read_text().splitlines()[4] == 'TERM_OPEN'
 user_terminal = sys.stdin.readline()
 assert 'SYNVEIL_USER_TERMINAL_READY' in user_terminal
-assert 'NoNewPrivs' not in user_terminal or '1000' in user_terminal
+assert 'NoNewPrivs' in user_terminal and '1000' in user_terminal
 if mode == 'no-user-terminal':
     sys.exit(0)
 print('SYNVEIL_USER_TERMINAL_READY', flush=True)
