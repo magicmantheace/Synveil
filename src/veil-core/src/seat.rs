@@ -237,8 +237,8 @@ pub fn login_from_reader<R: Read>(input: R, socket: &Path) -> io::Result<bool> {
     };
     let write = (|| {
         stream.set_write_timeout(Some(IO_TIMEOUT))?;
-        let len = u16::try_from(password.len())
-            .map_err(|_| io::Error::other("invalid password size"))?;
+        let len =
+            u16::try_from(password.len()).map_err(|_| io::Error::other("invalid password size"))?;
         stream.write_all(HEADER_MAGIC)?;
         stream.write_all(&len.to_be_bytes())?;
         stream.write_all(&password)
