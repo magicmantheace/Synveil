@@ -78,6 +78,19 @@ CHECK_TTY = (
 
 # Confirm QMP opened a *child* UID1000 interactive shell of the fixed user
 # dashboard rather than an unauthenticated root/developer terminal.
+# Hard-kill only the running non-root dashboard while its tty is raw.
+# A following independent login must still be able to open a terminal.
+CRASH_USER = (
+    "user_session=; for status in /proc/[0-9]*/status; do "
+    "if grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' \"$status\"; then "
+    "pid=$(basename $(dirname \"$status\")); "
+    "if tr '\\000' ' ' < /proc/$pid/cmdline | "
+    "grep -Fq -- 'synveil-display --session'; then "
+    "user_session=$pid; break; fi; fi; done; "
+    "if [ -n \"$user_session\" ] && kill -KILL \"$user_session\"; then "
+    "printf '\\n%s\\n' SYNVEIL_USER_DASHBOARD_KILLED; fi\n"
+)
+
 CHECK_USER_TERMINAL = (
     "user_session=; for status in /proc/[0-9]*/status; do "
     "if grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' \"$status\"; then "
@@ -289,13 +302,70 @@ def smoke(timeout_seconds: float) -> bool:
                                             str(error) + "\n").encode())
                             return False
                         seen.discard(b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE")
+                        seen.discard(b"SYNVEIL_AUTH_TTY_READY")
+                        seen.discard(b"SYNVEIL_LOGIN_RELOCKED")
+                        seen.discard(b"SYNVEIL_RELOCK_NO_USER_SHELL")
                         phase = "logging-in-third-time"
                     if phase == "logging-in-third-time" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
-                        # Re-verify UID, NoNewPrivs and tty1 after the third
-                        # login; forcibly kill the UI to prove lease cleanup.
-                        # Require a *new* root login marker after killing the
-                        # old login GUI. Initial boot readiness is not evidence
-                        # that the graphical recovery supervisor worked.
+                        process.stdin.write(CHECK_TTY.encode())
+                        process.stdin.flush()
+                        phase = "waiting-for-third-tty"
+                    if phase == "waiting-for-third-tty" and b"SYNVEIL_AUTH_TTY_READY" in seen:
+                        # Kill UID1000 display in raw tty mode; the root login
+                        # must re-lock before an independent fourth login.
+                        process.stdin.write(CRASH_USER.encode())
+                        process.stdin.flush()
+                        phase = "crashing-user-desktop"
+                    if (phase == "crashing-user-desktop" and
+                        b"SYNVEIL_USER_DASHBOARD_KILLED" in seen and
+                        b"SYNVEIL_LOGIN_RELOCKED" in seen):
+                        process.stdin.write(CHECK_RELOCK.encode())
+                        process.stdin.flush()
+                        phase = "checking-user-crash-relock"
+                    if (phase == "checking-user-crash-relock" and
+                        b"SYNVEIL_RELOCK_NO_USER_SHELL" in seen):
+                        for marker in (b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE",
+                                       b"SYNVEIL_AUTH_TTY_READY",
+                                       b"SYNVEIL_USER_TERMINAL_READY",
+                                       b"SYNVEIL_USER_TERMINAL_RETURNED"):
+                            seen.discard(marker)
+                        try:
+                            type_test_secret(qmp_socket, secret, timeout=17)
+                        except (QMPError, OSError, ValueError) as error:
+                            evidence.write(("[synveil] fourth login after user crash: " +
+                                            str(error) + "\n").encode())
+                            return False
+                        phase = "logging-in-fourth-time"
+                    if phase == "logging-in-fourth-time" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
+                        process.stdin.write(CHECK_TTY.encode())
+                        process.stdin.flush()
+                        phase = "waiting-for-fourth-tty"
+                    if phase == "waiting-for-fourth-tty" and b"SYNVEIL_AUTH_TTY_READY" in seen:
+                        try:
+                            open_user_terminal(qmp_socket, timeout=8)
+                        except (QMPError, OSError, ValueError) as error:
+                            evidence.write(("[synveil] terminal after user crash: " +
+                                            str(error) + "\n").encode())
+                            return False
+                        process.stdin.write(CHECK_USER_TERMINAL.encode())
+                        process.stdin.flush()
+                        phase = "checking-post-crash-terminal"
+                    if (phase == "checking-post-crash-terminal" and
+                        b"SYNVEIL_USER_TERMINAL_READY" in seen):
+                        try:
+                            exit_user_terminal(qmp_socket, timeout=8)
+                        except (QMPError, OSError, ValueError) as error:
+                            evidence.write(("[synveil] post-crash terminal exit: " +
+                                            str(error) + "\n").encode())
+                            return False
+                        process.stdin.write(CHECK_USER_RETURNED.encode())
+                        process.stdin.flush()
+                        phase = "checking-post-crash-return"
+                    if (phase == "checking-post-crash-return" and
+                        b"SYNVEIL_USER_TERMINAL_RETURNED" in seen):
+                        # Destroy root graphical login while a *different*
+                        # user process is active; surviving UID1000 tasks
+                        # would violate the broker's socket-lease contract.
                         seen.discard(b"SYNVEIL_LOGIN_READY")
                         script = CLEANUP.replace("; ", ";\n") + "# SYNVEIL_TEST_COMMAND_END\n"
                         process.stdin.write(script.encode())
