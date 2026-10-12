@@ -692,6 +692,8 @@ static int session_terminal(const struct termios *original) {
 static struct pointer_device session_pointer(void) {
     struct pointer_device pointer = {.fd = -1};
     int fd = fcntl(5, F_DUPFD_CLOEXEC, 9);
+    // Never retain an inheritable copy of the seat's pointer device.
+    close(5);
     if (fd < 0) return pointer;
     struct stat info;
     if (fstat(fd, &info) != 0 || !S_ISCHR(info.st_mode) ||
@@ -1365,6 +1367,7 @@ int main(int argc, char **argv) {
         return 1;
     int fd = user_session ? fcntl(3, F_DUPFD_CLOEXEC, 8) :
                             open("/dev/fb0", O_RDWR | O_CLOEXEC);
+    if (user_session) close(3); // only the CLOEXEC copy may reach shell fork
     struct stat session_device;
     if (user_session && (fd < 0 || fstat(fd, &session_device) != 0 ||
                          !S_ISCHR(session_device.st_mode))) {
