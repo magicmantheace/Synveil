@@ -771,18 +771,26 @@ static int run_auth_login(const struct surface *screen) {
         if (event.value == 1 && event.code == KEY_ESC) {
             quit = 1;
         } else if (event.value == 1 && event.code == KEY_ENTER) {
+            // The login process must not retain an evdev keyboard reader
+            // while the authenticated VT shell owns the keyboard. Reopen
+            // only after the seat lease has ended; reopening also drops
+            // any terminal keystrokes buffered on the old reader.
+            close(keyboard);
+            keyboard = -1;
             state.denied = !auth_attempt(&state);
             if (state.denied) {
                 puts("\nSYNVEIL_GRAPHICAL_AUTH_DENIED");
                 fflush(stdout);
             }
+            keyboard = open_keyboard();
+            if (keyboard < 0) break;
         } else {
             auth_input_key(&state, event.code, event.value);
         }
         if (!quit) auth_render(screen, &state);
     }
     auth_clear(&state);
-    close(keyboard);
+    if (keyboard >= 0) close(keyboard);
     return quit ? 0 : 1;
 }
 

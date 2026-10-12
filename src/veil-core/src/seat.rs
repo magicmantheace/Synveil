@@ -165,7 +165,7 @@ fn start_fixed_terminal() -> io::Result<Child> {
     // No shell interpolation or client-selected argv. This process dies
     // with its broker; its UID1000 child dies with its parent.
     let mut command = Command::new("/usr/bin/synveil-vt");
-    command.arg("--demo-terminal");
+    command.arg("--authenticated-terminal");
     spawn_guarded(command)
 }
 
@@ -247,7 +247,12 @@ where
     // Persistent socket = lease. Any input/EOF, a dead client, terminal
     // exit or I/O failure revokes it. The UI cannot retain authority after
     // closing the connection or crashing.
-    stream.set_read_timeout(Some(LEASE_POLL))?;
+    if let Err(error) = stream.set_read_timeout(Some(LEASE_POLL)) {
+        // A post-launch socket error must never return while the session is
+        // active: kill/reap first, then propagate the non-secret error.
+        close_session(tracker, attempt, &mut child);
+        return Err(error);
+    }
     let mut signal = [0u8; 8];
     loop {
         match child.try_wait() {

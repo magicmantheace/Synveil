@@ -35,6 +35,10 @@ static int is_demo_mode(int argc, char **argv) {
     return argc == 2 && strcmp(argv[1], "--demo-terminal") == 0;
 }
 
+static int is_authenticated_mode(int argc, char **argv) {
+    return argc == 2 && strcmp(argv[1], "--authenticated-terminal") == 0;
+}
+
 static int is_root_debug_mode(int argc, char **argv) {
     return argc == 3 &&
            strcmp(argv[1], "--developer-terminal") == 0 &&
@@ -43,10 +47,12 @@ static int is_root_debug_mode(int argc, char **argv) {
 
 static int self_test(void) {
     char *demo[] = {"synveil-vt", "--demo-terminal", NULL};
+    char *authenticated[] = {"synveil-vt", "--authenticated-terminal", NULL};
     char *unconfirmed[] = {"synveil-vt", "--developer-terminal", NULL};
     char *confirmed[] = {"synveil-vt", "--developer-terminal",
                          "--i-understand-root-shell", NULL};
-    if (!is_demo_mode(2, demo) || is_root_debug_mode(2, unconfirmed) ||
+    if (!is_demo_mode(2, demo) || !is_authenticated_mode(2, authenticated) ||
+        is_authenticated_mode(2, demo) || is_root_debug_mode(2, unconfirmed) ||
         !is_root_debug_mode(3, confirmed) || is_root_debug_mode(2, demo)) {
         return 1;
     }
@@ -73,7 +79,7 @@ static void configure_demo_user(void) {
     umask(0077);
 }
 
-static int launch_terminal(bool demo) {
+static int launch_terminal(bool demo, bool authenticated) {
     if (geteuid() != 0) {
         fputs("[synveil-vt] VM terminal launcher requires root\n", stderr);
         return 1;
@@ -123,7 +129,11 @@ static int launch_terminal(bool demo) {
         _exit(1);
     }
     if (terminal > STDERR_FILENO) close(terminal);
-    const char *banner = demo ?
+    const char *banner = authenticated ?
+        "\033[2J\033[H"
+        "Synveil local console (AUTHENTICATED NON-ROOT)\r\n"
+        "VM evaluation only. Type exit to lock the graphical seat.\r\n\r\n" :
+        demo ?
         "\033[2J\033[H"
         "Synveil demo console (NON-ROOT, NOT AUTHENTICATED)\r\n"
         "VM evaluation only. Type exit to return to the menu.\r\n\r\n" :
@@ -152,9 +162,10 @@ int main(int argc, char **argv) {
         fputs("[synveil-vt] framebuffer or virtual terminal unavailable\n", stderr);
         return 1;
     }
-    if (is_demo_mode(argc, argv)) return launch_terminal(true);
-    if (is_root_debug_mode(argc, argv)) return launch_terminal(false);
+    if (is_demo_mode(argc, argv)) return launch_terminal(true, false);
+    if (is_authenticated_mode(argc, argv)) return launch_terminal(true, true);
+    if (is_root_debug_mode(argc, argv)) return launch_terminal(false, false);
     fputs("usage: synveil-vt --probe | --self-test | --demo-terminal | "
-          "--developer-terminal --i-understand-root-shell\n", stderr);
+          "--authenticated-terminal | --developer-terminal --i-understand-root-shell\n", stderr);
     return 2;
 }
