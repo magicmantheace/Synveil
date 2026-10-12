@@ -242,3 +242,15 @@ new authenticated user session, even if the preceding dashboard was killed
 while in raw mode. Compile/run the `synveil-vt --self-test` host fixture,
 then force a dashboard crash and complete an independent second login and
 fixed shell open/exit in native QEMU. Source presence alone is not a pass.
+
+### Isolated host check of VT safety helpers
+
+For the current pointer/tty hardening changes, a standalone C translation
+unit reproducing the committed `safe_pointer_keys` and
+`restore_session_tty_mode` helper bodies was compiled locally with
+`gcc -O2 -std=c11 -Wall -Wextra -Werror`. It passed an exhaustive
+bitmap check of all Linux key codes below `BTN_MISC` and tty mode
+restoration assertions. **This is not compilation of Synveil's complete
+`vt.c`, nor of a native target image.** The same exhaustive pointer
+check is included in the committed `synveil-vt --self-test` source for
+future clean host validation.

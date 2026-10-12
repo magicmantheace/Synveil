@@ -171,14 +171,14 @@ static int self_test(void) {
     unsigned char pointer_keys[(KEY_MAX + 8u) / 8u] = {0};
     pointer_keys[BTN_LEFT / 8u] |= (unsigned char)(1u << (BTN_LEFT % 8u));
     if (!safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
-    pointer_keys[KEY_A / 8u] |= (unsigned char)(1u << (KEY_A % 8u));
-    if (safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
-    pointer_keys[KEY_A / 8u] &= (unsigned char)~(1u << (KEY_A % 8u));
-    pointer_keys[KEY_ENTER / 8u] |= (unsigned char)(1u << (KEY_ENTER % 8u));
-    if (safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
-    pointer_keys[KEY_ENTER / 8u] &= (unsigned char)~(1u << (KEY_ENTER % 8u));
-    pointer_keys[KEY_B / 8u] |= (unsigned char)(1u << (KEY_B % 8u));
-    if (safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
+    // Every possible KEY_* code below BTN_MISC must invalidate the
+    // delegated raw-event descriptor, not just the common ASCII keys.
+    for (unsigned key = 0u; key < BTN_MISC; ++key) {
+        pointer_keys[key / 8u] |= (unsigned char)(1u << (key % 8u));
+        if (safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
+        pointer_keys[key / 8u] &= (unsigned char)~(1u << (key % 8u));
+    }
+    if (!safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
     if (!is_demo_mode(2, demo) || !is_authenticated_mode(2, authenticated) ||
         is_authenticated_mode(2, demo) || is_root_debug_mode(2, unconfirmed) ||
         !is_root_debug_mode(3, confirmed) || is_root_debug_mode(2, demo)) {
