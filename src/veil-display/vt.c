@@ -202,15 +202,35 @@ static int launch_terminal(bool demo, bool authenticated) {
             return 1;
         }
     }
+    int pointer_fd = authenticated ? open_session_pointer() : -1;
+    // Fixed destinations 3 (fbdev) and 5 (pointer) must not overwrite
+    // source FDs; reserve high-numbered CLOEXEC handles before fork.
+    if (authenticated) {
+        int safe_fb = fcntl(session_fb, F_DUPFD_CLOEXEC, 10);
+        if (safe_fb < 0) {
+            close(session_fb);
+            if (pointer_fd >= 0) close(pointer_fd);
+            return 1;
+        }
+        close(session_fb);
+        session_fb = safe_fb;
+        if (pointer_fd >= 0) {
+            int safe_pointer = fcntl(pointer_fd, F_DUPFD_CLOEXEC, 10);
+            close(pointer_fd);
+            pointer_fd = safe_pointer;
+        }
+    }
     pid_t launcher_pid = getpid();
     pid_t child = fork();
     if (child < 0) {
         if (session_fb >= 0) close(session_fb);
+        if (pointer_fd >= 0) close(pointer_fd);
         perror("[synveil-vt] fork");
         return 1;
     }
     if (child != 0) {
         if (session_fb >= 0) close(session_fb);
+        if (pointer_fd >= 0) close(pointer_fd);
         if (!demo) {
             fprintf(stderr, "[synveil-vt] root developer shell pid %ld\n", (long)child);
             return 0;
@@ -254,9 +274,14 @@ static int launch_terminal(bool demo, bool authenticated) {
         if (authenticated) {
             // Fixed, inherited framebuffer descriptor 3. dup2 with equal
             // descriptors preserves FD_CLOEXEC, so clear it explicitly.
-            if (session_fb != 3 && dup2(session_fb, 3) != 3) _exit(1);
-            if (fcntl(3, F_SETFD, 0) != 0) _exit(1);
-            if (session_fb != 3) close(session_fb);
+            if (dup2(session_fb, 3) != 3) _exit(1);
+            close(session_fb);
+            if (pointer_fd >= 0) {
+                if (dup2(pointer_fd, 5) != 5) _exit(1);
+                close(pointer_fd);
+            } else {
+                close(5); // prevent inheritance of unrelated root FD
+            }
             execl("/usr/bin/synveil-display", "synveil-display",
                   "--session", (char *)NULL);
             _exit(127);
