@@ -687,6 +687,25 @@ static int session_terminal(const struct termios *original) {
     return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
 }
 
+// The privileged VT helper supplies an optional, capability-checked
+// absolute pointer as FD5. Never open arbitrary /dev/input as UID1000.
+static struct pointer_device session_pointer(void) {
+    struct pointer_device pointer = {.fd = -1};
+    int fd = fcntl(5, F_DUPFD_CLOEXEC, 9);
+    if (fd < 0) return pointer;
+    struct stat info;
+    if (fstat(fd, &info) != 0 || !S_ISCHR(info.st_mode) ||
+        ioctl(fd, EVIOCGABS(ABS_X), &pointer.x) < 0 ||
+        ioctl(fd, EVIOCGABS(ABS_Y), &pointer.y) < 0 ||
+        pointer.x.maximum <= pointer.x.minimum ||
+        pointer.y.maximum <= pointer.y.minimum) {
+        close(fd);
+        return pointer;
+    }
+    pointer.fd = fd;
+    return pointer;
+}
+
 static int run_user_session(const struct surface *screen) {
     if (geteuid() != 1000 || getuid() != 1000 || !isatty(STDIN_FILENO))
         return 1;
@@ -703,7 +722,9 @@ static int run_user_session(const struct surface *screen) {
         state.high_contrast = saved.high_contrast;
         state.cursor_scale = saved.cursor_scale;
     }
+    struct pointer_device pointer = session_pointer();
     render_menu(screen, &state);
+    render_cursor(screen, &pointer, &state);
     puts("\nSYNVEIL_USER_DESKTOP_READY");
     fflush(stdout);
     int result = 0;
