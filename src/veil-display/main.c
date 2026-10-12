@@ -337,7 +337,20 @@ static int event_bit(const unsigned char *bits, size_t count, unsigned bit) {
     return bit / 8u < count && (bits[bit / 8u] & (1u << (bit % 8u))) != 0;
 }
 
-static int open_keyboard(void) {
+// A device with only arrow keys and Enter can drive the developer menu,
+// but it cannot enter a secure password. Require a real text keyboard for
+// the exclusive graphical-login grab.
+static int login_keyboard_capable(const unsigned char *bits, size_t count) {
+    return event_bit(bits, count, KEY_A) &&
+           event_bit(bits, count, KEY_Z) &&
+           event_bit(bits, count, KEY_0) &&
+           event_bit(bits, count, KEY_1) &&
+           event_bit(bits, count, KEY_BACKSPACE) &&
+           event_bit(bits, count, KEY_SPACE) &&
+           event_bit(bits, count, KEY_LEFTSHIFT);
+}
+
+static int open_keyboard_policy(int password_keyboard) {
     DIR *directory = opendir("/dev/input");
     if (directory == NULL) return -1;
     struct dirent *item;
@@ -361,7 +374,8 @@ static int open_keyboard(void) {
             ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(bits)), bits) >= 0 &&
             event_bit(bits, sizeof(bits), KEY_ENTER) &&
             event_bit(bits, sizeof(bits), KEY_LEFT) &&
-            event_bit(bits, sizeof(bits), KEY_RIGHT)) {
+            event_bit(bits, sizeof(bits), KEY_RIGHT) &&
+            (!password_keyboard || login_keyboard_capable(bits, sizeof(bits)))) {
             chosen = fd;
             break;
         }
@@ -369,6 +383,10 @@ static int open_keyboard(void) {
     }
     closedir(directory);
     return chosen;
+}
+
+static int open_keyboard(void) {
+    return open_keyboard_policy(0);
 }
 
 struct pointer_device {
@@ -617,7 +635,7 @@ static int auth_restore_login_vt(void) {
 }
 
 static int auth_open_private_keyboard(void) {
-    int keyboard = open_keyboard();
+    int keyboard = open_keyboard_policy(1);
     if (keyboard < 0) return -1;
     // No tty consumer or second evdev reader may receive password keys.
     // Closing this FD before launching the shell automatically releases
@@ -934,6 +952,17 @@ static int run_auth_login(const struct surface *screen) {
 }
 
 static int self_test(void) {
+    // Arrow-only controllers must never be mistaken for a login keyboard.
+    unsigned char keys[(KEY_MAX + 8u) / 8u] = {0};
+    const unsigned login_keys[] = {
+        KEY_A, KEY_Z, KEY_0, KEY_1, KEY_BACKSPACE, KEY_SPACE, KEY_LEFTSHIFT
+    };
+    if (login_keyboard_capable(keys, sizeof(keys))) return 1;
+    for (unsigned i = 0; i < sizeof(login_keys)/sizeof(login_keys[0]); ++i)
+        keys[login_keys[i] / 8u] |= (unsigned char)(1u << (login_keys[i] % 8u));
+    if (!login_keyboard_capable(keys, sizeof(keys))) return 1;
+    keys[KEY_BACKSPACE / 8u] &= (unsigned char)~(1u << (KEY_BACKSPACE % 8u));
+    if (login_keyboard_capable(keys, sizeof(keys))) return 1;
     struct surface screen;
     memset(&screen, 0, sizeof(screen));
     screen.variable.bits_per_pixel = 32;
