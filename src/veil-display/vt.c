@@ -42,6 +42,21 @@ static int input_bit(const unsigned char *bits, size_t bytes, unsigned key) {
     return key / 8u < bytes && (bits[key / 8u] & (1u << (key % 8u))) != 0;
 }
 
+// Never transfer an evdev keyboard (including a composite keyboard/tablet)
+ // as a pointer lease. The user process receives raw events on this FD,
+ // so even ignored text keys would cross the login device boundary.
+static int safe_pointer_keys(const unsigned char *keys, size_t count) {
+    const unsigned forbidden[] = {
+        KEY_A, KEY_Z, KEY_0, KEY_1, KEY_ENTER,
+        KEY_BACKSPACE, KEY_SPACE, KEY_LEFTSHIFT, KEY_RIGHTSHIFT
+    };
+    if (!input_bit(keys, count, BTN_LEFT)) return 0;
+    for (size_t i = 0; i < sizeof(forbidden)/sizeof(forbidden[0]); ++i) {
+        if (input_bit(keys, count, forbidden[i])) return 0;
+    }
+    return 1;
+}
+
 static int event_number(const char *name) {
     if (strncmp(name, "event", 5u) != 0 || name[5] == '\0') return 0;
     for (const char *p = name + 5u; *p; p++)
@@ -68,7 +83,7 @@ static int open_session_pointer(void) {
         if (fstat(fd, &info) == 0 && S_ISCHR(info.st_mode) &&
             ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keys)), keys) >= 0 &&
             ioctl(fd, EVIOCGBIT(EV_ABS, sizeof(axes)), axes) >= 0 &&
-            input_bit(keys, sizeof(keys), BTN_LEFT) &&
+            safe_pointer_keys(keys, sizeof(keys)) &&
             input_bit(axes, sizeof(axes), ABS_X) &&
             input_bit(axes, sizeof(axes), ABS_Y) &&
             ioctl(fd, EVIOCGABS(ABS_X), &x) >= 0 &&
@@ -155,6 +170,14 @@ static int self_test(void) {
                          "--i-understand-root-shell", NULL};
     if (!event_number("event14") || event_number("event14-link") ||
         event_number("event")) return 1;
+    unsigned char pointer_keys[(KEY_MAX + 8u) / 8u] = {0};
+    pointer_keys[BTN_LEFT / 8u] |= (unsigned char)(1u << (BTN_LEFT % 8u));
+    if (!safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
+    pointer_keys[KEY_A / 8u] |= (unsigned char)(1u << (KEY_A % 8u));
+    if (safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
+    pointer_keys[KEY_A / 8u] &= (unsigned char)~(1u << (KEY_A % 8u));
+    pointer_keys[KEY_ENTER / 8u] |= (unsigned char)(1u << (KEY_ENTER % 8u));
+    if (safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
     if (!is_demo_mode(2, demo) || !is_authenticated_mode(2, authenticated) ||
         is_authenticated_mode(2, demo) || is_root_debug_mode(2, unconfirmed) ||
         !is_root_debug_mode(3, confirmed) || is_root_debug_mode(2, demo)) {

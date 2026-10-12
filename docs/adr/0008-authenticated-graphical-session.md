@@ -265,3 +265,15 @@ canonical input, echo, signals and output processing, while resetting common
 Linux control bytes. The C self-test exercises reset from disabled flags.
 This is source-level implementation pending compiled host and native QEMU
 validation; it does not change the unauthenticated developer terminal.
+
+## Reject keyboard-capable evdev descriptors as pointer leases
+
+The developer seat's optional evdev pointer classification explicitly
+rejects devices reporting text-keyboard capabilities (letters, digits,
+Enter, Backspace, Space, Shift), even if the device also advertises absolute
+X/Y and a left button. UID1000 receives a raw event descriptor, not an
+OS-filtered pointer stream, so a combined keyboard/tablet would otherwise
+allow user code to observe keystrokes outside the intended pointer boundary.
+A pure bitmap self-test covers accepted pointer and rejected hybrid cases.
+This is a conservative first-QEMU-target filter rather than a production
+input security policy; native guest testing remains required.
