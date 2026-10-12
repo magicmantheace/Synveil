@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <linux/input.h>
+#include <limits.h>
 #include <linux/vt.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -1164,13 +1165,14 @@ static int run_auth_login(const struct surface *screen) {
             close(keyboard);
             keyboard = -1;
             state.denied = !auth_attempt(&state);
+            // Authentication can return "denied" even if the seat accepted
+            // the password but the response was interrupted. In that race
+            // tty1 may have activated. Always restore tty2 before exposing
+            // a login surface or reopening the exclusive keyboard.
+            if (auth_restore_login_vt() != 0) break;
             if (state.denied) {
                 puts("\nSYNVEIL_GRAPHICAL_AUTH_DENIED");
                 fflush(stdout);
-            } else {
-                // The authenticated shell ran on tty1. Restore tty2
-                // before painting the locked screen or reading secrets.
-                if (auth_restore_login_vt() != 0) break;
             }
             keyboard = auth_open_private_keyboard();
             if (keyboard < 0) {

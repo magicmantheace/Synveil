@@ -224,3 +224,18 @@ The initial target is QEMU's absolute USB tablet, not all physical mice.
 Pointer isolation, guest rendering, logout, and device revocation require
 native QEMU validation. No full non-root desktop installation milestone is
 marked complete by this source change.
+
+## Login VT restoration on ambiguous denial
+
+The graphical login always attempts a bounded return to tty2 after a
+credential submission, not only after a received ACTIVE response. A
+disconnected socket or interrupted response can follow successful broker
+authentication and a tty1 activation. The UI must never repaint a locked
+password prompt or reopen the login keyboard while the authenticated VT
+remains in front. If tty2 cannot be restored, it exits to the bounded
+supervisor and does not report relock.
+
+The graphical guest crash check now kills **only the root-owned login
+display**, identified by both UID 0 and its fixed '--login' command
+line, and then checks whether the separate UID1000 session died. Killing
+both processes would not establish socket-lease revocation.
