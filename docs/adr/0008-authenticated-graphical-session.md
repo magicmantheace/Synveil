@@ -158,3 +158,14 @@ slowly delivered but otherwise valid frame and a throttled peer that sends
 no password bytes. These changes do **not** make the in-memory cooldown
 persistent across broker process restarts; nor do they substitute for a full
 QEMU login, timeout and recovery run.
+
+## Bounded login virtual-terminal recovery (host implementation; guest pending)
+
+The root graphical login no longer performs an unbounded `VT_WAITACTIVE`
+when taking back tty2. It issues `VT_ACTIVATE` and polls the kernel's
+`VT_GETSTATE` against a two-second monotonic deadline. A missing or stuck
+VT fails the display process so the existing three-attempt desktop
+supervisor can apply its recovery budget instead of hanging forever.
+The display self-test includes deadline-boundary assertions. This does not
+prove that tty2 restoration or terminal cleanup works on a real QEMU
+console; those still need exact-image guest validation.

@@ -23,6 +23,7 @@
 #include <sys/un.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 #include "preferences.h"
 #include "core_health.h"
@@ -625,13 +626,43 @@ static int run_menu(const struct surface *screen) {
 // still owns tty1 can expose the preceding terminal or hide the login.
 #define AUTH_LOGIN_VT 2
 
+// An unbounded VT_WAITACTIVE can strand the graphical supervisor if a
+// broken VT cannot activate. Check kernel VT state for at most two seconds.
+// On failure exit to the bounded desktop supervisor; never declare relock.
+#define AUTH_VT_RESTORE_TIMEOUT_SEC 2
+#define AUTH_VT_RESTORE_POLL_MS 25
+
+static int auth_vt_restore_expired(const struct timespec *start,
+                                   const struct timespec *now) {
+    time_t seconds = now->tv_sec - start->tv_sec;
+    long nanoseconds = now->tv_nsec - start->tv_nsec;
+    return seconds > AUTH_VT_RESTORE_TIMEOUT_SEC ||
+           (seconds == AUTH_VT_RESTORE_TIMEOUT_SEC && nanoseconds >= 0);
+}
+
 static int auth_restore_login_vt(void) {
     int controller = open("/dev/tty0", O_RDWR | O_CLOEXEC | O_NOCTTY);
     if (controller < 0) return -1;
-    int activated = ioctl(controller, VT_ACTIVATE, AUTH_LOGIN_VT);
-    int ready = activated == 0 ? ioctl(controller, VT_WAITACTIVE, AUTH_LOGIN_VT) : -1;
+    int result = -1;
+    struct timespec start;
+    if (ioctl(controller, VT_ACTIVATE, AUTH_LOGIN_VT) == 0 &&
+        clock_gettime(CLOCK_MONOTONIC, &start) == 0) {
+        for (;;) {
+            struct vt_stat current = {0};
+            if (ioctl(controller, VT_GETSTATE, &current) != 0) break;
+            if (current.v_active == AUTH_LOGIN_VT) {
+                result = 0;
+                break;
+            }
+            struct timespec now;
+            if (clock_gettime(CLOCK_MONOTONIC, &now) != 0 ||
+                auth_vt_restore_expired(&start, &now)) break;
+            if (poll(NULL, 0u, AUTH_VT_RESTORE_POLL_MS) < 0 && errno != EINTR)
+                break;
+        }
+    }
     close(controller);
-    return activated == 0 && ready == 0 ? 0 : -1;
+    return result;
 }
 
 static int auth_open_private_keyboard(void) {
@@ -1013,6 +1044,15 @@ static int self_test(void) {
     menu_click(&settings, 50u, 220u, 900u, 600u);
     menu_click(&settings, 50u, 330u, 900u, 600u);
     if (settings.high_contrast || settings.cursor_scale) return 1;
+    // The VT restore loop must return to supervision at its fixed deadline,
+    // including the nanosecond boundary rather than an extra whole second.
+    struct timespec before = {.tv_sec = 100, .tv_nsec = 500000000};
+    struct timespec early = {.tv_sec = 102, .tv_nsec = 499999999};
+    struct timespec deadline = {.tv_sec = 102, .tv_nsec = 500000000};
+    struct timespec late = {.tv_sec = 103, .tv_nsec = 0};
+    if (auth_vt_restore_expired(&before, &early) ||
+        !auth_vt_restore_expired(&before, &deadline) ||
+        !auth_vt_restore_expired(&before, &late)) return 1;
     struct auth_input auth = {0};
     auth_input_key(&auth, KEY_A, 1);
     auth_input_key(&auth, KEY_1, 1);
