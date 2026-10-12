@@ -729,15 +729,48 @@ static int run_user_session(const struct surface *screen) {
     fflush(stdout);
     int result = 0;
     while (!state.quit) {
-        unsigned code = session_read_key();
-        if (code == UINT_MAX) {
+        struct pollfd fds[2] = {
+            {.fd = STDIN_FILENO, .events = POLLIN},
+            {.fd = pointer.fd, .events = POLLIN},
+        };
+        nfds_t count = pointer.fd >= 0 ? 2u : 1u;
+        int activity = poll(fds, count, -1);
+        if (activity < 0 && errno == EINTR) continue;
+        if (activity <= 0 || (fds[0].revents & (POLLERR | POLLHUP | POLLNVAL))) {
             result = 1;
             break;
         }
-        if (code == 0u) continue;
         int old_contrast = state.high_contrast;
         unsigned old_cursor = state.cursor_scale;
-        menu_key(&state, code);
+        if (fds[0].revents & POLLIN) {
+            unsigned code = session_read_key();
+            if (code == UINT_MAX) {
+                result = 1;
+                break;
+            }
+            if (code) menu_key(&state, code);
+        }
+        if (pointer.fd >= 0 && (fds[1].revents & (POLLERR | POLLHUP | POLLNVAL))) {
+            close(pointer.fd);
+            pointer.fd = -1;
+        } else if (pointer.fd >= 0 && (fds[1].revents & POLLIN)) {
+            struct input_event event;
+            ssize_t n = read(pointer.fd, &event, sizeof(event));
+            if (n == (ssize_t)sizeof(event)) {
+                if (event.type == EV_ABS && event.code == ABS_X)
+                    pointer.screen_x = absolute_pixel(event.value, pointer.x.minimum,
+                                                      pointer.x.maximum, screen->variable.xres);
+                else if (event.type == EV_ABS && event.code == ABS_Y)
+                    pointer.screen_y = absolute_pixel(event.value, pointer.y.minimum,
+                                                      pointer.y.maximum, screen->variable.yres);
+                else if (event.type == EV_KEY && event.code == BTN_LEFT && event.value == 1)
+                    menu_click(&state, pointer.screen_x, pointer.screen_y,
+                               screen->variable.xres, screen->variable.yres);
+            } else if (n == 0 || (n < 0 && errno != EAGAIN && errno != EINTR)) {
+                close(pointer.fd);
+                pointer.fd = -1;
+            }
+        }
         if (state.launch) {
             state.launch = 0;
             if (session_terminal(&original) < 0) {
@@ -758,8 +791,12 @@ static int run_user_session(const struct surface *screen) {
             };
             (void)preferences_save("/home/synveil", &prefs);
         }
-        if (!state.quit) render_menu(screen, &state);
+        if (!state.quit) {
+            render_menu(screen, &state);
+            render_cursor(screen, &pointer, &state);
+        }
     }
+    if (pointer.fd >= 0) close(pointer.fd);
     (void)tcsetattr(STDIN_FILENO, TCSANOW, &original);
     puts("\nSYNVEIL_USER_DESKTOP_EXITED");
     fflush(stdout);
