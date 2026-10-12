@@ -120,3 +120,28 @@ unauthenticated developer menu. A dedicated offline policy fixture checks
 both the normal developer profile and this locked-profile fail-closed
 behavior. An opt-in QEMU graphical profile still requires native guest
 validation and is not an installation image.
+
+
+## Authenticated VT lease revocation (implemented; validation pending)
+
+The root-owned seat broker now reads the kernel's `VT_GETSTATE` for
+`/dev/tty0` while its fixed non-root terminal is active. A five-second
+startup deadline allows tty1 to activate; after tty1 has been observed,
+a switch to any other virtual terminal terminates and reaps that session
+before another login is accepted. An unreadable or invalid VT state fails
+closed. This closes the obvious path of switching back to a hidden unlocked
+tty1 terminal from the login screen. Polling is bounded to 100 ms; it does
+not claim to detect a leave-and-return between polls or replace a full
+production seat manager. The existing socket lease and parent-death
+cleanup still apply.
+
+Host unit cases cover initial activation deadlines, switching away from
+tty1 after authentication, and loss of VT visibility. The dedicated QEMU
+graphical-login smoke now injects *only* a fixed Ctrl+Alt+F2 chord using
+the private QMP test channel, then requires the login surface to reappear
+and no living UID1000 shell to remain, before exercising normal logout
+and GUI-crash cleanup in two further sessions. The fixture is a test
+specification, **not a passing QEMU result**. GitHub Actions are unavailable
+for this development period; local offline checks and commit-matched guest
+runs remain the source of validation evidence.
+
