@@ -81,27 +81,35 @@ fn has_persistent_state() -> bool {
 /// The graphical UI and AI must not call this privileged routine.
 pub fn enroll_root_credential(password: &[u8]) -> io::Result<()> {
     if !has_persistent_state() {
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "persistent state unavailable"));
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "persistent state unavailable",
+        ));
     }
     let record = Path::new(ROOT_CREDENTIAL_PATH);
-    let base = record.parent().and_then(Path::parent).ok_or_else(unsafe_path)?;
+    let base = record
+        .parent()
+        .and_then(Path::parent)
+        .ok_or_else(unsafe_path)?;
     enroll_in_private_state(base, 0, password)
 }
 
 fn unsafe_path() -> io::Error {
-    io::Error::new(io::ErrorKind::PermissionDenied, "untrusted credential storage")
+    io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        "untrusted credential storage",
+    )
 }
 
 fn private_directory(dir: &Path, uid: u32) -> bool {
     fs::symlink_metadata(dir).is_ok_and(|meta| {
-        meta.file_type().is_dir()
-            && meta.uid() == uid
-            && meta.permissions().mode() & 0o777 == 0o700
+        meta.file_type().is_dir() && meta.uid() == uid && meta.permissions().mode() & 0o777 == 0o700
     })
 }
 
 fn enroll_in_private_state(base: &Path, uid: u32, password: &[u8]) -> io::Result<()> {
-    if password.len() < MIN_PASSWORD_BYTES || password.len() > MAX_PASSWORD_BYTES
+    if password.len() < MIN_PASSWORD_BYTES
+        || password.len() > MAX_PASSWORD_BYTES
         || !private_directory(base, uid)
     {
         return Err(unsafe_path());
@@ -116,7 +124,10 @@ fn enroll_in_private_state(base: &Path, uid: u32, password: &[u8]) -> io::Result
     let path = auth.join("credential.phc");
     // Refuse existing credentials without replacement, even if symlinked.
     if fs::symlink_metadata(&path).is_ok() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "already enrolled"));
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "already enrolled",
+        ));
     }
     let mut salt_bytes = [0u8; 16];
     fs::File::open("/dev/urandom")?.read_exact(&mut salt_bytes)?;
@@ -219,13 +230,21 @@ mod tests {
         enroll_in_private_state(&dir, owner, b"fixture-enrollment-password").unwrap();
         let path = dir.join("auth/credential.phc");
         let record = read_private_record(&path, owner).unwrap();
-        assert!(verify_phc(LOCAL_ACCOUNT, b"fixture-enrollment-password", &record));
+        assert!(verify_phc(
+            LOCAL_ACCOUNT,
+            b"fixture-enrollment-password",
+            &record
+        ));
         assert_eq!(fs::metadata(&path).unwrap().mode() & 0o777, 0o600);
-        assert_eq!(fs::metadata(dir.join("auth")).unwrap().mode() & 0o777, 0o700);
+        assert_eq!(
+            fs::metadata(dir.join("auth")).unwrap().mode() & 0o777,
+            0o700
+        );
         let before = fs::read(&path).unwrap();
         assert_eq!(
             enroll_in_private_state(&dir, owner, b"another-fixture-password")
-                .unwrap_err().kind(),
+                .unwrap_err()
+                .kind(),
             io::ErrorKind::AlreadyExists
         );
         assert_eq!(fs::read(&path).unwrap(), before);
@@ -240,19 +259,22 @@ mod tests {
         std::os::unix::fs::symlink(&other, dir.join("auth")).unwrap();
         assert_eq!(
             enroll_in_private_state(&dir, owner, b"valid-test-password")
-                .unwrap_err().kind(),
+                .unwrap_err()
+                .kind(),
             io::ErrorKind::PermissionDenied
         );
         fs::remove_file(dir.join("auth")).unwrap();
         assert_eq!(
             enroll_in_private_state(&dir, owner, b"short")
-                .unwrap_err().kind(),
+                .unwrap_err()
+                .kind(),
             io::ErrorKind::PermissionDenied
         );
         fs::set_permissions(&dir, fs::Permissions::from_mode(0o777)).unwrap();
         assert_eq!(
             enroll_in_private_state(&dir, owner, b"valid-test-password")
-                .unwrap_err().kind(),
+                .unwrap_err()
+                .kind(),
             io::ErrorKind::PermissionDenied
         );
         fs::remove_dir_all(dir).unwrap();
