@@ -59,6 +59,11 @@ class DisplaySourceTests(unittest.TestCase):
                 check=True,
             )
             subprocess.run([str(executable), "--self-test"], check=True, timeout=3)
+            # The inherited-fbdev authenticated UI is not root-invokable.
+            if __import__("os").geteuid() != 1000:
+                denied = subprocess.run([str(executable), "--session"],
+                                        capture_output=True, timeout=3)
+                self.assertNotEqual(denied.returncode, 0)
 
 
 if __name__ == "__main__":

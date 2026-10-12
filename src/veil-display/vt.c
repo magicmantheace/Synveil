@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <grp.h>
 #include <linux/vt.h>
+#include <linux/fb.h>
 #include <poll.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -138,13 +139,28 @@ static int launch_terminal(bool demo, bool authenticated) {
         perror("[synveil-vt] activate tty1");
         return 1;
     }
+    // Only the authenticated graphical session is given a framebuffer FD.
+    // No device chmod, group privilege or general root helper is granted.
+    int session_fb = -1;
+    if (authenticated) {
+        session_fb = open("/dev/fb0", O_RDWR | O_CLOEXEC | O_NOFOLLOW);
+        struct stat info;
+        if (session_fb < 0 || fstat(session_fb, &info) != 0 ||
+            !S_ISCHR(info.st_mode)) {
+            if (session_fb >= 0) close(session_fb);
+            fputs("[synveil-vt] authenticated framebuffer unavailable\n", stderr);
+            return 1;
+        }
+    }
     pid_t launcher_pid = getpid();
     pid_t child = fork();
     if (child < 0) {
+        if (session_fb >= 0) close(session_fb);
         perror("[synveil-vt] fork");
         return 1;
     }
     if (child != 0) {
+        if (session_fb >= 0) close(session_fb);
         if (!demo) {
             fprintf(stderr, "[synveil-vt] root developer shell pid %ld\n", (long)child);
             return 0;
@@ -183,8 +199,18 @@ static int launch_terminal(bool demo, bool authenticated) {
     if (demo) {
         configure_demo_user();
         // setuid clears Linux PDEATHSIG; rearm it only after UID/GID drop.
-        // The helper exiting or being killed must terminate this shell.
+        // The helper exiting or being killed must terminate this session.
         if (synveil_parent_death_guard(launcher_pid) != 0) _exit(1);
+        if (authenticated) {
+            // Fixed, inherited framebuffer descriptor 3. dup2 with equal
+            // descriptors preserves FD_CLOEXEC, so clear it explicitly.
+            if (session_fb != 3 && dup2(session_fb, 3) != 3) _exit(1);
+            if (fcntl(3, F_SETFD, 0) != 0) _exit(1);
+            if (session_fb != 3) close(session_fb);
+            execl("/usr/bin/synveil-display", "synveil-display",
+                  "--session", (char *)NULL);
+            _exit(127);
+        }
     }
     execl("/bin/sh", "sh", "-i", (char *)NULL);
     _exit(127);

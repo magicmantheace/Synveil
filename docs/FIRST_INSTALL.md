@@ -257,3 +257,14 @@ wired name and reject unsafe names before mutation. This is limited
 developer DHCP plumbing, not an interactive production network manager:
 Wi-Fi, static IP, link selection UI, multi-homed route policy and
 physical-hardware driver support remain open.
+
+## Authenticated graphical user dashboard
+
+The opt-in authentication preview now starts a fixed, non-root UID1000
+framebuffer dashboard through the root seat's one-time inherited framebuffer
+fd. Its terminal is also non-root, and Esc on the top-level menu ends the
+session and returns to graphical login. Its view and settings reuse the
+existing diagnostic renderer but do not carry privileged mutation powers.
+The prototype is keyboard-only in the authenticated session; pointing
+input, app windows, secure recovery/onboarding, installed storage, and
+actual QEMU validation still block first installation.

@@ -179,3 +179,24 @@ exercises both a complete `ACTIVE` response and a truncated response from
 a peer that remains connected. After a successful response the existing
 socket lease still remains open until the session exits. QEMU is required
 to validate the display and broker together.
+
+## UID1000 graphical session prototype (implementation; guest validation pending)
+
+Authenticated seat login now launches a **fixed source-built graphical user
+session** instead of immediately executing an interactive shell. The root
+VT helper owns device activation, opens the framebuffer, forks, then drops
+UID/GID and supplementary groups before exec. Only its inherited fd 3
+allows UID1000 to draw on the kernel framebuffer; the user session does
+not receive root or device-node permissions. It reads keyboard navigation
+from its own tty1 in raw mode, shows Status/Storage/Network/Terminal/Settings
+via the existing small source-built renderer, and uses the private
+UID1000 home for non-authorization display preferences. Terminal selection
+starts only a fixed UID1000 shell; exiting returns to the user dashboard.
+Escape from the top-level launcher logs out. The seat broker still owns the
+socket lease and revokes the process chain on lost login display or VT switch.
+
+This is a **keyboard-first, single-app prototype**: graphical mouse input,
+window management, process-tree/cgroup teardown guarantees, interactive
+first-user enrollment, screen locking and complete guest tests remain
+open. It does not promote the root diagnostic menu to a user desktop, and
+is not ready for an owner install.

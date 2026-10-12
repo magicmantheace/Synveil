@@ -23,6 +23,7 @@
 #include <sys/un.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 #include "preferences.h"
@@ -164,6 +165,7 @@ struct menu_state {
     int launch;
     int high_contrast;
     unsigned cursor_scale;  // 0: normal, 1: large
+    int authenticated;     // fixed UID1000 graphical session only
 };
 
 static void menu_key(struct menu_state *state, unsigned code) {
@@ -298,7 +300,8 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
             return;
         }
         if (state->page == 3) {
-            heading(screen, "NON ROOT DEMO", 32u, h / 3u, 2u, muted);
+            heading(screen, state->authenticated ? "USER TERMINAL" : "NON ROOT DEMO",
+                    32u, h / 3u, 2u, muted);
             rectangle(screen, 32u, h / 2u - 10u, 250u, 50u, highlight);
             heading(screen, "OPEN TERMINAL", 40u, h / 2u + 5u, 2u, title);
             heading(screen, "ENTER TO OPEN", 32u, h * 3u / 5u, 2u, muted);
@@ -320,7 +323,8 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
         heading(screen, "ESC TO GO BACK", 32u, h * 4u / 5u, 2u, title);
         return;
     }
-    heading(screen, "SYSTEM LAUNCHER", 32u, h / 5u, 3u, title);
+    heading(screen, state->authenticated ? "USER DESKTOP" : "SYSTEM LAUNCHER",
+            32u, h / 5u, 3u, title);
     const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL", "SETTINGS"};
     for (unsigned i = 0; i < 5u; ++i) {
         unsigned x = 32u + i * ((w > 140u ? w - 64u : w) / 5u);
@@ -331,7 +335,8 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
         heading(screen, pages[i], x + 6u, h / 3u + 18u, scale, title);
     }
     heading(screen, "LEFT RIGHT ENTER", 32u, h * 4u / 5u, 2u, muted);
-    heading(screen, "ESC TO EXIT", 32u, h * 4u / 5u + 24u, 2u, muted);
+    heading(screen, state->authenticated ? "ESC TO LOGOUT" : "ESC TO EXIT",
+            32u, h * 4u / 5u + 24u, 2u, muted);
 }
 
 static int event_bit(const unsigned char *bits, size_t count, unsigned bit) {
@@ -613,6 +618,126 @@ static int run_menu(const struct surface *screen) {
     if (pointer.fd >= 0) close(pointer.fd);
     close(keyboard);
     return state.quit ? 0 : 1;
+}
+
+
+// The authenticated VM session never opens privileged devices itself.
+// Root-owned veil-seat launched a fixed VT helper which passed only fbdev
+// descriptor 3 before dropping to UID/GID 1000. Read input from its own
+// controlling tty1 in raw mode; no input-device permissions are relaxed.
+// The menu does not accept command strings, identities or credentials.
+static unsigned session_input_code(unsigned char byte) {
+    switch (byte) {
+        case '\r': case '\n': return KEY_ENTER;
+        case 8: case 127: return KEY_BACKSPACE;
+        case 27: return KEY_ESC;
+        case 'a': case 'A': return KEY_A;
+        case 'd': case 'D': return KEY_D;
+        case 'h': case 'H': return KEY_LEFT;
+        case 'l': case 'L': return KEY_RIGHT;
+        case 'k': case 'K': return KEY_UP;
+        case 'j': case 'J': return KEY_DOWN;
+        default: return 0u;
+    }
+}
+
+static unsigned session_read_key(void) {
+    unsigned char byte;
+    ssize_t got = read(STDIN_FILENO, &byte, 1u);
+    if (got != 1) return 0u;
+    if (byte != 27u) return session_input_code(byte);
+    struct pollfd fd = {.fd = STDIN_FILENO, .events = POLLIN};
+    if (poll(&fd, 1u, 25) != 1) return KEY_ESC;
+    if (read(STDIN_FILENO, &byte, 1u) != 1 || byte != '[') return KEY_ESC;
+    if (poll(&fd, 1u, 25) != 1) return KEY_ESC;
+    if (read(STDIN_FILENO, &byte, 1u) != 1) return KEY_ESC;
+    switch (byte) {
+        case 'A': return KEY_UP;
+        case 'B': return KEY_DOWN;
+        case 'C': return KEY_RIGHT;
+        case 'D': return KEY_LEFT;
+        default: return KEY_ESC;
+    }
+}
+
+// A non-root, fixed executable only. The running graphical session retains
+// the seat lease through its root-owned parent, and the shell inherits no
+// framebuffer descriptor. It can write in its own home, never as root.
+static int session_terminal(const struct termios *original) {
+    if (tcsetattr(STDIN_FILENO, TCSANOW, original) != 0) return -1;
+    const char banner[] = "\033[2J\033[HSynveil user terminal (UID 1000)\r\n"
+                          "Type exit to return to your desktop.\r\n";
+    (void)write(STDOUT_FILENO, banner, sizeof(banner)-1u);
+    pid_t owner = getpid();
+    pid_t child = fork();
+    if (child < 0) return -1;
+    if (child == 0) {
+        // No open framebuffer passed to arbitrary shell subprocesses.
+        close(3);
+        if (synveil_parent_death_guard(owner) != 0) _exit(1);
+        execl("/bin/sh", "sh", "-i", (char *)NULL);
+        _exit(127);
+    }
+    int status = 0;
+    while (waitpid(child, &status, 0) < 0) {
+        if (errno == EINTR) continue;
+        return -1;
+    }
+    return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+}
+
+static int run_user_session(const struct surface *screen) {
+    if (geteuid() != 1000 || getuid() != 1000 || !isatty(STDIN_FILENO))
+        return 1;
+    struct termios original, raw;
+    if (tcgetattr(STDIN_FILENO, &original) != 0) return 1;
+    raw = original;
+    cfmakeraw(&raw);
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) != 0) return 1;
+    struct menu_state state = {.selected = 0u, .page = -1, .authenticated = 1};
+    // This is user-owned data under the UID1000 private home. Never use
+    // root-owned global display preferences as a session authorization input.
+    struct desktop_preferences saved = {0};
+    if (preferences_load("/home/synveil", &saved)) {
+        state.high_contrast = saved.high_contrast;
+        state.cursor_scale = saved.cursor_scale;
+    }
+    render_menu(screen, &state);
+    puts("\nSYNVEIL_USER_DESKTOP_READY");
+    fflush(stdout);
+    int result = 0;
+    while (!state.quit) {
+        unsigned code = session_read_key();
+        if (code == 0u) continue;
+        int old_contrast = state.high_contrast;
+        unsigned old_cursor = state.cursor_scale;
+        menu_key(&state, code);
+        if (state.launch) {
+            state.launch = 0;
+            if (session_terminal(&original) < 0) {
+                result = 1;
+                break;
+            }
+            if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) != 0) {
+                result = 1;
+                break;
+            }
+            state.page = -1;
+        }
+        if (state.high_contrast != old_contrast ||
+            state.cursor_scale != old_cursor) {
+            struct desktop_preferences prefs = {
+                .high_contrast = state.high_contrast,
+                .cursor_scale = state.cursor_scale
+            };
+            (void)preferences_save("/home/synveil", &prefs);
+        }
+        if (!state.quit) render_menu(screen, &state);
+    }
+    (void)tcsetattr(STDIN_FILENO, TCSANOW, &original);
+    puts("\nSYNVEIL_USER_DESKTOP_EXITED");
+    fflush(stdout);
+    return result;
 }
 
 // Experimental *developer-only* graphical login client for veil-seat.
@@ -1092,6 +1217,12 @@ static int self_test(void) {
     if (auth_vt_restore_expired(&before, &early) ||
         !auth_vt_restore_expired(&before, &deadline) ||
         !auth_vt_restore_expired(&before, &late)) return 1;
+    if (session_input_code('h') != KEY_LEFT ||
+        session_input_code('l') != KEY_RIGHT ||
+        session_input_code('a') != KEY_A ||
+        session_input_code('\r') != KEY_ENTER ||
+        session_input_code(27u) != KEY_ESC ||
+        session_input_code('x') != 0u) return 1;
     struct auth_input auth = {0};
     auth_input_key(&auth, KEY_A, 1);
     auth_input_key(&auth, KEY_1, 1);
@@ -1159,11 +1290,24 @@ int main(int argc, char **argv) {
     if (argc != 2 || (strcmp(argv[1], "--probe") != 0 &&
                       strcmp(argv[1], "--demo") != 0 &&
                       strcmp(argv[1], "--menu") != 0 &&
-                      strcmp(argv[1], "--login") != 0)) {
-        fputs("usage: synveil-display --probe|--demo|--menu|--login|--self-test\n", stderr);
+                      strcmp(argv[1], "--login") != 0 &&
+                      strcmp(argv[1], "--session") != 0)) {
+        fputs("usage: synveil-display --probe|--demo|--menu|--login|--session|--self-test\n", stderr);
         return 2;
     }
-    int fd = open("/dev/fb0", O_RDWR | O_CLOEXEC);
+    const int user_session = strcmp(argv[1], "--session") == 0;
+    // Unprivileged desktop uses only the inherited framebuffer lease.
+    // A direct --session invocation with no valid FD cannot open fbdev.
+    if (user_session && (geteuid() != 1000 || getuid() != 1000))
+        return 1;
+    int fd = user_session ? fcntl(3, F_DUPFD_CLOEXEC, 8) :
+                            open("/dev/fb0", O_RDWR | O_CLOEXEC);
+    struct stat session_device;
+    if (user_session && (fd < 0 || fstat(fd, &session_device) != 0 ||
+                         !S_ISCHR(session_device.st_mode))) {
+        if (fd >= 0) close(fd);
+        return 1;
+    }
     if (fd < 0) {
         fprintf(stderr, "[synveil-display] /dev/fb0 unavailable: %s\n", strerror(errno));
         return 1;
@@ -1188,6 +1332,7 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "--demo") == 0) paint(&screen);
     else if (strcmp(argv[1], "--menu") == 0) result = run_menu(&screen);
     else if (strcmp(argv[1], "--login") == 0) result = run_auth_login(&screen);
+    else if (user_session) result = run_user_session(&screen);
     else rectangle(&screen, 0, 0, 1, 1, rgb(&screen, 13, 20, 36));
     munmap(screen.mapped, screen.length);
     if (result == 0) puts("SYNVEIL_DISPLAY_READY");
