@@ -44,13 +44,15 @@ unsafe extern "C" {
 }
 
 fn peer_uid(stream: &UnixStream) -> io::Result<u32> {
-    let mut cred = LinuxUcred { pid: 0, uid: u32::MAX, gid: u32::MAX };
+    let mut cred = LinuxUcred {
+        pid: 0,
+        uid: u32::MAX,
+        gid: u32::MAX,
+    };
     let mut len = u32::try_from(std::mem::size_of::<LinuxUcred>())
         .map_err(|_| io::Error::other("invalid Linux ucred size"))?;
     // SOL_SOCKET=1, SO_PEERCRED=17 on the pinned Linux x86_64 target.
-    let ok = unsafe {
-        getsockopt(stream.as_raw_fd(), 1, 17, &mut cred, &mut len)
-    };
+    let ok = unsafe { getsockopt(stream.as_raw_fd(), 1, 17, &mut cred, &mut len) };
     if ok != 0 {
         return Err(io::Error::last_os_error());
     }
@@ -66,7 +68,10 @@ fn read_secret(stream: &mut UnixStream) -> io::Result<Vec<u8>> {
     stream.read_exact(&mut header)?;
     let length = u16::from_be_bytes([header[4], header[5]]) as usize;
     if &header[..4] != HEADER_MAGIC || !(MIN_SECRET..=MAX_SECRET).contains(&length) {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid seat frame"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid seat frame",
+        ));
     }
     let mut secret = vec![0u8; length];
     if let Err(error) = stream.read_exact(&mut secret) {
@@ -77,16 +82,24 @@ fn read_secret(stream: &mut UnixStream) -> io::Result<Vec<u8>> {
 }
 
 fn prepare_seat_socket(path: &Path, owner: u32) -> io::Result<UnixListener> {
-    let parent = path.parent().ok_or_else(|| io::Error::other("seat socket missing parent"))?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| io::Error::other("seat socket missing parent"))?;
     let meta = fs::symlink_metadata(parent)?;
     if !meta.file_type().is_dir()
         || meta.uid() != owner
         || meta.permissions().mode() & 0o777 != 0o700
     {
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "unsafe seat directory"));
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "unsafe seat directory",
+        ));
     }
     if fs::symlink_metadata(path).is_ok() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "seat socket exists"));
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "seat socket exists",
+        ));
     }
     let listener = UnixListener::bind(path)?;
     fs::set_permissions(path, Permissions::from_mode(0o600))?;
@@ -101,11 +114,7 @@ fn start_fixed_terminal() -> io::Result<Child> {
         .spawn()
 }
 
-fn close_session(
-    tracker: &mut SessionTracker,
-    session: u64,
-    child: &mut Child,
-) {
+fn close_session(tracker: &mut SessionTracker, session: u64, child: &mut Child) {
     // Never grant another login until this process has been reaped.
     tracker.display_failed();
     let _ = child.kill();
@@ -127,7 +136,10 @@ where
     L: FnOnce() -> io::Result<Child>,
 {
     if peer_uid(stream)? != required_uid {
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "peer not authorized"));
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "peer not authorized",
+        ));
     }
     let mut secret = match read_secret(stream) {
         Ok(value) => value,
@@ -150,7 +162,9 @@ where
         }
     };
     let verified = tracker.complete_with_verifier(
-        attempt, crate::credential::LOCAL_ACCOUNT, &secret,
+        attempt,
+        crate::credential::LOCAL_ACCOUNT,
+        &secret,
         |_, value| verify(value),
     );
     secret.fill(0);
@@ -184,8 +198,9 @@ where
         }
         match stream.read(&mut signal) {
             Ok(0) | Ok(_) => break,
-            Err(error) if error.kind() == io::ErrorKind::TimedOut
-                || error.kind() == io::ErrorKind::WouldBlock => {}
+            Err(error)
+                if error.kind() == io::ErrorKind::TimedOut
+                    || error.kind() == io::ErrorKind::WouldBlock => {}
             Err(_) => break,
         }
     }
@@ -196,7 +211,10 @@ where
 
 pub fn serve(path: &Path) -> io::Result<()> {
     if unsafe { native_euid() } != 0 {
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "root seat required"));
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "root seat required",
+        ));
     }
     let listener = prepare_seat_socket(path, 0)?;
     let mut tracker = SessionTracker::default();
@@ -207,10 +225,15 @@ pub fn serve(path: &Path) -> io::Result<()> {
                 // No password bytes, hashes, or credential-dependent errors
                 // are ever logged by this process.
                 let _ = handle_connection(
-                    &mut stream, &mut tracker, 0,
-                    |password| crate::credential::verify_root_credential(
-                        crate::credential::LOCAL_ACCOUNT, password,
-                    ),
+                    &mut stream,
+                    &mut tracker,
+                    0,
+                    |password| {
+                        crate::credential::verify_root_credential(
+                            crate::credential::LOCAL_ACCOUNT,
+                            password,
+                        )
+                    },
                     start_fixed_terminal,
                 );
             }
@@ -236,7 +259,9 @@ mod tests {
 
     fn send_login(stream: &mut UnixStream, password: &[u8]) {
         stream.write_all(HEADER_MAGIC).unwrap();
-        stream.write_all(&(password.len() as u16).to_be_bytes()).unwrap();
+        stream
+            .write_all(&(password.len() as u16).to_be_bytes())
+            .unwrap();
         stream.write_all(password).unwrap();
     }
 
@@ -253,10 +278,13 @@ mod tests {
         let worker = thread::spawn(move || {
             let mut tracker = SessionTracker::default();
             handle_connection(
-                &mut server, &mut tracker, owner,
+                &mut server,
+                &mut tracker,
+                owner,
                 |_| false,
                 || panic!("denial must not launch"),
-            ).unwrap();
+            )
+            .unwrap();
             tracker.state()
         });
         send_login(&mut client, b"incorrect-password");
@@ -273,10 +301,13 @@ mod tests {
         let worker = thread::spawn(move || {
             let mut tracker = SessionTracker::default();
             handle_connection(
-                &mut server, &mut tracker, owner,
+                &mut server,
+                &mut tracker,
+                owner,
                 |password| password == b"correct-password",
                 || Command::new("sleep").arg("30").spawn(),
-            ).unwrap();
+            )
+            .unwrap();
             tracker.state()
         });
         send_login(&mut client, b"correct-password");
@@ -299,10 +330,13 @@ mod tests {
             let worker = thread::spawn(move || {
                 let mut tracker = SessionTracker::default();
                 handle_connection(
-                    &mut server, &mut tracker, owner,
+                    &mut server,
+                    &mut tracker,
+                    owner,
                     |_| panic!("invalid frame verified"),
                     || panic!("invalid frame launched"),
-                ).unwrap();
+                )
+                .unwrap();
                 tracker.state()
             });
             client.write_all(raw).unwrap();
@@ -323,7 +357,10 @@ mod tests {
         let owner = fs::metadata(&dir).unwrap().uid();
         let socket = dir.join("seat.sock");
         let listener = prepare_seat_socket(&socket, owner).unwrap();
-        assert_eq!(fs::metadata(&socket).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(&socket).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
         assert!(prepare_seat_socket(&socket, owner).is_err());
         drop(listener);
         fs::remove_file(&socket).unwrap();
