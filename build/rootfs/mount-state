@@ -20,8 +20,17 @@ chmod 1777 /var/tmp || exit 1
 # preventing the guest user from substituting a link for its own home path.
 # A failure does not prevent the separate serial recovery shell.
 if [ -d /home/synveil ]; then
-    if mkdir -p /var/lib/synveil/home/synveil &&
+    # The ext4 volume is writable by root, but stale or deliberately
+    # symlinked state paths must never redirect privileged chown/mount.
+    # Keep the parent root-owned and inaccessible to the demo account.
+    if [ ! -L /var/lib/synveil ] &&
+       [ ! -L /var/lib/synveil/home ] &&
+       [ ! -L /var/lib/synveil/home/synveil ] &&
+       [ ! -L /home/synveil ] &&
+       mkdir -p /var/lib/synveil/home/synveil &&
+       [ "$(stat -c '%u:%g' /var/lib/synveil/home)" = 0:0 ] &&
        chmod 0700 /var/lib/synveil/home &&
+       [ "$(stat -c '%F' /var/lib/synveil/home/synveil)" = directory ] &&
        chown 1000:1000 /var/lib/synveil/home/synveil &&
        chmod 0700 /var/lib/synveil/home/synveil &&
        mount -o bind /var/lib/synveil/home/synveil /home/synveil; then
