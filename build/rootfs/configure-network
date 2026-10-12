@@ -23,6 +23,12 @@ choose_interface() {
         [ -d "$node" ] || continue
         candidate="${node##*/}"
         valid_interface "$candidate" || continue
+        # The bootstrap only supports wired Ethernet DHCP. Do not try to
+        # configure wireless devices without association/authentication.
+        [ -d "$node/wireless" ] && continue
+        [ -e "$node/phy80211" ] && continue
+        [ -r "$node/type" ] || continue
+        [ "$(cat "$node/type" 2>/dev/null)" = 1 ] || continue
         if [ -r "$node/carrier" ] &&
            [ "$(cat "$node/carrier" 2>/dev/null)" = 1 ]; then
             printf '%s\n' "$candidate"

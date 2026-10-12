@@ -55,10 +55,13 @@ class DHCPTests(unittest.TestCase):
 
     def test_configure_selects_carrier_before_disconnected_interface(self):
         sysnet = self.root / "net"
-        for name, carrier in (("lo", "1"), ("eth0", "0"), ("enp0s3", "1")):
+        for name, carrier in (("lo", "1"), ("eth0", "0"),
+                              ("enp0s3", "1"), ("wlan0", "1")):
             path = sysnet / name
             path.mkdir(parents=True)
             (path / "carrier").write_text(carrier)
+            (path / "type").write_text("1")
+        (sysnet / "wlan0/wireless").mkdir()
         for name, body in {
             "timeout": '#!/bin/sh\nshift 3\nexec "$@"\n',
             "udhcpc": '#!/bin/sh\nprintf "udhcpc %s\\n" "$*" >> "$LOG"\n',
@@ -77,6 +80,29 @@ class DHCPTests(unittest.TestCase):
         self.assertIn("SYNVEIL_NETWORK_READY", result.stdout)
         self.assertIn("udhcpc -i enp0s3", self.log.read_text())
         self.assertIn("ip -4 addr show dev enp0s3", self.log.read_text())
+
+    def test_configure_rejects_non_ethernet_and_wireless_only_devices(self):
+        sysnet = self.root / "only-other-devices"
+        (sysnet / "lo").mkdir(parents=True)
+        (sysnet / "lo/type").write_text("772")
+        (sysnet / "wlan0/wireless").mkdir(parents=True)
+        (sysnet / "wlan0/type").write_text("1")
+        (sysnet / "wlan0/carrier").write_text("1")
+        (self.bin / "udhcpc").write_text("#!/bin/sh\nexit 0\n")
+        (self.bin / "udhcpc").chmod(0o755)
+        (self.bin / "timeout").write_text("#!/bin/sh\nexit 0\n")
+        (self.bin / "timeout").chmod(0o755)
+        (self.bin / "ip").write_text("#!/bin/sh\nexit 0\n")
+        (self.bin / "ip").chmod(0o755)
+        result = subprocess.run(
+            ["sh", str(CONFIGURE)], capture_output=True, text=True, timeout=3,
+            env={**os.environ, "SYNVEIL_NET_CLASS_DIR": str(sysnet),
+                 "SYNVEIL_NETWORK_PATH": str(self.bin) + ":" + os.environ.get("PATH", ""),
+                 "LOG": str(self.log)},
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no usable wired interface", result.stdout)
+        self.assertFalse(self.log.exists())
 
     def test_invalid_interface_ip_and_action_do_not_mutate(self):
         for action, env in (("bound", {"interface": "../lo"}),
