@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 #include "lifetime.h"
@@ -126,6 +127,26 @@ static int activate_terminal_vt(int fd, unsigned vt) {
     }
 }
 
+// A crashed UID1000 dashboard can leave tty1 in raw mode. Restore the
+// canonical tty baseline *before every new authenticated launch* rather
+// than treating the previous user's termios as trusted state.
+static void restore_session_tty_mode(struct termios *mode) {
+    mode->c_iflag &= ~(IGNCR | INLCR | IXOFF);
+    mode->c_iflag |= ICRNL | IXON;
+    mode->c_oflag |= OPOST | ONLCR;
+    mode->c_lflag |= ISIG | ICANON | ECHO | ECHOE | ECHOK | IEXTEN;
+    mode->c_cc[VINTR] = 3;
+    mode->c_cc[VQUIT] = 28;
+    mode->c_cc[VERASE] = 127;
+    mode->c_cc[VKILL] = 21;
+    mode->c_cc[VEOF] = 4;
+    mode->c_cc[VSTART] = 17;
+    mode->c_cc[VSTOP] = 19;
+    mode->c_cc[VSUSP] = 26;
+    mode->c_cc[VMIN] = 1;
+    mode->c_cc[VTIME] = 0;
+}
+
 static int self_test(void) {
     char *demo[] = {"synveil-vt", "--demo-terminal", NULL};
     char *authenticated[] = {"synveil-vt", "--authenticated-terminal", NULL};
@@ -139,6 +160,16 @@ static int self_test(void) {
         !is_root_debug_mode(3, confirmed) || is_root_debug_mode(2, demo)) {
         return 1;
     }
+    struct termios restored = {0};
+    restored.c_iflag = IGNCR | INLCR | IXOFF;
+    restore_session_tty_mode(&restored);
+    if (!(restored.c_iflag & ICRNL) || !(restored.c_iflag & IXON) ||
+        (restored.c_iflag & (IGNCR | INLCR | IXOFF)) ||
+        !(restored.c_oflag & OPOST) || !(restored.c_oflag & ONLCR) ||
+        !(restored.c_lflag & ISIG) || !(restored.c_lflag & ICANON) ||
+        !(restored.c_lflag & ECHO) ||
+        restored.c_cc[VINTR] != 3 || restored.c_cc[VEOF] != 4 ||
+        restored.c_cc[VMIN] != 1 || restored.c_cc[VTIME] != 0) return 1;
     struct timespec cutoff = {.tv_sec = 105, .tv_nsec = 420000000};
     struct timespec before = {.tv_sec = 105, .tv_nsec = 419999999};
     struct timespec exactly = {.tv_sec = 105, .tv_nsec = 420000000};
@@ -253,6 +284,12 @@ static int launch_terminal(bool demo, bool authenticated) {
         _exit(1);
     }
     if (terminal > STDERR_FILENO) close(terminal);
+    if (authenticated) {
+        struct termios mode;
+        if (tcgetattr(STDIN_FILENO, &mode) < 0) _exit(1);
+        restore_session_tty_mode(&mode);
+        if (tcsetattr(STDIN_FILENO, TCSANOW, &mode) < 0) _exit(1);
+    }
     const char *banner = authenticated ?
         "\033[2J\033[H"
         "Synveil graphical user session (AUTHENTICATED UID 1000)\r\n"

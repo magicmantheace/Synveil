@@ -253,3 +253,15 @@ relock. Separate checks test Ctrl+Alt+F2 lease revocation, wrong passwords,
 and destruction of a user session after killing *only* the root graphical
 login process. Host-only fake-QMP fixtures are required to reject any
 missing intermediate evidence, but QEMU/image evidence is still pending.
+
+## Reestablishing tty1 line discipline after display crashes
+
+The deterministic root VT launcher now normalizes the authenticated tty1
+line discipline before every session start. The UID1000 framebuffer dashboard
+uses raw-mode keyboard input, and a SIGKILL cannot execute its normal
+`tcsetattr` restore path. Persisting that raw state would break the next
+session's fixed interactive terminal. The launcher explicitly re-enables
+canonical input, echo, signals and output processing, while resetting common
+Linux control bytes. The C self-test exercises reset from disabled flags.
+This is source-level implementation pending compiled host and native QEMU
+validation; it does not change the unauthenticated developer terminal.

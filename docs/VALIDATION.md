@@ -233,3 +233,12 @@ commit, tracked-worktree cleanliness and tracked-diff SHA-256.
 Only guest-tier checks against a clean, manifest-matched image can support
 end-to-end QEMU claims. Keep failed logs and re-run after fixes. Do not
 turn off CI checks or fabricate their status while Actions is unavailable.
+
+### Authenticated tty1 crash recovery gate (new code, runtime evidence pending)
+
+A normal logout is insufficient evidence of terminal recovery. The root VT
+launcher must normalize tty1 to canonical/echo/signal mode before each
+new authenticated user session, even if the preceding dashboard was killed
+while in raw mode. Compile/run the `synveil-vt --self-test` host fixture,
+then force a dashboard crash and complete an independent second login and
+fixed shell open/exit in native QEMU. Source presence alone is not a pass.
