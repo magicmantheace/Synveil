@@ -274,3 +274,25 @@ The host display suite now compiles and executes
 verifies the resulting kernel state in a child. The GUI fails closed if
 this call cannot be honored. This does not prove framebuffer or UI security
 under a full native guest with multiple UID1000 processes.
+
+### October 12 GitHub Actions guest integration failures
+
+The public repository's native target workflow successfully built the pinned
+source/toolchain and ran most guest gates at commit `b8f637a`, but the
+credential enrollment and seat-broker crash scenarios timed out without
+`/dev/fb0`: their QEMU launch lacked the explicit video flag. Both smoke
+cases now force `SYNVEIL_QEMU_VIDEO=1` in the guest harness, regardless of
+the calling workflow's environment, and enrollment requires the actual
+`SYNVEIL_VT_READY` marker. The host recovery fixtures assert the video
+setting is present. This corrects the test setup, not the evidence status:
+the revised guest scenarios require a new QEMU run.
+
+The isolated graphical-login fixture at that revision enrolled a fresh
+credential and rejected the wrong password, but then rejected the subsequent
+correct-password attempt. The root graphical login previously emitted
+`SYNVEIL_GRAPHICAL_AUTH_DENIED` **before** re-opening and grabbing the login
+keyboard. Its QMP test uses that marker to send the next password; the new
+code emits denial evidence only after the login VT is restored, the keyboard
+is regrabbed and the screen is repainted. This removes one proven input
+readiness race, but does not by itself establish that the entire QEMU guest
+flow will now pass.

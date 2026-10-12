@@ -309,3 +309,15 @@ The change is local to the GUI process; it does not mutate the unprivileged
 shell's privileges or confer new authority. A host fork fixture checks
 that the exact helper sets `PR_GET_DUMPABLE` to zero. Guest privilege
 and session lifecycle checks must still pass before release.
+
+## Reacquire the login keyboard before declaring denial
+
+A rejected graphical authentication attempt must never emit the
+`SYNVEIL_GRAPHICAL_AUTH_DENIED` test marker while the evdev keyboard is
+closed. The QMP test immediately sends another password after that marker;
+an early marker let the next attempt start before EVIOCGRAB, losing keys.
+The root login now restores VT2, reacquires the device, repaints, **then**
+emits the denied marker. If regrab fails, it reports input unavailable
+instead of claiming it is ready. Positive relock evidence follows the same
+post-grab rule. The original failing native guest needs to be rebuilt and
+retested to determine whether other problems remain.

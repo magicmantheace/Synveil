@@ -40,8 +40,10 @@ if case in ('enroll', 'enrolled-reboot', 'seat-crash'):
     print('SYNVEIL_STATE_READY', flush=True)
 if case in ('enroll', 'seat-locked', 'seat-crash'):
     print('SYNVEIL_SEAT_READY', flush=True)
-if case in ('demo', 'desktop', 'desktop-terminal', 'seat-crash'):
+if case in ('demo', 'desktop', 'desktop-terminal', 'seat-crash', 'enroll'):
     print('SYNVEIL_VT_READY\\nSYNVEIL_DESKTOP_READY', flush=True)
+if case in ('seat-crash', 'enroll'):
+    assert os.environ.get('SYNVEIL_QEMU_VIDEO') == '1'
 command = ''
 while not command.endswith('# SYNVEIL_TEST_COMMAND_END\\n'):
     line = sys.stdin.readline()

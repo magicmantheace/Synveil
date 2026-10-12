@@ -1177,10 +1177,10 @@ static int run_auth_login(const struct surface *screen) {
             // tty1 may have activated. Always restore tty2 before exposing
             // a login surface or reopening the exclusive keyboard.
             if (auth_restore_login_vt() != 0) break;
-            if (state.denied) {
-                puts("\nSYNVEIL_GRAPHICAL_AUTH_DENIED");
-                fflush(stdout);
-            }
+            // A denial is *not* safe evidence of input readiness until tty2
+            // has been restored and EVIOCGRAB has been reacquired. Test QMP
+            // clients may submit the next password as soon as this marker
+            // appears; emitting it early silently drops their first keys.
             keyboard = auth_open_private_keyboard();
             if (keyboard < 0) {
                 auth_keyboard_disconnected(&state);
@@ -1188,7 +1188,11 @@ static int run_auth_login(const struct surface *screen) {
                 fflush(stdout);
             }
             auth_render(screen, &state);
-            if (keyboard >= 0 && !state.denied) {
+            if (keyboard >= 0 && state.denied) {
+                // The keyboard is grabbed and the denied UI fully painted.
+                puts("\nSYNVEIL_GRAPHICAL_AUTH_DENIED");
+                fflush(stdout);
+            } else if (keyboard >= 0) {
                 // Evidence only once VT2 is visible, painted and securely
                 // receiving keystrokes; never report a premature relock.
                 puts("\nSYNVEIL_LOGIN_RELOCKED");

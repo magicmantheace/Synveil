@@ -58,7 +58,7 @@ TERMINAL_LIFETIME = (
 )
 ENROLL_RECOVERY = (
     {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY",
-     b"SYNVEIL_SEAT_READY"},
+     b"SYNVEIL_SEAT_READY", b"SYNVEIL_VT_READY"},
     b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_ENROLL_SMOKE_OK",
     "if [ ! -e /var/lib/synveil/auth/credential.phc ]; then "
     "secret=$(cat /proc/sys/kernel/random/uuid); "
@@ -240,6 +240,11 @@ def smoke(timeout_seconds, case="crash"):
     log.parent.mkdir(parents=True, exist_ok=True)
     # These cases use only developer QEMU state devices, never host disks.
     guest_env = dict(os.environ)
+    # Both scenarios authenticate and activate tty1 through a real fbdev
+    # seat, even though the controlling smoke script runs over serial.
+    # Do not rely on the workflow author to remember this QEMU option.
+    if case in ("enroll", "seat-crash"):
+        guest_env["SYNVEIL_QEMU_VIDEO"] = "1"
     corrupt_disk = None
     qmp_directory = None
     if case == "desktop-terminal":
