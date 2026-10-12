@@ -25,6 +25,12 @@ and boot options remain explicit and off by default.
 - `SYNVEIL_DESKTOP_AUTOSTART=1` includes an immutable autostart marker
   in the image. The session runs in the background, independently of the
   recovery shell. Startup marker emission requires a framebuffer and keyboard.
+- Disposable UID 1000 demo-terminal descendants now carry Linux parent-death
+  guards across the graphical launcher and terminal helper. The guard is
+  rearmed after dropping UID/GID (which clears the kernel setting); a
+  crashing display cannot intentionally leave its demo shell behind.
+  Host process-tree tests cover a killed launcher; QEMU retesting remains
+  required for VT behavior.
 - A **separate** explicitly confirmed `synveil-vt` command can activate a
   real Linux framebuffer virtual console and launch a developer root shell.
   It does not run automatically, does not enter the AI action plane, and is

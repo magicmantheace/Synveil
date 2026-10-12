@@ -22,6 +22,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "preferences.h"
+#include "lifetime.h"
 
 struct surface {
     unsigned char *mapped;
@@ -472,9 +473,12 @@ static void render_cursor(const struct surface *screen, const struct pointer_dev
 
 static int launch_demo_terminal(void) {
     // Fixed binary and arguments, never a shell command or model-provided text.
+    // A display crash must kill its terminal launcher, not orphan a shell.
+    pid_t owner = getpid();
     pid_t process = fork();
     if (process < 0) return 1;
     if (process == 0) {
+        if (synveil_parent_death_guard(owner) != 0) _exit(1);
         execl("/usr/bin/synveil-vt", "synveil-vt", "--demo-terminal", (char *)NULL);
         _exit(127);
     }

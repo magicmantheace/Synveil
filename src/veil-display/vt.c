@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "lifetime.h"
 
 #define DEMO_UID 1000
 #define DEMO_GID 1000
@@ -93,6 +94,7 @@ static int launch_terminal(bool demo) {
         perror("[synveil-vt] activate tty1");
         return 1;
     }
+    pid_t launcher_pid = getpid();
     pid_t child = fork();
     if (child < 0) {
         perror("[synveil-vt] fork");
@@ -130,7 +132,12 @@ static int launch_terminal(bool demo) {
         "Local test VM only. Type exit to close this shell.\r\n\r\n";
     size_t length = strlen(banner);
     if (write(STDOUT_FILENO, banner, length) != (ssize_t)length) _exit(1);
-    if (demo) configure_demo_user();
+    if (demo) {
+        configure_demo_user();
+        // setuid clears Linux PDEATHSIG; rearm it only after UID/GID drop.
+        // The helper exiting or being killed must terminate this shell.
+        if (synveil_parent_death_guard(launcher_pid) != 0) _exit(1);
+    }
     execl("/bin/sh", "sh", "-i", (char *)NULL);
     _exit(127);
 }
