@@ -288,11 +288,17 @@ def smoke(timeout_seconds: float) -> bool:
                     if phase == "logging-in-third-time" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
                         # Re-verify UID, NoNewPrivs and tty1 after the third
                         # login; forcibly kill the UI to prove lease cleanup.
+                        # Require a *new* root login marker after killing the
+                        # old login GUI. Initial boot readiness is not evidence
+                        # that the graphical recovery supervisor worked.
+                        seen.discard(b"SYNVEIL_LOGIN_READY")
                         script = CLEANUP.replace("; ", ";\n") + "# SYNVEIL_TEST_COMMAND_END\n"
                         process.stdin.write(script.encode())
                         process.stdin.flush()
                         phase = "cleanup"
-                    if phase == "cleanup" and b"SYNVEIL_GRAPHICAL_LOGIN_CLEANED" in seen:
+                    if (phase == "cleanup" and
+                        b"SYNVEIL_GRAPHICAL_LOGIN_CLEANED" in seen and
+                        b"SYNVEIL_LOGIN_READY" in seen):
                         return True
             return False
         finally:

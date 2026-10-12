@@ -129,6 +129,8 @@ while not script.endswith('# SYNVEIL_TEST_COMMAND_END\\n'):
 assert 'NoNewPrivs' in script and '/dev/tty1' in script
 assert 'kill -KILL' in script and 'synctl --json status' in script
 print('SYNVEIL_GRAPHICAL_LOGIN_CLEANED', flush=True)
+if mode != 'no-gui-restart':
+    print('SYNVEIL_LOGIN_READY', flush=True)
 ''')
             disk = root / "state.ext4"
             disk.write_bytes(b"fake fixture state disk")
@@ -173,6 +175,9 @@ print('SYNVEIL_GRAPHICAL_LOGIN_CLEANED', flush=True)
 
     def test_missing_return_to_same_dashboard_evidence_fails(self):
         self.assertNotEqual(self.simulate("no-user-return")[0], 0)
+
+    def test_root_login_gui_restart_is_required_after_crash(self):
+        self.assertNotEqual(self.simulate("no-gui-restart")[0], 0)
 
     def test_missing_vt_relock_evidence_fails(self):
         self.assertNotEqual(self.simulate("no-vt-relock")[0], 0)
