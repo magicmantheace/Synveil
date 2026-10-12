@@ -644,7 +644,8 @@ static unsigned session_input_code(unsigned char byte) {
 static unsigned session_read_key(void) {
     unsigned char byte;
     ssize_t got = read(STDIN_FILENO, &byte, 1u);
-    if (got != 1) return 0u;
+    // A closed/failed tty must exit the session and revoke its seat lease.
+    if (got != 1) return UINT_MAX;
     if (byte != 27u) return session_input_code(byte);
     struct pollfd fd = {.fd = STDIN_FILENO, .events = POLLIN};
     if (poll(&fd, 1u, 25) != 1) return KEY_ESC;
@@ -708,6 +709,10 @@ static int run_user_session(const struct surface *screen) {
     int result = 0;
     while (!state.quit) {
         unsigned code = session_read_key();
+        if (code == UINT_MAX) {
+            result = 1;
+            break;
+        }
         if (code == 0u) continue;
         int old_contrast = state.high_contrast;
         unsigned old_cursor = state.cursor_scale;
