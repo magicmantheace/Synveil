@@ -99,11 +99,38 @@ fn prepare_seat_socket(path: &Path, owner: u32) -> io::Result<UnixListener> {
             "unsafe seat directory",
         ));
     }
-    if fs::symlink_metadata(path).is_ok() {
-        return Err(io::Error::new(
-            io::ErrorKind::AlreadyExists,
-            "seat socket exists",
-        ));
+    match fs::symlink_metadata(path) {
+        Ok(meta)
+            if meta.file_type().is_socket()
+                && meta.uid() == owner
+                && meta.permissions().mode() & 0o777 == 0o600
+                && meta.nlink() == 1 =>
+        {
+            // Recover only from a refused, private, singly linked stale
+            // listener. Active sockets and ambiguous errors are left intact.
+            // The parent is mode 0700, so a non-root process cannot replace
+            // this path between the identity check and socket removal.
+            match UnixStream::connect(path) {
+                Ok(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::AlreadyExists,
+                        "seat already active",
+                    ));
+                }
+                Err(error) if error.kind() == io::ErrorKind::ConnectionRefused => {
+                    fs::remove_file(path)?;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(_) => {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "refusing unsafe existing seat endpoint",
+            ));
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
     }
     let listener = UnixListener::bind(path)?;
     fs::set_permissions(path, Permissions::from_mode(0o600))?;
@@ -447,6 +474,25 @@ mod tests {
             assert_eq!(response, "DENIED\n");
             assert_eq!(worker.join().unwrap(), SessionState::Locked);
         }
+    }
+
+    #[test]
+    fn private_stale_socket_can_restart_but_active_socket_is_preserved() {
+        let dir = std::env::temp_dir().join(format!("synveil-seat-stale-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir(&dir).unwrap();
+        fs::set_permissions(&dir, Permissions::from_mode(0o700)).unwrap();
+        let owner = fs::metadata(&dir).unwrap().uid();
+        let socket = dir.join("seat.sock");
+        let first = prepare_seat_socket(&socket, owner).unwrap();
+        assert!(prepare_seat_socket(&socket, owner).is_err());
+        drop(first);
+        assert!(fs::symlink_metadata(&socket).unwrap().file_type().is_socket());
+        let restarted = prepare_seat_socket(&socket, owner).unwrap();
+        assert!(restarted.local_addr().unwrap().as_pathname().is_some());
+        assert_eq!(fs::metadata(&socket).unwrap().permissions().mode() & 0o777, 0o600);
+        drop(restarted);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
