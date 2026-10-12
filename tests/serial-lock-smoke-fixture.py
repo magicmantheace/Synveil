@@ -38,7 +38,13 @@ probe = sys.stdin.readline()
 if mode == 'unlocked':
     print('SYNVEIL_SERIAL_UNLOCK_BYPASS', flush=True)
 elif mode == 'echo-only':
+    # A mere echo cannot prove execution, but the guest must remain alive
+    # for the whole negative observation window. Premature EOF is
+    # correctly classified by the smoke harness as inconclusive/failure.
     print(probe, flush=True)
+    time.sleep(6)
+elif mode == 'early-exit':
+    sys.exit(0)
 else:
     time.sleep(6)
 ''')
@@ -56,6 +62,9 @@ else:
 
     def test_echo_is_not_mistaken_for_executed_command(self):
         self.assertEqual(self.fixture("echo-only"), 0)
+
+    def test_early_guest_exit_before_observation_fails(self):
+        self.assertNotEqual(self.fixture("early-exit"), 0)
 
     def test_unlocked_root_console_fails(self):
         self.assertNotEqual(self.fixture("unlocked"), 0)

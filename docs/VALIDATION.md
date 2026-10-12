@@ -296,3 +296,14 @@ code emits denial evidence only after the login VT is restored, the keyboard
 is regrabbed and the screen is repainted. This removes one proven input
 readiness race, but does not by itself establish that the entire QEMU guest
 flow will now pass.
+
+### Serial-lock fixture observation window
+
+On the public-runner native job at commit `4df5fcd`, the otherwise successful
+bootstrap lint stopped on the `echo-only` serial-lock fixture. That fixture
+printed a deliberately harmless echoed probe and exited immediately, which
+the real negative smoke test correctly treats as inconclusive: it must watch
+the still-running guest for the full three-second security window. The fixture
+now stays alive for that observation period, and a new `early-exit` case
+explicitly verifies that premature EOF still fails. No root serial access is
+weakened. This requires new host CI confirmation.
