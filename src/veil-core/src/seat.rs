@@ -8,7 +8,7 @@
 //! kills the fixed launcher; there is no token that can be replayed.
 //! The current developer framebuffer has NOT yet been wired to this service.
 use crate::session::{SessionError, SessionState, SessionTracker};
-use std::fs::{self, Permissions};
+use std::fs::{self, File, Permissions};
 use std::io::{self, Read, Write};
 use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 use std::os::unix::io::AsRawFd;
@@ -16,7 +16,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Child, Command};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub const DEFAULT_SEAT_SOCKET: &str = "/run/synveil/veil-seat.sock";
 const HEADER_MAGIC: &[u8; 4] = b"SVL1";
@@ -24,6 +24,55 @@ const MAX_SECRET: usize = 1024;
 const MIN_SECRET: usize = 8;
 const IO_TIMEOUT: Duration = Duration::from_secs(4);
 const LEASE_POLL: Duration = Duration::from_millis(100);
+const VT_ACTIVATION_GRACE: Duration = Duration::from_secs(5);
+// synveil-vt activates tty1; the graphical password client is on tty2.
+const AUTHENTICATED_TERMINAL_VT: u16 = 1;
+// VT_GETSTATE is Linux UAPI ioctl 0x5603 on our pinned x86_64 kernel.
+const VT_GETSTATE: u64 = 0x5603;
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct LinuxVtState {
+    active: u16,
+    signal: u16,
+    state: u16,
+}
+
+// A newly launched terminal has a short chance to activate tty1. After
+// tty1 was seen, switching to any other VT revokes the entire session.
+// This prevents Ctrl+Alt+Fn from hiding a still-unlocked console behind
+// the graphical login; startup failure also fails closed.
+struct VtLease {
+    launched: Instant,
+    activated: bool,
+}
+
+impl VtLease {
+    fn new() -> Self {
+        Self { launched: Instant::now(), activated: false }
+    }
+
+    fn permits(&mut self, active: u16, now: Instant) -> bool {
+        if active == AUTHENTICATED_TERMINAL_VT {
+            self.activated = true;
+            return true;
+        }
+        !self.activated && now.duration_since(self.launched) < VT_ACTIVATION_GRACE
+    }
+}
+
+fn active_virtual_terminal() -> io::Result<u16> {
+    let tty = File::open("/dev/tty0")?;
+    let mut state = LinuxVtState::default();
+    let rc = unsafe { ioctl(tty.as_raw_fd(), VT_GETSTATE, &mut state) };
+    if rc < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    if state.active == 0 {
+        return Err(io::Error::other("no active virtual terminal"));
+    }
+    Ok(state.active)
+}
 
 // Linux SO_PEERCRED. Never trust a claimed account/UID inside the frame.
 #[repr(C)]
@@ -38,6 +87,7 @@ unsafe extern "C" {
     fn getpid() -> i32;
     fn getppid() -> i32;
     fn prctl(option: i32, ...) -> i32;
+    fn ioctl(fd: i32, request: u64, ...) -> i32;
     fn getsockopt(
         socket: i32,
         level: i32,
@@ -182,16 +232,18 @@ fn close_session(tracker: &mut SessionTracker, session: u64, child: &mut Child) 
 
 /// Root graphical clients only. Kept separate from the agent/control IPC.
 /// Exactly one authenticated client owns the seat and a live socket lease.
-fn handle_connection<F, L>(
+fn handle_connection<F, L, V>(
     stream: &mut UnixStream,
     tracker: &mut SessionTracker,
     required_uid: u32,
     verify: F,
     launch: L,
+    mut active_vt: V,
 ) -> io::Result<()>
 where
     F: FnOnce(&[u8]) -> bool,
     L: FnOnce() -> io::Result<Child>,
+    V: FnMut() -> io::Result<u16>,
 {
     if peer_uid(stream)? != required_uid {
         return Err(io::Error::new(
@@ -254,7 +306,15 @@ where
         return Err(error);
     }
     let mut signal = [0u8; 8];
+    let mut vt_lease = VtLease::new();
     loop {
+        // VT switching is not a lock operation by itself. If the owner
+        // switches away from tty1, destroy the terminal and return to the
+        // graphical login before any second login can be accepted.
+        match active_vt() {
+            Ok(vt) if vt_lease.permits(vt, Instant::now()) => {}
+            _ => break, // ioctl failure and startup timeout both fail closed.
+        }
         match child.try_wait() {
             Ok(Some(_)) | Err(_) => break,
             Ok(None) => {}
@@ -360,6 +420,7 @@ pub fn serve(path: &Path) -> io::Result<()> {
                         )
                     },
                     start_fixed_terminal,
+                    active_virtual_terminal,
                 );
             }
             Err(_) => continue,
@@ -416,6 +477,7 @@ mod tests {
                 owner,
                 |_| false,
                 || panic!("denial must not launch"),
+                || Ok(AUTHENTICATED_TERMINAL_VT),
             )
             .unwrap();
             tracker.state()
@@ -439,6 +501,7 @@ mod tests {
                 owner,
                 |password| password == b"correct-password",
                 || Command::new("sleep").arg("30").spawn(),
+                || Ok(AUTHENTICATED_TERMINAL_VT),
             )
             .unwrap();
             tracker.state()
@@ -468,6 +531,7 @@ mod tests {
                     owner,
                     |_| panic!("invalid frame verified"),
                     || panic!("invalid frame launched"),
+                    || Ok(AUTHENTICATED_TERMINAL_VT),
                 )
                 .unwrap();
                 tracker.state()
@@ -479,6 +543,78 @@ mod tests {
             assert_eq!(response, "DENIED\n");
             assert_eq!(worker.join().unwrap(), SessionState::Locked);
         }
+    }
+
+    #[test]
+    fn activated_terminal_switching_away_revokes_lease() {
+        use std::sync::atomic::{AtomicU16, Ordering};
+        use std::sync::Arc;
+        let (mut client, mut server) = UnixStream::pair().unwrap();
+        let owner = unsafe { native_euid() };
+        let active = Arc::new(AtomicU16::new(AUTHENTICATED_TERMINAL_VT));
+        let observed = Arc::clone(&active);
+        let worker = thread::spawn(move || {
+            let mut tracker = SessionTracker::default();
+            handle_connection(
+                &mut server,
+                &mut tracker,
+                owner,
+                |password| password == b"correct-password",
+                || Command::new("sleep").arg("30").spawn(),
+                || Ok(observed.load(Ordering::SeqCst)),
+            )
+            .unwrap();
+            tracker.state()
+        });
+        send_login(&mut client, b"correct-password");
+        let mut response = [0u8; 7];
+        client.read_exact(&mut response).unwrap();
+        assert_eq!(&response, b"ACTIVE\n");
+        // Wait until the broker has observed tty1 before switching to tty2.
+        thread::sleep(Duration::from_millis(250));
+        active.store(2, Ordering::SeqCst);
+        client.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        let mut relock = [0u8; 7];
+        client.read_exact(&mut relock).unwrap();
+        assert_eq!(&relock, b"LOCKED\n");
+        assert_eq!(worker.join().unwrap(), SessionState::Locked);
+    }
+
+    #[test]
+    fn vt_activation_deadline_and_fail_closed_transition() {
+        let mut lease = VtLease::new();
+        let start = lease.launched;
+        assert!(lease.permits(2, start + Duration::from_secs(1)));
+        assert!(!lease.permits(2, start + VT_ACTIVATION_GRACE));
+        let mut active = VtLease::new();
+        assert!(active.permits(1, active.launched));
+        assert!(!active.permits(2, active.launched + Duration::from_millis(10)));
+    }
+
+    #[test]
+    fn vt_probe_failure_revokes_an_active_session() {
+        let (mut client, mut server) = UnixStream::pair().unwrap();
+        let owner = unsafe { native_euid() };
+        let worker = thread::spawn(move || {
+            let mut tracker = SessionTracker::default();
+            handle_connection(
+                &mut server,
+                &mut tracker,
+                owner,
+                |_| true,
+                || Command::new("sleep").arg("30").spawn(),
+                || Err(io::Error::other("virtual terminal disappeared")),
+            )
+            .unwrap();
+            tracker.state()
+        });
+        send_login(&mut client, b"correct-password");
+        let mut response = [0u8; 7];
+        client.read_exact(&mut response).unwrap();
+        assert_eq!(&response, b"ACTIVE\n");
+        client.read_exact(&mut response).unwrap();
+        assert_eq!(&response, b"LOCKED\n");
+        assert_eq!(worker.join().unwrap(), SessionState::Locked);
     }
 
     #[test]
