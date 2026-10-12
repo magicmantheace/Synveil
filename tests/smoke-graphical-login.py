@@ -65,7 +65,7 @@ CHECK_TTY = (
     "if [ \"$(readlink /proc/$pid/fd/0)\" = /dev/tty1 ]; then "
     "ready=1; break; fi; fi; done; "
     "[ \"$ready\" = 1 ] && break; sleep 0.1; done; "
-    "[ \"$ready\" = 1 ] && printf '\\n%s\\n' SYNVEIL_AUTH_TTY_READY\\n"
+    "[ \"$ready\" = 1 ] && printf '\\n%s\\n' SYNVEIL_AUTH_TTY_READY\n"
 )
 
 # A terminated session must not leave any *living* UID1000 terminal.
@@ -74,7 +74,7 @@ CHECK_RELOCK = (
     "active=0; for status in /proc/[0-9]*/status; do "
     "if grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' \"$status\" && "
     "! grep -Eq '^State:[[:space:]]*Z' \"$status\"; then active=1; fi; done; "
-    "[ \"$active\" = 0 ] && printf '\\n%s\\n' SYNVEIL_RELOCK_NO_USER_SHELL\\n"
+    "[ \"$active\" = 0 ] && printf '\\n%s\\n' SYNVEIL_RELOCK_NO_USER_SHELL\n"
 )
 
 def smoke(timeout_seconds: float) -> bool:
