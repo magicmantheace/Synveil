@@ -20,7 +20,8 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
             return match veil_core::seat::login_from_reader(
-                io::stdin(), Path::new(veil_core::seat::DEFAULT_SEAT_SOCKET)
+                io::stdin(),
+                Path::new(veil_core::seat::DEFAULT_SEAT_SOCKET),
             ) {
                 Ok(true) => ExitCode::SUCCESS,
                 Ok(false) | Err(_) => {

@@ -214,7 +214,9 @@ where
 /// executable name, a session token or a privileged command capability.
 pub fn login_from_reader<R: Read>(mut input: R, socket: &Path) -> io::Result<bool> {
     let mut password = Vec::new();
-    input.take((MAX_SECRET + 1) as u64).read_to_end(&mut password)?;
+    input
+        .take((MAX_SECRET + 1) as u64)
+        .read_to_end(&mut password)?;
     if !(MIN_SECRET..=MAX_SECRET).contains(&password.len()) {
         password.fill(0);
         return Ok(false);
@@ -227,8 +229,8 @@ pub fn login_from_reader<R: Read>(mut input: R, socket: &Path) -> io::Result<boo
         }
     };
     stream.set_write_timeout(Some(IO_TIMEOUT))?;
-    let len = u16::try_from(password.len())
-        .map_err(|_| io::Error::other("invalid password size"))?;
+    let len =
+        u16::try_from(password.len()).map_err(|_| io::Error::other("invalid password size"))?;
     let mut write = stream.write_all(HEADER_MAGIC);
     if write.is_ok() {
         write = stream.write_all(&len.to_be_bytes());

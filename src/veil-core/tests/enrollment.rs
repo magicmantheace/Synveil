@@ -51,4 +51,3 @@ fn seat_password_client_rejects_secret_arguments() {
     assert!(!String::from_utf8_lossy(&output.stdout).contains(secret));
     assert!(!String::from_utf8_lossy(&output.stderr).contains(secret));
 }
-
