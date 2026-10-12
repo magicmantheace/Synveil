@@ -204,6 +204,13 @@ jobs:
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: bash build.sh ui-preferences-smoke --timeout 60
 
+      - name: Authenticate via real framebuffer and revoke on GUI crash
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          bash build.sh guest-fixture --case graphical-login 2>&1 \
+            | tee out/logs/graphical-login-fixture.log
+
       - name: Preserve native build evidence
         if: always()
         uses: actions/upload-artifact@v4

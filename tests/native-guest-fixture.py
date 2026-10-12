@@ -42,6 +42,8 @@ class GuestFixtureTests(unittest.TestCase):
                     self.assertEqual((tree / "usr/sbin/veil-core").exists(), case != "absent")
                     self.assertEqual((tree / "usr/libexec/synveil-test/protocol-probe").exists(),
                                      case == "protocol")
+                    self.assertEqual((tree / "etc/synveil/auth-desktop").exists(),
+                                     case == "graphical-login")
                     kwargs["stdout"].write(b"fixture cpio")
                 elif command[-1].endswith("kernel.sh"):
                     output = Path(kwargs["env"]["SYNVEIL_OUT_DIR"])
@@ -52,12 +54,18 @@ class GuestFixtureTests(unittest.TestCase):
                     (output / "synveil-x86_64.img").write_bytes(b"fixture disk")
                 else:
                     self.assertIn("smoke-recovery.py", command[1])
-                    self.assertEqual(command[command.index("--case") + 1], case)
+                    if case == "graphical-login":
+                        self.assertIn("smoke-graphical-login.py", command[1])
+                    else:
+                        self.assertIn("smoke-recovery.py", command[1])
+                        self.assertEqual(command[command.index("--case") + 1], case)
                 return subprocess.CompletedProcess(command, 0)
 
             env = {"SYNVEIL_ROOTFS_DIR": str(baseline), "SYNVEIL_WORK_DIR": str(root / "work"),
                    "SYNVEIL_OUT_DIR": str(out)}
             with patch.dict(os.environ, env), patch.object(sys, "argv", ["fixture", "--case", case]), \
+                    patch.object(fixture, "create_state_disk",
+                                 side_effect=lambda path, size: path.write_bytes(b"synthetic state")), \
                     patch.object(fixture.subprocess, "run", side_effect=run), \
                     patch.object(fixture.subprocess, "check_output", return_value="fixture-commit\n"):
                 if fail_probe:
@@ -72,8 +80,12 @@ class GuestFixtureTests(unittest.TestCase):
             self.assertEqual(core.read_bytes(), b"unchanged native core")
             self.assertEqual(original.read_bytes(), b"unchanged native image")
             self.assertFalse((baseline / "usr/libexec/synveil-test").exists())
+            self.assertFalse((baseline / "etc/synveil/auth-desktop").exists())
             if fail_probe:
                 self.assertEqual(len(calls), 1)
+
+    def test_graphical_login_fixture_is_isolated_from_regular_vm(self):
+        self.check("graphical-login")
 
     def test_absent_fixture_preserves_baseline(self):
         self.check("absent")

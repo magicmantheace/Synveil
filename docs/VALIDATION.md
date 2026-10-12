@@ -155,6 +155,17 @@ guest-generated test secret, then starts a *different* QEMU process to
 verify the private PHC record survived reboot. The new native guest evidence
 is pending; this is not an interactive login or an approved owner install.
 
+The isolated graphical-login guest fixture now stages an alternate VM boot
+image with the *explicit* authenticated-desktop marker while leaving the
+default developer menu image untouched. Its fresh, separately formatted
+QEMU state disk receives a host-generated 128-bit test-only password only
+after serial echo is disabled, and a private QMP monitor types that secret
+into the actual framebuffer login screen. The guest must show a real
+UID/GID 1000, NoNewPrivs=1 VT1 shell, and killing the GUI must revoke the
+session while serial `synctl status` continues. This stronger end-to-end
+gate is newly added and **awaits native QEMU validation**; host keyboard
+and fixture tests cannot substitute for guest proof.
+
 ## AI-related validation
 
 No AI planner result is accepted as validation of deterministic system behavior.
