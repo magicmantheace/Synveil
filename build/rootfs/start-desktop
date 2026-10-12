@@ -14,7 +14,15 @@ fi
 # This immutable rootfs marker explicitly selects the *developer-only*
 # seat-backed login preview. Never trust state-volume preferences here.
 mode=--menu
-if [ -f /etc/synveil/auth-desktop ]; then
+marker=/etc/synveil/auth-desktop
+if [ -e "$marker" ] || [ -L "$marker" ]; then
+    # The serial guard locks on even a broken marker. Never let an invalid
+    # marker silently select the unauthenticated developer menu instead.
+    if [ -L "$marker" ] || [ ! -f "$marker" ] ||
+       [ "$(stat -c '%a' "$marker" 2>/dev/null)" != 644 ]; then
+        printf '\nSYNVEIL_DESKTOP_MARKER_UNSAFE\n'
+        exit 1
+    fi
     mode=--login
 fi
 attempt=1

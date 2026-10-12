@@ -113,3 +113,10 @@ observations for invalid-password denial, normal `exit`/relock, a second
 login, and a GUI crash that revokes the seat lease. These source-level
 checks are **not** claims of QEMU success until a local native target run
 provides evidence from the corresponding exact Git commit.
+
+The `start-desktop` supervisor now rejects a symlink, directory, or
+permission-relaxed authentication marker instead of falling back to the
+unauthenticated developer menu. A dedicated offline policy fixture checks
+both the normal developer profile and this locked-profile fail-closed
+behavior. An opt-in QEMU graphical profile still requires native guest
+validation and is not an installation image.

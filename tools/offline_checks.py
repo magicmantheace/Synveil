@@ -26,6 +26,7 @@ HOST = (
     ("native-startup", "python3", "tests/native-startup.py"),
     ("seat-supervisor", "python3", "tests/seat-supervisor.py"),
     ("serial-console-policy", "python3", "tests/serial-console-policy.py"),
+    ("desktop-marker-policy", "python3", "tests/desktop-marker-policy.py"),
     ("serial-lock-smoke-fixture", "python3", "tests/serial-lock-smoke-fixture.py"),
     ("initramfs-profile", "python3", "tests/initramfs-profile.py"),
     ("offline-runner-fixtures", "python3", "tests/offline-checks.py"),
