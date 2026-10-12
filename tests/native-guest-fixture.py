@@ -43,7 +43,7 @@ class GuestFixtureTests(unittest.TestCase):
                     self.assertEqual((tree / "usr/libexec/synveil-test/protocol-probe").exists(),
                                      case == "protocol")
                     self.assertEqual((tree / "etc/synveil/auth-desktop").exists(),
-                                     case == "graphical-login")
+                                     case in ("graphical-login", "graphical-locked"))
                     self.assertEqual((tree / "etc/synveil/developer-serial-recovery").exists(),
                                      case == "graphical-login")
                     kwargs["stdout"].write(b"fixture cpio")
@@ -57,6 +57,8 @@ class GuestFixtureTests(unittest.TestCase):
                 else:
                     if case == "graphical-login":
                         self.assertIn("smoke-graphical-login.py", command[1])
+                    elif case == "graphical-locked":
+                        self.assertIn("smoke-serial-locked.py", command[1])
                     else:
                         self.assertIn("smoke-recovery.py", command[1])
                         self.assertEqual(command[command.index("--case") + 1], case)
@@ -85,6 +87,9 @@ class GuestFixtureTests(unittest.TestCase):
             self.assertFalse((baseline / "etc/synveil/developer-serial-recovery").exists())
             if fail_probe:
                 self.assertEqual(len(calls), 1)
+
+    def test_locked_preview_does_not_stage_developer_serial_override(self):
+        self.check("graphical-locked")
 
     def test_graphical_login_fixture_is_isolated_from_regular_vm(self):
         self.check("graphical-login")

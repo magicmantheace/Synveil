@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", choices=("absent", "protocol", "graphical-login"), required=True)
+    parser.add_argument("--case", choices=("absent", "protocol", "graphical-login", "graphical-locked"), required=True)
     args = parser.parse_args()
     work = Path(os.environ.get("SYNVEIL_WORK_DIR", ROOT / "build/work")).resolve()
     rootfs = Path(os.environ.get("SYNVEIL_ROOTFS_DIR", work / "rootfs")).resolve()
@@ -35,17 +35,17 @@ def main():
     fixture_out.mkdir(parents=True, exist_ok=True)
     if args.case == "absent":
         (tree / "usr/sbin/veil-core").unlink()
-    elif args.case == "graphical-login":
+    elif args.case in ("graphical-login", "graphical-locked"):
         marker = tree / "etc/synveil/auth-desktop"
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.touch(exist_ok=False)
-        # The isolated QEMU test enrolls a synthetic credential through the
-        # developer serial console. Owner-facing auth previews omit this
-        # marker and instead keep all serial root shells locked.
         debug = tree / "etc/synveil/developer-serial-recovery"
         if debug.exists() or debug.is_symlink():
             raise ValueError("unexpected developer recovery marker")
-        debug.touch(exist_ok=False)
+        # Only the synthetic enrollment fixture needs the unsafe serial
+        # debug override. A locked-preview fixture must never receive it.
+        if args.case == "graphical-login":
+            debug.touch(exist_ok=False)
     else:
         toolchain = Path(os.environ.get("SYNVEIL_TOOLCHAIN_DIR", ROOT / "build/toolchain/out"))
         target = os.environ.get("SYNVEIL_TARGET", "x86_64-synveil-linux-gnu")
@@ -72,7 +72,11 @@ def main():
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
         identity["artifacts"][name] = {"sha256": digest, "bytes": path.stat().st_size}
     (fixture_out / "manifests/fixture.json").write_text(json.dumps(identity, indent=2) + "\n")
-    if args.case == "graphical-login":
+    if args.case == "graphical-locked":
+        env["SYNVEIL_QEMU_VIDEO"] = "1"
+        subprocess.run(["python3", str(ROOT / "tests/smoke-serial-locked.py"),
+                        "--timeout", "60"], env=env, check=True)
+    elif args.case == "graphical-login":
         # Separate, never-reused synthetic state volume and fresh test-only
         # credential. The baseline source/image and other VM disks are intact.
         disk = fixture_out / "graphical-login-state.ext4"

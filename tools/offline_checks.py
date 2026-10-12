@@ -26,6 +26,7 @@ HOST = (
     ("native-startup", "python3", "tests/native-startup.py"),
     ("seat-supervisor", "python3", "tests/seat-supervisor.py"),
     ("serial-console-policy", "python3", "tests/serial-console-policy.py"),
+    ("serial-lock-smoke-fixture", "python3", "tests/serial-lock-smoke-fixture.py"),
     ("offline-runner-fixtures", "python3", "tests/offline-checks.py"),
     ("native-smoke-fixtures", "python3", "tests/native-smoke.py"),
     ("native-recovery-fixtures", "python3", "tests/native-recovery.py"),
@@ -50,6 +51,8 @@ GUEST = (
     ("qemu-boot", "bash", "build.sh", "native-smoke"),
     ("qemu-locked-seat", "bash", "build.sh", "recovery-smoke",
      "--case", "seat-locked", "--timeout", "90"),
+    ("qemu-serial-locked", "bash", "build.sh", "guest-fixture",
+     "--case", "graphical-locked"),
     ("qemu-graphical-login", "bash", "build.sh", "guest-fixture",
      "--case", "graphical-login"),
 )

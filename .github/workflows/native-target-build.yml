@@ -73,6 +73,8 @@ jobs:
           python3 tests/native-protocol-probe.py
           python3 tests/native-guest-fixture.py
           python3 tests/graphical-login-fixture.py
+          python3 tests/serial-console-policy.py
+          python3 tests/serial-lock-smoke-fixture.py
 
       - name: Install and authenticate pinned Rust sources
         run: |
@@ -212,6 +214,13 @@ jobs:
           bash build.sh state-disk --path "$PWD/out/seat-crash-state.ext4" --size-mib 128
           SYNVEIL_QEMU_STATE_DISK="$PWD/out/seat-crash-state.ext4" \
             bash build.sh recovery-smoke --case seat-crash --timeout 120
+
+      - name: Prove authenticated preview refuses unauthenticated root serial
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          bash build.sh guest-fixture --case graphical-locked 2>&1 \
+            | tee out/logs/graphical-serial-locked-fixture.log
 
       - name: Authenticate via real framebuffer and revoke on GUI crash
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
