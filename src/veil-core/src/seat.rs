@@ -10,7 +10,7 @@
 use crate::session::{SessionError, SessionState, SessionTracker};
 use std::fs::{self, Permissions};
 use std::io::{self, Read, Write};
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 use std::os::unix::io::AsRawFd;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::CommandExt;
