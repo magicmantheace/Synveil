@@ -58,7 +58,7 @@ pub fn verify_root_credential(username: &str, password: &[u8]) -> bool {
     if username != LOCAL_ACCOUNT || !has_persistent_state() {
         return false;
     }
-    read_private_record(Path::new(ROOT_CREDENTIAL_PATH), 0)
+    read_root_private_record(Path::new(ROOT_CREDENTIAL_PATH), 0)
         .is_some_and(|phc| verify_phc(username, password, &phc))
 }
 
@@ -158,6 +158,16 @@ fn enroll_in_private_state(base: &Path, uid: u32, password: &[u8]) -> io::Result
     result
 }
 
+// Both the credential directory and its state ancestor must be root-private.
+// Otherwise a relaxed or substituted base could allow an untrusted record
+// to authorize login even if the immediate auth directory stays mode 0700.
+fn read_root_private_record(path: &Path, required_uid: u32) -> Option<String> {
+    if !private_directory(path.parent()?.parent()?, required_uid) {
+        return None;
+    }
+    read_private_record(path, required_uid)
+}
+
 fn read_private_record(path: &Path, required_uid: u32) -> Option<String> {
     let dir = fs::symlink_metadata(path.parent()?).ok()?;
     if !dir.file_type().is_dir()
@@ -229,7 +239,10 @@ mod tests {
         let owner = fs::metadata(&dir).unwrap().uid();
         enroll_in_private_state(&dir, owner, b"fixture-enrollment-password").unwrap();
         let path = dir.join("auth/credential.phc");
-        let record = read_private_record(&path, owner).unwrap();
+        let record = read_root_private_record(&path, owner).unwrap();
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(read_root_private_record(&path, owner).is_none());
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
         assert!(verify_phc(
             LOCAL_ACCOUNT,
             b"fixture-enrollment-password",
