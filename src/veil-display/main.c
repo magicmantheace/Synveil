@@ -249,20 +249,23 @@ static void show_runtime_details(const struct surface *screen, int page,
         }
     } else if (page == 2) {
         struct synveil_network_diag network;
-        synveil_network_snapshot("eth0", "/proc/net/route",
-                                 "/etc/resolv.conf", &network);
-        heading(screen, !network.present ? "ETH0 UNAVAILABLE" :
+        synveil_network_snapshot_auto("/proc/net/route",
+                                      "/etc/resolv.conf", &network);
+        heading(screen, !network.present ? "NETWORK UNAVAILABLE" :
                 network.link_up ? "LINK READY" : "LINK DOWN",
                 32u, y, 2u, color);
+        snprintf(line, sizeof(line), "IF %s",
+                 network.interface[0] ? network.interface : "NOT DETECTED");
+        heading(screen, line, 32u, y + 34u, 2u, color);
         snprintf(line, sizeof(line), "IP %s",
                  network.address[0] ? network.address : "NOT ASSIGNED");
-        heading(screen, line, 32u, y + 34u, 2u, color);
+        heading(screen, line, 32u, y + 68u, 2u, color);
         snprintf(line, sizeof(line), "GW %s",
                  network.gateway[0] ? network.gateway : "NOT ASSIGNED");
-        heading(screen, line, 32u, y + 68u, 2u, color);
+        heading(screen, line, 32u, y + 102u, 2u, color);
         snprintf(line, sizeof(line), "DNS %s",
                  network.dns[0] ? network.dns : "NOT ASSIGNED");
-        heading(screen, line, 32u, y + 102u, 2u, color);
+        heading(screen, line, 32u, y + 136u, 2u, color);
     }
 }
 

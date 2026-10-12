@@ -2,6 +2,7 @@
 #define _GNU_SOURCE
 #include "network_diag.h"
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <net/if.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -78,6 +79,78 @@ static void first_dns(const char *resolv, char result[INET_ADDRSTRLEN]) {
     fclose(stream);
 }
 
+// Parse a bounded procfs route table for a safe non-loopback default route.
+// Hardware presence is checked by the caller, not inferred from procfs alone.
+int synveil_network_route_interface(const char *routes, char *out, size_t capacity) {
+    if (!out || capacity == 0u) return 0;
+    out[0] = '\0';
+    if (!routes || capacity < 2u) return 0;
+    FILE *stream = fopen(routes, "r");
+    if (!stream) return 0;
+    char line[256];
+    int found = 0;
+    for (unsigned i = 0; i < 128u && fgets(line, sizeof(line), stream); ++i) {
+        char name[IFNAMSIZ] = {0};
+        unsigned long destination = 1ul, gateway = 0ul, flags = 0ul;
+        if (sscanf(line, "%15s %lx %lx %lx", name, &destination,
+                   &gateway, &flags) != 4 ||
+            destination != 0ul || gateway == 0ul || gateway > UINT32_MAX ||
+            (flags & 3ul) != 3ul || strcmp(name, "lo") == 0) continue;
+        size_t len = strlen(name);
+        if (!len || len >= IFNAMSIZ || len >= capacity) continue;
+        int safe = 1;
+        for (size_t j = 0; j < len; j++) {
+            unsigned char x = (unsigned char)name[j];
+            if (!isalnum(x) && x != '_' && x != '-' && x != '.') {
+                safe = 0;
+                break;
+            }
+        }
+        if (!safe) continue;
+        memcpy(out, name, len + 1u);
+        found = 1;
+        break;
+    }
+    fclose(stream);
+    return found;
+}
+
+// Diagnose a real network interface rather than assuming QEMU's eth0.
+// Prefer a present default-route device, then a running non-loopback link,
+// then any installed non-loopback interface (including a disconnected NIC).
+void synveil_network_snapshot_auto(const char *routes, const char *resolv,
+                                   struct synveil_network_diag *out) {
+    if (!out) return;
+    memset(out, 0, sizeof(*out));
+    if (!routes || !resolv) return;
+    char selected[IFNAMSIZ] = {0};
+    if (synveil_network_route_interface(routes, selected, sizeof(selected)) &&
+        if_nametoindex(selected) != 0u) {
+        synveil_network_snapshot(selected, routes, resolv, out);
+        return;
+    }
+    struct if_nameindex *names = if_nameindex();
+    if (!names) return;
+    char fallback[IFNAMSIZ] = {0};
+    for (unsigned i = 0; i < 256u &&
+         names[i].if_index != 0u && names[i].if_name != NULL; ++i) {
+        const char *name = names[i].if_name;
+        size_t len = strlen(name);
+        if (!len || len >= sizeof(selected) || strcmp(name, "lo") == 0) continue;
+        struct synveil_network_diag candidate = {0};
+        address_and_link(name, &candidate);
+        if (!candidate.present) continue;
+        if (!fallback[0]) memcpy(fallback, name, len + 1u);
+        if (candidate.link_up) {
+            memcpy(selected, name, len + 1u);
+            break;
+        }
+    }
+    if_freenameindex(names);
+    if (!selected[0] && fallback[0]) memcpy(selected, fallback, sizeof(selected));
+    if (selected[0]) synveil_network_snapshot(selected, routes, resolv, out);
+}
+
 void synveil_network_snapshot(const char *interface, const char *routes,
                               const char *resolv, struct synveil_network_diag *out) {
     if (!out) return;
@@ -86,6 +159,7 @@ void synveil_network_snapshot(const char *interface, const char *routes,
         return;
     address_and_link(interface, out);
     if (!out->present) return;
+    (void)snprintf(out->interface, sizeof(out->interface), "%s", interface);
     default_gateway(interface, routes, out->gateway);
     first_dns(resolv, out->dns);
 }

@@ -37,6 +37,39 @@ class NetworkDiagnosticsTests(unittest.TestCase):
             )
             return dict(line.split("=", 1) for line in result.stdout.splitlines())
 
+    def route_interface(self, content):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "route"
+            path.write_text(content)
+            result = subprocess.run(
+                [str(self.executable), "--route-interface", str(path)],
+                check=True, capture_output=True, text=True, timeout=2)
+            return dict(line.split("=", 1) for line in result.stdout.splitlines())
+
+    def test_routed_non_loopback_interface_is_selected(self):
+        found = self.route_interface(
+            "Iface Destination Gateway Flags\n"
+            "lo 00000000 0202000A 0003\n"
+            "enp3s0 00000000 0101A8C0 0003\n")
+        self.assertEqual(found, {"found": "1", "interface": "enp3s0"})
+
+    def test_unusable_and_unsafe_routes_are_ignored(self):
+        for item in ("eth0 00000000 0202000A 0001",
+                     "eth0 0100000A 0202000A 0003",
+                     "eth0 00000000 00000000 0003",
+                     "lo 00000000 0202000A 0003",
+                     "bad/name 00000000 0202000A 0003",
+                     "eth0 00000000 100000000 0003"):
+            with self.subTest(item=item):
+                self.assertEqual(self.route_interface(item + "\n"),
+                                 {"found": "0", "interface": ""})
+
+    def test_route_table_scan_is_bounded(self):
+        self.assertEqual(
+            self.route_interface(
+                "garbage\n" * 128 + "enp3s0 00000000 0202000A 0003\n"),
+            {"found": "0", "interface": ""})
+
     def test_route_gateway_uses_procfs_little_endian(self):
         state = self.sample(
             "Iface Destination Gateway Flags RefCnt Use Metric Mask\n"

@@ -4,6 +4,12 @@
 #include <string.h>
 
 int main(int argc, char **argv) {
+    if (argc == 3 && strcmp(argv[1], "--route-interface") == 0) {
+        char name[16] = {0};
+        int found = synveil_network_route_interface(argv[2], name, sizeof(name));
+        printf("found=%d\ninterface=%s\n", found, name);
+        return 0;
+    }
     if (argc != 4) return 2;
     struct synveil_network_diag snapshot;
     synveil_network_snapshot(argv[1], argv[2], argv[3], &snapshot);
