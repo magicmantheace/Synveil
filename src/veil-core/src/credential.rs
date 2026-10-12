@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Strict local Argon2id verification. No login IPC, password prompt or
-//! enrollment command exists yet. No credential ships in the QEMU rootfs.
+//! login service exists yet. No credential ships in the QEMU rootfs.
 use argon2::Argon2;
-use argon2::password_hash::{PasswordHash, PasswordVerifier};
+use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use argon2::{Algorithm, Params, Version};
 use std::fs::{self, OpenOptions};
-use std::io::Read;
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::io::{self, Read, Write};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 
 // Trusted build-owned account; never accept UID/GID from a login request.
 pub const LOCAL_ACCOUNT: &str = "synveil";
-pub const ROOT_CREDENTIAL_PATH: &str = "/etc/synveil/auth/credential.phc";
+pub const ROOT_CREDENTIAL_PATH: &str = "/var/lib/synveil/auth/credential.phc";
 const PHC_PREFIX: &str = "$argon2id$v=19$m=65536,t=3,p=1$";
 const MAX_PHC_BYTES: usize = 160;
 const MAX_PASSWORD_BYTES: usize = 1024;
@@ -54,11 +55,96 @@ fn verify_phc(username: &str, password: &[u8], phc: &str) -> bool {
 // The caller cannot supply a hash, salt, arbitrary account or destination.
 // Root ownership checks intentionally deny regular unprivileged test runs.
 pub fn verify_root_credential(username: &str, password: &[u8]) -> bool {
-    if username != LOCAL_ACCOUNT {
+    if username != LOCAL_ACCOUNT || !has_persistent_state() {
         return false;
     }
     read_private_record(Path::new(ROOT_CREDENTIAL_PATH), 0)
         .is_some_and(|phc| verify_phc(username, password, &phc))
+}
+
+// The existing developer QEMU initramfs is ephemeral. Neither enrollment nor
+// login can use files under /var unless a separate ext4 state volume is
+// mounted. This remains a developer-only workflow pending secure recovery.
+fn has_persistent_state() -> bool {
+    fs::read_to_string("/proc/mounts").is_ok_and(|mounts| {
+        mounts.lines().any(|line| {
+            let mut fields = line.split_whitespace();
+            fields.next().is_some()
+                && fields.next() == Some("/var")
+                && fields.next() == Some("ext4")
+        })
+    })
+}
+
+/// One-time developer-VM enrollment; read password from an already protected
+/// stream, never from arguments or environment. No automatic enrollment.
+/// The graphical UI and AI must not call this privileged routine.
+pub fn enroll_root_credential(password: &[u8]) -> io::Result<()> {
+    if !has_persistent_state() {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "persistent state unavailable"));
+    }
+    let record = Path::new(ROOT_CREDENTIAL_PATH);
+    let base = record.parent().and_then(Path::parent).ok_or_else(unsafe_path)?;
+    enroll_in_private_state(base, 0, password)
+}
+
+fn unsafe_path() -> io::Error {
+    io::Error::new(io::ErrorKind::PermissionDenied, "untrusted credential storage")
+}
+
+fn private_directory(dir: &Path, uid: u32) -> bool {
+    fs::symlink_metadata(dir).is_ok_and(|meta| {
+        meta.file_type().is_dir()
+            && meta.uid() == uid
+            && meta.permissions().mode() & 0o777 == 0o700
+    })
+}
+
+fn enroll_in_private_state(base: &Path, uid: u32, password: &[u8]) -> io::Result<()> {
+    if password.len() < MIN_PASSWORD_BYTES || password.len() > MAX_PASSWORD_BYTES
+        || !private_directory(base, uid)
+    {
+        return Err(unsafe_path());
+    }
+    let auth = base.join("auth");
+    if !auth.exists() && !auth.is_symlink() {
+        fs::DirBuilder::new().mode(0o700).create(&auth)?;
+    }
+    if !private_directory(&auth, uid) {
+        return Err(unsafe_path());
+    }
+    let path = auth.join("credential.phc");
+    // Refuse existing credentials without replacement, even if symlinked.
+    if fs::symlink_metadata(&path).is_ok() {
+        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "already enrolled"));
+    }
+    let mut salt_bytes = [0u8; 16];
+    fs::File::open("/dev/urandom")?.read_exact(&mut salt_bytes)?;
+    let salt = SaltString::encode_b64(&salt_bytes).map_err(|_| unsafe_path())?;
+    let parameters = Params::new(65536, 3, 1, Some(32)).map_err(|_| unsafe_path())?;
+    let phc = Argon2::new(Algorithm::Argon2id, Version::V0x13, parameters)
+        .hash_password(password, &salt)
+        .map_err(|_| unsafe_path())?
+        .to_string();
+    if !valid_phc_format(&phc) {
+        return Err(unsafe_path());
+    }
+    let mut out = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(LINUX_O_NOFOLLOW | LINUX_O_NONBLOCK)
+        .open(&path)?;
+    let result = (|| {
+        out.write_all(phc.as_bytes())?;
+        out.write_all(b"\n")?;
+        out.sync_all()?;
+        fs::File::open(&auth)?.sync_all()
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&path);
+    }
+    result
 }
 
 fn read_private_record(path: &Path, required_uid: u32) -> Option<String> {
@@ -124,6 +210,53 @@ mod tests {
         fs::create_dir(&path).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
         path
+    }
+
+    #[test]
+    fn one_time_enrollment_is_private_and_refuses_replacement() {
+        let dir = private_dir();
+        let owner = fs::metadata(&dir).unwrap().uid();
+        enroll_in_private_state(&dir, owner, b"fixture-enrollment-password").unwrap();
+        let path = dir.join("auth/credential.phc");
+        let record = read_private_record(&path, owner).unwrap();
+        assert!(verify_phc(LOCAL_ACCOUNT, b"fixture-enrollment-password", &record));
+        assert_eq!(fs::metadata(&path).unwrap().mode() & 0o777, 0o600);
+        assert_eq!(fs::metadata(dir.join("auth")).unwrap().mode() & 0o777, 0o700);
+        let before = fs::read(&path).unwrap();
+        assert_eq!(
+            enroll_in_private_state(&dir, owner, b"another-fixture-password")
+                .unwrap_err().kind(),
+            io::ErrorKind::AlreadyExists
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn enrollment_rejects_suspicious_auth_parent_and_secret_sizes() {
+        let dir = private_dir();
+        let owner = fs::metadata(&dir).unwrap().uid();
+        let other = private_dir();
+        std::os::unix::fs::symlink(&other, dir.join("auth")).unwrap();
+        assert_eq!(
+            enroll_in_private_state(&dir, owner, b"valid-test-password")
+                .unwrap_err().kind(),
+            io::ErrorKind::PermissionDenied
+        );
+        fs::remove_file(dir.join("auth")).unwrap();
+        assert_eq!(
+            enroll_in_private_state(&dir, owner, b"short")
+                .unwrap_err().kind(),
+            io::ErrorKind::PermissionDenied
+        );
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o777)).unwrap();
+        assert_eq!(
+            enroll_in_private_state(&dir, owner, b"valid-test-password")
+                .unwrap_err().kind(),
+            io::ErrorKind::PermissionDenied
+        );
+        fs::remove_dir_all(dir).unwrap();
+        fs::remove_dir_all(other).unwrap();
     }
 
     #[test]
