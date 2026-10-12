@@ -61,6 +61,15 @@ def verify_build(out: Path, rootfs: Path, revision: str) -> dict:
     if (archive.is_symlink() or not archive.is_file() or
         not isinstance(archived_hash, str) or sha256(archive) != archived_hash):
         raise ValueError("staged rootfs archive failed SHA256 verification")
+    # Never accidentally distribute a gated authentication preview via
+    # the old unauthenticated developer bundle or ship a root serial bypass.
+    # These marker-bearing configurations are only for isolated guest tests.
+    for forbidden in ("etc/synveil/auth-desktop",
+                      "etc/synveil/developer-serial-recovery"):
+        candidate = rootfs / forbidden
+        if candidate.exists() or candidate.is_symlink():
+            raise ValueError("authenticated preview/serial override cannot be "
+                             "packaged as an ordinary developer VM bundle")
     for rel in NEEDED_ROOTFS:
         candidate = rootfs / rel
         expected_kind = candidate.is_dir() if rel == "home/synveil" else candidate.is_file()

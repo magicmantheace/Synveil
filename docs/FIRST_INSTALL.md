@@ -130,7 +130,10 @@ The launcher revalidates immutable checksums and private state-disk
 permissions before every QEMU process starts. These are not signatures.
 This enables a controlled, **developer-only VM setup** once the full guest
 image passes validation; it is not a physical installer, user release, or
-authenticated graphical login.
+authenticated graphical login. Packaging now explicitly rejects both
+`auth-desktop` and `developer-serial-recovery` rootfs markers, including
+symlinked markers, so an authenticated preview or deliberate root-serial
+override cannot be mistaken for the ordinary demo VM bundle.
 
 ## Controlled QEMU persistence prototype
 

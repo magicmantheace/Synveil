@@ -173,6 +173,21 @@ class BundleTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify_build(self.out, self.rootfs, REV)
 
+    def test_rejects_authenticated_preview_and_serial_root_bypass(self):
+        directory = self.rootfs / "etc/synveil"
+        for name in ("auth-desktop", "developer-serial-recovery"):
+            marker = directory / name
+            marker.touch()
+            with self.assertRaisesRegex(ValueError, "cannot be packaged"):
+                verify_build(self.out, self.rootfs, REV)
+            marker.unlink()
+        forbidden = directory / "developer-serial-recovery"
+        forbidden.symlink_to("missing")
+        with self.assertRaisesRegex(ValueError, "cannot be packaged"):
+            verify_build(self.out, self.rootfs, REV)
+        forbidden.unlink()
+        self.assertFalse(self.destination.exists())
+
     def test_formatter_failure_cleans_only_new_bundle(self):
         with patch("state_disk.subprocess.run", side_effect=RuntimeError("mkfs failed")):
             with self.assertRaises(RuntimeError):
