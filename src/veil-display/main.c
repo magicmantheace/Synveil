@@ -852,15 +852,20 @@ static int run_auth_login(const struct surface *screen) {
                 // The authenticated shell ran on tty1. Restore tty2
                 // before painting the locked screen or reading secrets.
                 if (auth_restore_login_vt() != 0) break;
-                puts("\nSYNVEIL_LOGIN_RELOCKED");
-                fflush(stdout);
             }
             keyboard = auth_open_private_keyboard();
             if (keyboard < 0) break;
+            auth_render(screen, &state);
+            if (!state.denied) {
+                // Evidence only once VT2 is visible, painted and securely
+                // receiving keystrokes; never report a premature relock.
+                puts("\nSYNVEIL_LOGIN_RELOCKED");
+                fflush(stdout);
+            }
         } else {
             auth_input_key(&state, event.code, event.value);
+            auth_render(screen, &state);
         }
-        auth_render(screen, &state);
     }
     auth_clear(&state);
     if (keyboard >= 0) close(keyboard);
