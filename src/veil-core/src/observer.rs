@@ -12,7 +12,14 @@ pub fn sample() -> io::Result<Value> {
     let stat = fs::read_to_string("/proc/stat")?;
     let uptime = fs::read_to_string("/proc/uptime")?;
     let loadavg = fs::read_to_string("/proc/loadavg")?;
-    parse_sample(&meminfo, &stat, &uptime, &loadavg)
+    let mut snapshot = parse_sample(&meminfo, &stat, &uptime, &loadavg)?;
+    // Disk counters are optional on restricted procfs mounts; an unavailable
+    // source must not prevent CPU/memory health from being reported.
+    snapshot["disk"] = match fs::read_to_string("/proc/diskstats") {
+        Ok(raw) => parse_diskstats(&raw)?,
+        Err(_) => json!({"status": "unavailable", "devices": []}),
+    };
+    Ok(snapshot)
 }
 
 fn invalid_data(message: &'static str) -> io::Error {
@@ -145,6 +152,66 @@ fn parse_loadavg(input: &str) -> io::Result<Value> {
     }))
 }
 
+/// Kernel /proc/diskstats gives cumulative counters, NOT read/write
+/// throughput. Return one record per device without summing partitions and
+/// physical drives (which would double-count I/O). Sector units are Linux
+/// 512-byte sectors regardless of the device's hardware sector size.
+fn parse_diskstats(input: &str) -> io::Result<Value> {
+    const MAX_DEVICES: usize = 128;
+    let mut devices = Vec::new();
+    let mut omitted = 0u64;
+    for line in input.lines().filter(|line| !line.trim().is_empty()) {
+        let columns: Vec<&str> = line.split_whitespace().collect();
+        if columns.len() < 14 {
+            return Err(invalid_data("truncated diskstats row"));
+        }
+        let major = columns[0]
+            .parse::<u32>()
+            .map_err(|_| invalid_data("invalid diskstats major"))?;
+        let minor = columns[1]
+            .parse::<u32>()
+            .map_err(|_| invalid_data("invalid diskstats minor"))?;
+        let name = columns[2];
+        if name.is_empty()
+            || name.len() > 64
+            || !name.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-' || byte == b'.'
+            })
+        {
+            return Err(invalid_data("invalid diskstats device name"));
+        }
+        // Validate standard Linux fields including fields not displayed, so
+        // non-numeric or negative counters never leak into a snapshot.
+        let values = columns[3..14]
+            .iter()
+            .map(|field| field.parse::<u64>().map_err(|_| invalid_data("invalid diskstats counter")))
+            .collect::<io::Result<Vec<_>>>()?;
+        if devices.len() == MAX_DEVICES {
+            omitted = omitted
+                .checked_add(1)
+                .ok_or_else(|| invalid_data("diskstats device overflow"))?;
+            continue;
+        }
+        devices.push(json!({
+            "name": name,
+            "major": major,
+            "minor": minor,
+            "reads_completed": values[0],
+            "sectors_read_512b": values[2],
+            "writes_completed": values[4],
+            "sectors_written_512b": values[6],
+            "io_in_progress": values[8],
+            "busy_milliseconds": values[9],
+            "weighted_busy_milliseconds": values[10],
+        }));
+    }
+    Ok(json!({
+        "status": if omitted == 0 { "ready" } else { "truncated" },
+        "devices": devices,
+        "omitted_devices": omitted,
+    }))
+}
+
 fn parse_sample(meminfo: &str, stat: &str, uptime: &str, loadavg: &str) -> io::Result<Value> {
     let total_bytes = meminfo_kib(meminfo, "MemTotal")?;
     let available_bytes = meminfo_kib(meminfo, "MemAvailable")?;
@@ -192,6 +259,41 @@ mod tests {
         assert_eq!(result["load"]["average_5m"], 0.4);
         assert_eq!(result["load"]["runnable"], 2);
         assert_eq!(result["load"]["total_threads"], 120);
+    }
+
+    #[test]
+    fn diskstats_snapshot_preserves_raw_counters_without_double_counted_totals() {
+        let raw = "   253 0 dm-0 31 2 128 7 40 0 256 10 1 11 15 0 0 0 0\n"
+            .to_owned()
+            + "  8  0 sda  10 0 1024 2 12 0 2048 4 0 6 9\n";
+        let parsed = parse_diskstats(&raw).unwrap();
+        assert_eq!(parsed["status"], "ready");
+        assert_eq!(parsed["devices"][0]["name"], "dm-0");
+        assert_eq!(parsed["devices"][0]["sectors_read_512b"], 128);
+        assert_eq!(parsed["devices"][0]["writes_completed"], 40);
+        assert_eq!(parsed["devices"][1]["name"], "sda");
+        assert_eq!(parsed["devices"][1]["sectors_written_512b"], 2048);
+        assert!(parsed.get("aggregate_bytes_per_second").is_none());
+        assert_eq!(parsed["omitted_devices"], 0);
+    }
+
+    #[test]
+    fn diskstats_rejects_invalid_counters_and_limits_device_output() {
+        for row in [
+            "8 0 sda 1 0 2",
+            "x 0 sda 1 0 2 3 4 5 6 7 8 9 10 11",
+            "8 0 ../evil 1 0 2 3 4 5 6 7 8 9 10 11",
+            "8 0 sda 1 0 -2 3 4 5 6 7 8 9 10 11",
+        ] {
+            assert!(parse_diskstats(row).is_err());
+        }
+        let lines = (0..130)
+            .map(|i| format!("8 {i} dev{i} 0 0 0 0 0 0 0 0 0 0 0\n"))
+            .collect::<String>();
+        let parsed = parse_diskstats(&lines).unwrap();
+        assert_eq!(parsed["status"], "truncated");
+        assert_eq!(parsed["devices"].as_array().unwrap().len(), 128);
+        assert_eq!(parsed["omitted_devices"], 2);
     }
 
     #[test]
