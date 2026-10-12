@@ -772,6 +772,10 @@ static int run_auth_login(const struct surface *screen) {
             quit = 1;
         } else if (event.value == 1 && event.code == KEY_ENTER) {
             state.denied = !auth_attempt(&state);
+            if (state.denied) {
+                puts("\nSYNVEIL_GRAPHICAL_AUTH_DENIED");
+                fflush(stdout);
+            }
         } else {
             auth_input_key(&state, event.code, event.value);
         }

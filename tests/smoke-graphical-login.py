@@ -59,6 +59,9 @@ def smoke(timeout_seconds: float) -> bool:
     if not state.is_file() or state.is_symlink():
         raise ValueError("graphical-login smoke needs a private QEMU state file")
     secret = secrets.token_hex(16)  # 128-bit test-only secret, not an account password
+    incorrect = secrets.token_hex(16)
+    while incorrect == secret:
+        incorrect = secrets.token_hex(16)
     with tempfile.TemporaryDirectory(prefix="synveil-auth-qmp-") as temp:
         qmp_socket = Path(temp) / "monitor.sock"
         env = {**os.environ, "SYNVEIL_QEMU_QMP_SOCKET": str(qmp_socket),
@@ -118,9 +121,26 @@ def smoke(timeout_seconds: float) -> bool:
                         phase = "enrolling"
                     if phase == "enrolling" and b"SYNVEIL_GRAPHICAL_ENROLLED" in seen:
                         try:
-                            type_test_secret(qmp_socket, secret, timeout=17)
+                            type_test_secret(qmp_socket, incorrect, timeout=17)
                         except (QMPError, OSError, ValueError) as error:
                             evidence.write(("[synveil] QMP login: " +
+                                            str(error) + "\n").encode())
+                            return False
+                        phase = "denying"
+                    if phase == "denying" and b"SYNVEIL_GRAPHICAL_AUTH_DENIED" in seen:
+                        # No non-root shell may exist before the correct secret.
+                        process.stdin.write(
+                            b"if ! grep -l '^Uid:[[:space:]]*1000[[:space:]]*1000' "
+                            b"/proc/[0-9]*/status >/dev/null 2>&1; then "
+                            b"printf '\\n%s\\n' SYNVEIL_WRONG_PASSWORD_LOCKED; fi\n"
+                        )
+                        process.stdin.flush()
+                        phase = "denial-check"
+                    if phase == "denial-check" and b"SYNVEIL_WRONG_PASSWORD_LOCKED" in seen:
+                        try:
+                            type_test_secret(qmp_socket, secret, timeout=17)
+                        except (QMPError, OSError, ValueError) as error:
+                            evidence.write(("[synveil] valid QMP login: " +
                                             str(error) + "\n").encode())
                             return False
                         phase = "logging-in"
