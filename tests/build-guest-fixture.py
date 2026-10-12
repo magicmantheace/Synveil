@@ -39,6 +39,13 @@ def main():
         marker = tree / "etc/synveil/auth-desktop"
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.touch(exist_ok=False)
+        # The isolated QEMU test enrolls a synthetic credential through the
+        # developer serial console. Owner-facing auth previews omit this
+        # marker and instead keep all serial root shells locked.
+        debug = tree / "etc/synveil/developer-serial-recovery"
+        if debug.exists() or debug.is_symlink():
+            raise ValueError("unexpected developer recovery marker")
+        debug.touch(exist_ok=False)
     else:
         toolchain = Path(os.environ.get("SYNVEIL_TOOLCHAIN_DIR", ROOT / "build/toolchain/out"))
         target = os.environ.get("SYNVEIL_TARGET", "x86_64-synveil-linux-gnu")

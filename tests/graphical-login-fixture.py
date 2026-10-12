@@ -39,7 +39,8 @@ if mode == 'no-ready':
     print('SYNVEIL_BOOT_OK', flush=True)
     sys.exit(0)
 for marker in ('SYNVEIL_BOOT_OK', 'SYNVEIL_CORE_READY', 'SYNVEIL_STATE_READY',
-               'SYNVEIL_SEAT_READY', 'SYNVEIL_LOGIN_READY'):
+               'SYNVEIL_SEAT_READY', 'SYNVEIL_LOGIN_READY',
+               'SYNVEIL_SERIAL_RECOVERY_DEVELOPER'):
     print(marker, flush=True)
 private = sys.stdin.readline()
 assert private.startswith('stty -echo')

@@ -44,6 +44,8 @@ class GuestFixtureTests(unittest.TestCase):
                                      case == "protocol")
                     self.assertEqual((tree / "etc/synveil/auth-desktop").exists(),
                                      case == "graphical-login")
+                    self.assertEqual((tree / "etc/synveil/developer-serial-recovery").exists(),
+                                     case == "graphical-login")
                     kwargs["stdout"].write(b"fixture cpio")
                 elif command[-1].endswith("kernel.sh"):
                     output = Path(kwargs["env"]["SYNVEIL_OUT_DIR"])
@@ -80,6 +82,7 @@ class GuestFixtureTests(unittest.TestCase):
             self.assertEqual(original.read_bytes(), b"unchanged native image")
             self.assertFalse((baseline / "usr/libexec/synveil-test").exists())
             self.assertFalse((baseline / "etc/synveil/auth-desktop").exists())
+            self.assertFalse((baseline / "etc/synveil/developer-serial-recovery").exists())
             if fail_probe:
                 self.assertEqual(len(calls), 1)
 

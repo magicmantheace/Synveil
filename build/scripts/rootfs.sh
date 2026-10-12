@@ -8,6 +8,9 @@ NETWORK_ROOTFS="${SYNVEIL_NETWORK_ROOTFS:-0}"
 [[ "$NETWORK_ROOTFS" == 0 || "$NETWORK_ROOTFS" == 1 ]] || die "SYNVEIL_NETWORK_ROOTFS must be 0 or 1"
 AUTH_DESKTOP_ROOTFS="${SYNVEIL_AUTH_DESKTOP_ROOTFS:-0}"
 [[ "$AUTH_DESKTOP_ROOTFS" == 0 || "$AUTH_DESKTOP_ROOTFS" == 1 ]] || die "SYNVEIL_AUTH_DESKTOP_ROOTFS must be 0 or 1"
+DEV_SERIAL_ROOTFS="${SYNVEIL_DEV_SERIAL_ROOTFS:-0}"
+[[ "$DEV_SERIAL_ROOTFS" == 0 || "$DEV_SERIAL_ROOTFS" == 1 ]] || die "SYNVEIL_DEV_SERIAL_ROOTFS must be 0 or 1"
+[[ "$DEV_SERIAL_ROOTFS" != 1 || "$AUTH_DESKTOP_ROOTFS" == 1 ]] || die "developer serial override requires authenticated preview"
 DESKTOP_AUTOSTART="${SYNVEIL_DESKTOP_AUTOSTART:-0}"
 [[ "$DESKTOP_AUTOSTART" == 0 || "$DESKTOP_AUTOSTART" == 1 ]] || die "SYNVEIL_DESKTOP_AUTOSTART must be 0 or 1"
 GRAPHICS_ROOTFS="${SYNVEIL_GRAPHICS_ROOTFS:-0}"
@@ -75,6 +78,11 @@ if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
     fi
     if [[ "$AUTH_DESKTOP_ROOTFS" == 1 ]]; then
         install -D -m 0644 /dev/null "$ROOTFS_DIR/etc/synveil/auth-desktop"
+        # Never installed automatically. This explicitly unsafe testing
+        # override must not be used in a physical/owner-facing build.
+        if [[ "$DEV_SERIAL_ROOTFS" == 1 ]]; then
+            install -D -m 0644 /dev/null "$ROOTFS_DIR/etc/synveil/developer-serial-recovery"
+        fi
     fi
     # Non-root disposable developer login, deliberately password-locked.
     # The graphical launcher only opens this identity, never a root shell.

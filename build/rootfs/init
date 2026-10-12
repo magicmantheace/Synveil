@@ -5,6 +5,33 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 umask 022
 
+# BEGIN SERIAL_GUARD: marker-only, sourced from immutable initramfs.
+# An authenticated-preview build must NOT open a root serial shell when the
+# graphical login or its prerequisites fail. The only exception is an
+# intentionally staged developer-only recovery marker in the same initramfs.
+serial_locked() {
+    if [ -e /etc/synveil/auth-desktop ] || [ -L /etc/synveil/auth-desktop ]; then
+        if [ -f /etc/synveil/developer-serial-recovery ] &&
+           [ ! -L /etc/synveil/developer-serial-recovery ]; then
+            return 1
+        fi
+        return 0
+    fi
+    return 1
+}
+# END SERIAL_GUARD
+
+serial_lock_forever() {
+    echo SYNVEIL_SERIAL_RECOVERY_LOCKED
+    while :; do sleep 3600; done
+}
+
+boot_failure_recovery() {
+    if serial_locked; then serial_lock_forever; fi
+    echo "[synveil-init] developer serial recovery shell"
+    exec /bin/sh
+}
+
 mkdir -p /dev /proc /sys /run /tmp
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 
@@ -14,11 +41,11 @@ echo "[synveil-init] starting bootstrap userspace"
 
 mount -t proc proc /proc || {
     echo "[synveil-init] failed to mount /proc"
-    exec /bin/sh
+    boot_failure_recovery
 }
 mount -t sysfs sysfs /sys || {
     echo "[synveil-init] failed to mount /sys"
-    exec /bin/sh
+    boot_failure_recovery
 }
 mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs /run || true
 mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp || true
@@ -80,7 +107,13 @@ if grep -qw 'synveil.autopoweroff=1' /proc/cmdline 2>/dev/null; then
     poweroff -f
 fi
 
-echo "Recovery/bootstrap shell. Type 'poweroff -f' to stop."
+if serial_locked; then
+    serial_lock_forever
+fi
+if [ -f /etc/synveil/auth-desktop ]; then
+    echo SYNVEIL_SERIAL_RECOVERY_DEVELOPER
+fi
+echo "Recovery/bootstrap shell (DEVELOPER VM ONLY). Type 'poweroff -f' to stop."
 if command -v setsid >/dev/null 2>&1 && command -v cttyhack >/dev/null 2>&1; then
     exec setsid cttyhack /bin/sh
 fi

@@ -24,6 +24,7 @@ from qmp_input import QMPError, type_test_secret  # noqa: E402
 REQUIRED = {
     b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY",
     b"SYNVEIL_STATE_READY", b"SYNVEIL_SEAT_READY", b"SYNVEIL_LOGIN_READY",
+    b"SYNVEIL_SERIAL_RECOVERY_DEVELOPER",
 }
 
 # Pure guest-side process, privilege, VT and crash-cleanup checks. No
