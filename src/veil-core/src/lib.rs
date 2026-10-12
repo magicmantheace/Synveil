@@ -17,6 +17,7 @@ pub mod audit;
 pub mod credential;
 pub mod observer;
 pub mod seat;
+pub mod secret;
 pub mod session;
 pub mod supervision;
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(5);

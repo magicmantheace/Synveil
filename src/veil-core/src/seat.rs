@@ -79,7 +79,7 @@ fn read_secret(stream: &mut UnixStream) -> io::Result<Vec<u8>> {
     }
     let mut secret = vec![0u8; length];
     if let Err(error) = stream.read_exact(&mut secret) {
-        secret.fill(0);
+        crate::secret::clear(&mut secret);
         return Err(error);
     }
     Ok(secret)
@@ -209,12 +209,12 @@ where
     let attempt = match tracker.begin_login() {
         Ok(value) => value,
         Err(SessionError::Throttled) => {
-            secret.fill(0);
+            crate::secret::clear(&mut secret);
             let _ = stream.write_all(b"THROTTLED\n");
             return Ok(());
         }
         Err(_) => {
-            secret.fill(0);
+            crate::secret::clear(&mut secret);
             let _ = stream.write_all(b"DENIED\n");
             return Ok(());
         }
@@ -225,7 +225,7 @@ where
         &secret,
         |_, value| verify(value),
     );
-    secret.fill(0);
+    crate::secret::clear(&mut secret);
     if verified.is_err() {
         let _ = stream.write_all(b"DENIED\n");
         return Ok(());
@@ -281,17 +281,17 @@ pub fn login_from_reader<R: Read>(input: R, socket: &Path) -> io::Result<bool> {
         .take((MAX_SECRET + 1) as u64)
         .read_to_end(&mut password)
     {
-        password.fill(0);
+        crate::secret::clear(&mut password);
         return Err(error);
     }
     if !(MIN_SECRET..=MAX_SECRET).contains(&password.len()) {
-        password.fill(0);
+        crate::secret::clear(&mut password);
         return Ok(false);
     }
     let mut stream = match UnixStream::connect(socket) {
         Ok(stream) => stream,
         Err(error) => {
-            password.fill(0);
+            crate::secret::clear(&mut password);
             return Err(error);
         }
     };
@@ -303,7 +303,7 @@ pub fn login_from_reader<R: Read>(input: R, socket: &Path) -> io::Result<bool> {
         stream.write_all(&len.to_be_bytes())?;
         stream.write_all(&password)
     })();
-    password.fill(0);
+    crate::secret::clear(&mut password);
     write?;
     stream.set_read_timeout(Some(IO_TIMEOUT))?;
     let mut response = Vec::new();

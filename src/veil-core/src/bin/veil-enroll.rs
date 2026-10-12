@@ -24,7 +24,7 @@ fn main() -> ExitCode {
     };
     // Best-effort buffer overwrite. A security-reviewed secret-handling
     // component is still required before offering interactive login.
-    password.fill(0);
+    veil_core::secret::clear(&mut password);
     match result {
         Ok(()) => {
             println!("SYNVEIL_CREDENTIAL_ENROLLED");
