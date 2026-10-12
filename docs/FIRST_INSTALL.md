@@ -166,8 +166,11 @@ Synveil is not ready for a physical installation.
 
 The framebuffer binary now has a separate, explicitly invoked `--login`
 screen that displays masked password-length indicators, never plaintext.
-Its password input uses the current **US keyboard-only** evdev mapping and
-a bounded fixed buffer. It sends a fixed password frame to the root-owned
+Its password input currently uses a **US keyboard-only** evdev mapping
+with separate Shift keys, Caps Lock indication, common punctuation and
+numeric-keypad characters. The fixed private buffer accepts up to **1,024
+bytes**, matching the pinned Argon2id verifier's password bound, and the
+graphical client encodes the length as a two-byte network-order field. It sends a fixed password frame to the root-owned
 `veil-seat` socket, then keeps that connection alive during the fixed
 non-root VT session. A closed/crashed graphical client must end the lease
 and relock the seat; neither a status tile nor an AI planner grants login.
@@ -178,16 +181,19 @@ requires all of `SYNVEIL_NATIVE_ROOTFS=1`,
 `SYNVEIL_GRAPHICS_ROOTFS=1`, `SYNVEIL_PERSISTENCE_ROOTFS=1` and
 `SYNVEIL_DESKTOP_AUTOSTART=1`, and installs a rootfs-owned selection
 marker. It does **not** enroll a password. Without an operator-enrolled,
-protected state volume the screen remains locked. The default CI image
-still exercises the original developer menu and console; authenticated
-graphical mode requires its own full guest validation.
+protected state volume the screen remains locked. The default developer image
+continues to exercise the diagnostic menu. A rootfs-selected authenticated
+preview locks its ordinary root serial shell unless the deliberately unsafe
+developer-recovery marker is installed. No complete native QEMU run has yet
+validated the latest graphical-login and serial-lock changes.
 
 This is a controlled prototype, **not a secure physical installer or
 production display manager**: the graphical input/display code still runs
-as root, the bootstrap serial console still exposes developer recovery,
-and comprehensive international keyboard/IME, clipboard, multiwindow
-compositor, encrypted disk, signed boot and safe account onboarding are
-not implemented.
+as root; the developer build still exposes an unauthenticated serial root
+recovery console, while the authenticated preview intentionally disables it
+and consequently lacks a safe first-user enrollment or recovery process.
+Comprehensive international keyboard/IME, clipboard, multiwindow compositor,
+encrypted disk, signed boot and account onboarding are not implemented.
 
 ## Decisions still open
 
