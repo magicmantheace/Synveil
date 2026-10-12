@@ -119,10 +119,30 @@ fn peer_uid(stream: &UnixStream) -> io::Result<u32> {
     Ok(cred.uid)
 }
 
-fn read_secret(stream: &mut UnixStream) -> io::Result<Vec<u8>> {
-    stream.set_read_timeout(Some(IO_TIMEOUT))?;
+// A socket read timeout alone is insufficient: it resets on every recv,
+// allowing a peer to hold the single-threaded broker with one byte at a time.
+// All header and password bytes share a *single* monotonic deadline.
+fn read_exact_before(stream: &mut UnixStream, buffer: &mut [u8], deadline: Instant) -> io::Result<()> {
+    let mut received = 0;
+    while received < buffer.len() {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "seat frame deadline"));
+        }
+        stream.set_read_timeout(Some(remaining))?;
+        match stream.read(&mut buffer[received..]) {
+            Ok(0) => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "seat frame closed")),
+            Ok(size) => received += size,
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(())
+}
+
+fn read_secret_until(stream: &mut UnixStream, deadline: Instant) -> io::Result<Vec<u8>> {
     let mut header = [0u8; 6];
-    stream.read_exact(&mut header)?;
+    read_exact_before(stream, &mut header, deadline)?;
     let length = u16::from_be_bytes([header[4], header[5]]) as usize;
     if &header[..4] != HEADER_MAGIC || !(MIN_SECRET..=MAX_SECRET).contains(&length) {
         return Err(io::Error::new(
@@ -131,11 +151,15 @@ fn read_secret(stream: &mut UnixStream) -> io::Result<Vec<u8>> {
         ));
     }
     let mut secret = vec![0u8; length];
-    if let Err(error) = stream.read_exact(&mut secret) {
+    if let Err(error) = read_exact_before(stream, &mut secret, deadline) {
         crate::secret::clear(&mut secret);
         return Err(error);
     }
     Ok(secret)
+}
+
+fn read_secret(stream: &mut UnixStream) -> io::Result<Vec<u8>> {
+    read_secret_until(stream, Instant::now() + IO_TIMEOUT)
 }
 
 fn prepare_seat_socket(path: &Path, owner: u32) -> io::Result<UnixListener> {
@@ -254,22 +278,23 @@ where
             "peer not authorized",
         ));
     }
-    let mut secret = match read_secret(stream) {
+    // Apply the shared seat's denial cooldown *before* accepting any frame.
+    // Otherwise throttled clients can still stall the broker in read_secret.
+    let attempt = match tracker.begin_login() {
         Ok(value) => value,
+        Err(SessionError::Throttled) => {
+            let _ = stream.write_all(b"THROTTLED\n");
+            return Ok(());
+        }
         Err(_) => {
             let _ = stream.write_all(b"DENIED\n");
             return Ok(());
         }
     };
-    let attempt = match tracker.begin_login() {
+    let mut secret = match read_secret(stream) {
         Ok(value) => value,
-        Err(SessionError::Throttled) => {
-            crate::secret::clear(&mut secret);
-            let _ = stream.write_all(b"THROTTLED\n");
-            return Ok(());
-        }
         Err(_) => {
-            crate::secret::clear(&mut secret);
+            let _ = tracker.deny_login(attempt);
             let _ = stream.write_all(b"DENIED\n");
             return Ok(());
         }
@@ -515,6 +540,61 @@ mod tests {
         assert_eq!(&response, b"ACTIVE\n");
         drop(client);
         assert_eq!(worker.join().unwrap(), SessionState::Locked);
+    }
+
+    #[test]
+    fn trickled_frame_cannot_extend_the_total_read_deadline() {
+        let (mut client, mut server) = UnixStream::pair().unwrap();
+        let writer = thread::spawn(move || {
+            let frame = b"SVL1\x00\x08password";
+            for byte in frame {
+                thread::sleep(Duration::from_millis(20));
+                if client.write_all(&[*byte]).is_err() {
+                    break;
+                }
+            }
+        });
+        let deadline = Instant::now() + Duration::from_millis(65);
+        let failure = read_secret_until(&mut server, deadline).unwrap_err();
+        assert!(matches!(
+            failure.kind(),
+            io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+        ));
+        writer.join().unwrap();
+    }
+
+    #[test]
+    fn throttled_peer_is_rejected_before_waiting_for_any_password_bytes() {
+        let (mut client, mut server) = UnixStream::pair().unwrap();
+        let owner = unsafe { native_euid() };
+        let mut tracker = SessionTracker::default();
+        for _ in 0..3 {
+            let attempt = tracker.begin_login().unwrap();
+            assert_eq!(
+                tracker.complete_with_verifier(
+                    attempt,
+                    crate::credential::LOCAL_ACCOUNT,
+                    b"wrong-password",
+                    |_, _| false,
+                ),
+                Err(SessionError::Denied)
+            );
+        }
+        // An idle client never submits the first byte. Rejection must be
+        // immediate, not wait for the four-second read timeout.
+        handle_connection(
+            &mut server,
+            &mut tracker,
+            owner,
+            |_| panic!("throttled password cannot be verified"),
+            || panic!("throttled client cannot start a terminal"),
+            || Ok(AUTHENTICATED_TERMINAL_VT),
+        )
+        .unwrap();
+        let mut response = [0u8; 10];
+        client.read_exact(&mut response).unwrap();
+        assert_eq!(&response, b"THROTTLED\n");
+        assert_eq!(tracker.state(), SessionState::Locked);
     }
 
     #[test]

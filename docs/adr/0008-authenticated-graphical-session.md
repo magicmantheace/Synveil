@@ -145,3 +145,16 @@ specification, **not a passing QEMU result**. GitHub Actions are unavailable
 for this development period; local offline checks and commit-matched guest
 runs remain the source of validation evidence.
 
+
+## Bounded login-frame processing (host implementation; guest validation pending)
+
+The seat broker now applies its existing monotonic denied-login cooldown
+*before* receiving the next password frame. Header and secret payload use a
+single four-second monotonic deadline rather than a resettable per-read socket
+timeout, preventing trickled input from indefinitely occupying the serial
+single-client authorization loop. A malformed or incomplete frame releases
+the authenticating state without granting authority. Unit cases cover a
+slowly delivered but otherwise valid frame and a throttled peer that sends
+no password bytes. These changes do **not** make the in-memory cooldown
+persistent across broker process restarts; nor do they substitute for a full
+QEMU login, timeout and recovery run.
