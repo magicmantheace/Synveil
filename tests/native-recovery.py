@@ -29,7 +29,7 @@ if mode == 'no-ready':
     sys.exit(0)
 ready = 'SYNVEIL_CORE_UNAVAILABLE' if case == 'absent' else 'SYNVEIL_CORE_READY'
 print(ready + '\\r\\nSYNVEIL_BOOT_OK', flush=True)
-if case == 'demo':
+if case in ('demo', 'desktop'):
     print('SYNVEIL_VT_READY\\nSYNVEIL_DESKTOP_READY', flush=True)
 command = ''
 while not command.endswith('# SYNVEIL_TEST_COMMAND_END\\n'):
@@ -48,6 +48,10 @@ if mode == 'pass':
     elif case == 'demo':
         assert 'synveil-vt --demo-terminal' in command
         assert 'NoNewPrivs' in command and '/dev/tty1' in command
+    elif case == 'desktop':
+        assert 'kill -KILL' in command and 'pidof synveil-display' in command
+        assert 'synctl --json status' in command
+        print('SYNVEIL_DESKTOP_RESTARTING', flush=True)
     elif case == 'observe':
         assert 'synctl --json observe' in command
         assert 'synveil.observe/v1' in command
@@ -57,6 +61,7 @@ if mode == 'pass':
         assert max(map(len, command.splitlines())) < 1024
     marker = {'crash': 'RECOVERY', 'absent': 'ABSENT', 'protocol': 'PROTOCOL',
               'observe': 'OBSERVE', 'demo': 'DEMO',
+              'desktop': 'DESKTOP_RECOVERY',
               'supervision': 'SUPERVISION'}[case]
     print('SYNVEIL_' + marker + '_OK', flush=True)
 elif mode == 'echo':
@@ -116,6 +121,12 @@ elif mode == 'timeout':
 
     def test_demo_echo_cannot_pass(self):
         self.assertNotEqual(self.fixture("echo", "demo")[0], 0)
+
+    def test_desktop_restart_retains_serial_core(self):
+        self.assertEqual(self.fixture("pass", "desktop")[0], 0)
+
+    def test_desktop_echo_cannot_pass(self):
+        self.assertNotEqual(self.fixture("echo", "desktop")[0], 0)
 
     def test_supervision_recovery_passes(self):
         self.assertEqual(self.fixture("pass", "supervision")[0], 0)

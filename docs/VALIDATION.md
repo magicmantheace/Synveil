@@ -99,6 +99,12 @@ failed** on a separate graphical desktop marker formatting assertion.
 Individual component checks are recorded as partial evidence, not a
 successful end-to-end desktop image.
 
+A new `recovery-smoke --case desktop` guest scenario kills only
+`synveil-display`, requires the bounded UI supervisor to announce a
+restart, checks that a different desktop process is running and that
+`synctl status` still responds. The serial console remains available.
+Host fixtures ensure an echoed command does not count as recovery evidence.
+
 A dedicated `ui-preferences-smoke` test now sends keyboard actions through
 a private QEMU monitor into the actual Settings UI on the first boot,
 requires the expected saved file, then boots a second independent QEMU

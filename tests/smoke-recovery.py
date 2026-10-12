@@ -23,6 +23,17 @@ COMMAND = (
     "printf '\\n%s%s\\n' SYNVEIL_ RECOVERY_OK; fi; fi\n"
 )
 SCENARIOS = {
+    "desktop": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY",
+                 b"SYNVEIL_DESKTOP_READY"},
+                b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_DESKTOP_RECOVERY_OK",
+                "old=$(pidof synveil-display); "
+                "if [ -n \"$old\" ] && kill -KILL $old; then "
+                "for retry in $(seq 1 45); do "
+                "current=$(pidof synveil-display); "
+                "if [ -n \"$current\" ] && [ \"$current\" != \"$old\" ] && "
+                "timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then "
+                "printf '\\n%s%s\\n' SYNVEIL_ DESKTOP_RECOVERY_OK; break; fi; "
+                "sleep 0.1; done; fi\n"),
     "demo": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY",
               b"SYNVEIL_VT_READY", b"SYNVEIL_DESKTOP_READY"},
              b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_DEMO_OK",
@@ -133,7 +144,9 @@ def smoke(timeout_seconds, case="crash"):
                     process.stdin.write(script.encode())
                     process.stdin.flush()
                     sent = True
-                if sent and marker in seen:
+                if sent and marker in seen and (
+                    case != "desktop" or b"SYNVEIL_DESKTOP_RESTARTING" in seen
+                ):
                     return True
                 if len(pending) > 65536:
                     return False
