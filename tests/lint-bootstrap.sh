@@ -36,6 +36,7 @@ python3 -m json.tool build/manifests/sources.json >/dev/null
 python3 tools/source_lock.py dump >/dev/null
 python3 tools/offline_checks.py --level quick --plan >/dev/null
 python3 tools/offline_checks.py --level guest --plan >/dev/null
+python3 tests/offline-checks.py
 python3 tests/validate-source-lock.py
 bash tests/source-extraction.sh
 python3 tests/build-lock.py
