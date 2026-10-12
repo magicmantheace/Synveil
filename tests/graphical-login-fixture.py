@@ -31,6 +31,9 @@ class GraphicalLoginFixtureTests(unittest.TestCase):
                 "def exit_authenticated_terminal(path, *, timeout):\n"
                 "    with open(os.environ['QMP_SIGNALS'], 'a') as stream:\n"
                 "        stream.write('EXIT\\n')\n"
+                "def switch_to_login_vt(path, *, timeout):\n"
+                "    with open(os.environ['QMP_SIGNALS'], 'a') as stream:\n"
+                "        stream.write('VT_SWITCH\\n')\n"
             )
             (root / "build/scripts/qemu.sh").write_text(
                 '#!/bin/sh\nexec python3 "$(dirname "$0")/console.py"\n'
@@ -72,8 +75,8 @@ check_tty = sys.stdin.readline()
 assert 'AUTH_TTY_READY' in check_tty and 'NoNewPrivs' in check_tty
 print('SYNVEIL_AUTH_TTY_READY', flush=True)
 wait_for(3)
-assert signal.read_text().splitlines()[2] == 'EXIT'
-if mode == 'no-relock':
+assert signal.read_text().splitlines()[2] == 'VT_SWITCH'
+if mode == 'no-vt-relock':
     sys.exit(0)
 print('SYNVEIL_LOGIN_RELOCKED', flush=True)
 check_relock = sys.stdin.readline()
@@ -81,6 +84,20 @@ assert 'RELOCK_NO_USER_SHELL' in check_relock
 print('SYNVEIL_RELOCK_NO_USER_SHELL', flush=True)
 wait_for(4)
 assert signal.read_text().splitlines()[3] == signal.read_text().splitlines()[1]
+print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
+check_tty = sys.stdin.readline()
+assert 'AUTH_TTY_READY' in check_tty and 'NoNewPrivs' in check_tty
+print('SYNVEIL_AUTH_TTY_READY', flush=True)
+wait_for(5)
+assert signal.read_text().splitlines()[4] == 'EXIT'
+if mode == 'no-relock':
+    sys.exit(0)
+print('SYNVEIL_LOGIN_RELOCKED', flush=True)
+check_relock = sys.stdin.readline()
+assert 'RELOCK_NO_USER_SHELL' in check_relock
+print('SYNVEIL_RELOCK_NO_USER_SHELL', flush=True)
+wait_for(6)
+assert signal.read_text().splitlines()[5] == signal.read_text().splitlines()[1]
 print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
 script = ''
 while not script.endswith('# SYNVEIL_TEST_COMMAND_END\\n'):
@@ -113,16 +130,21 @@ print('SYNVEIL_GRAPHICAL_LOGIN_CLEANED', flush=True)
     def test_script_requires_wrong_password_then_correct_login_and_cleanup(self):
         code, log, secrets = self.simulate("pass")
         self.assertEqual(code, 0, log)
-        self.assertEqual(len(secrets), 4)
+        self.assertEqual(len(secrets), 6)
         self.assertNotEqual(secrets[0], secrets[1])
-        self.assertEqual(secrets[2], "EXIT")
-        self.assertEqual(secrets[1], secrets[3])
-        for secret in (secrets[0], secrets[1], secrets[3]):
+        self.assertEqual(secrets[2], "VT_SWITCH")
+        self.assertEqual(secrets[3], secrets[1])
+        self.assertEqual(secrets[4], "EXIT")
+        self.assertEqual(secrets[5], secrets[1])
+        for secret in (secrets[0], secrets[1], secrets[3], secrets[5]):
             self.assertRegex(secret, r"^[a-f0-9]{32}$")
             self.assertNotIn(secret, log)
         self.assertIn("SYNVEIL_LOGIN_RELOCKED", log)
         self.assertIn("SYNVEIL_RELOCK_NO_USER_SHELL", log)
         self.assertIn("SYNVEIL_GRAPHICAL_LOGIN_CLEANED", log)
+
+    def test_missing_vt_relock_evidence_fails(self):
+        self.assertNotEqual(self.simulate("no-vt-relock")[0], 0)
 
     def test_missing_relock_evidence_fails(self):
         self.assertNotEqual(self.simulate("no-relock")[0], 0)
