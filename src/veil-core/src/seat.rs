@@ -487,10 +487,18 @@ mod tests {
         let first = prepare_seat_socket(&socket, owner).unwrap();
         assert!(prepare_seat_socket(&socket, owner).is_err());
         drop(first);
-        assert!(fs::symlink_metadata(&socket).unwrap().file_type().is_socket());
+        assert!(
+            fs::symlink_metadata(&socket)
+                .unwrap()
+                .file_type()
+                .is_socket()
+        );
         let restarted = prepare_seat_socket(&socket, owner).unwrap();
         assert!(restarted.local_addr().unwrap().as_pathname().is_some());
-        assert_eq!(fs::metadata(&socket).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(&socket).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
         drop(restarted);
         fs::remove_dir_all(dir).unwrap();
     }
