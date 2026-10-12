@@ -118,8 +118,11 @@ fn close_session(tracker: &mut SessionTracker, session: u64, child: &mut Child) 
     // Never grant another login until this process has been reaped.
     tracker.display_failed();
     let _ = child.kill();
-    let _ = child.wait();
-    let _ = tracker.cleanup_finished(session);
+    // Never release the cleanup quarantine unless the launcher has
+    // definitely been reaped (which triggers its non-root PDEATHSIG).
+    if child.wait().is_ok() {
+        let _ = tracker.cleanup_finished(session);
+    }
 }
 
 /// Root graphical clients only. Kept separate from the agent/control IPC.
@@ -212,11 +215,15 @@ where
 /// Developer-only password-pipe client. The socket lease stays open until
 /// the non-root VT shell terminates. The client never receives a UID, an
 /// executable name, a session token or a privileged command capability.
-pub fn login_from_reader<R: Read>(mut input: R, socket: &Path) -> io::Result<bool> {
+pub fn login_from_reader<R: Read>(input: R, socket: &Path) -> io::Result<bool> {
     let mut password = Vec::new();
-    input
+    if let Err(error) = input
         .take((MAX_SECRET + 1) as u64)
-        .read_to_end(&mut password)?;
+        .read_to_end(&mut password)
+    {
+        password.fill(0);
+        return Err(error);
+    }
     if !(MIN_SECRET..=MAX_SECRET).contains(&password.len()) {
         password.fill(0);
         return Ok(false);
@@ -228,16 +235,14 @@ pub fn login_from_reader<R: Read>(mut input: R, socket: &Path) -> io::Result<boo
             return Err(error);
         }
     };
-    stream.set_write_timeout(Some(IO_TIMEOUT))?;
-    let len =
-        u16::try_from(password.len()).map_err(|_| io::Error::other("invalid password size"))?;
-    let mut write = stream.write_all(HEADER_MAGIC);
-    if write.is_ok() {
-        write = stream.write_all(&len.to_be_bytes());
-    }
-    if write.is_ok() {
-        write = stream.write_all(&password);
-    }
+    let write = (|| {
+        stream.set_write_timeout(Some(IO_TIMEOUT))?;
+        let len = u16::try_from(password.len())
+            .map_err(|_| io::Error::other("invalid password size"))?;
+        stream.write_all(HEADER_MAGIC)?;
+        stream.write_all(&len.to_be_bytes())?;
+        stream.write_all(&password)
+    })();
     password.fill(0);
     write?;
     stream.set_read_timeout(Some(IO_TIMEOUT))?;
