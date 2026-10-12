@@ -89,8 +89,10 @@ it never stores authorization or AI policy. A two-process QEMU guest test now dr
 screen through a private host QMP keyboard connection, verifies the launcher
 saved its two bounded preferences, then requires the launcher to load those
 preferences in a second QEMU process. The test also checks that a UID
-1000-owned demo-home file survived. Full guest execution remains pending. Display modes, authenticated login and a
-production network UI remain open.
+1000-owned demo-home file survived. Those two-boot checks passed at
+[f642d6f](validation/native-f642d6f/README.md); newer state-directory
+hardening remains pending guest validation. Display modes, authenticated
+login and a production network UI remain open.
 No AI can request or authorize actions from this menu. The serial recovery
 shell stays independent.
 
@@ -110,10 +112,13 @@ requests the matching DRM/input drivers. A host-side test verifies option
 selection and ensures that the normal serial CI path stays headless and offline.
 The controlled QEMU virtual graphics/input hardware and developer menu
 passed full guest smoke checks at d875da39; hardware outside QEMU
-and the newer persistent settings/home changes remain unvalidated. A separate opt-in
+and the cross-reboot settings/home checks passed at f642d6f. Newer
+state-hardening and the desktop crash-restart guest test remain pending.
+A separate opt-in
 `SYNVEIL_NETWORK_ROOTFS=1` installs a bounded BusyBox DHCP helper and strict
-IPv4 lease callback for QEMU `eth0`. Live QEMU DHCP validation remains
-required; this is not a production network manager.
+IPv4 lease callback for QEMU `eth0`. QEMU guest DHCP passed at
+[f642d6f](validation/native-f642d6f/README.md); this is not a production
+network manager.
 
 ## Private VM packaging prerequisite
 

@@ -15,9 +15,10 @@ ready; full AI optimization and package management are not prerequisites.
 - [ ] Provide persistent writable storage that survives reboot
   - QEMU /var state disk survived independent write/reboot/read in the
     [partial guest evidence](docs/validation/persistence-2e1e54c/README.md).
-    A private demo-user home can now bind-mount from that state disk; its
-    own two-boot check is implemented but pending. Installed-system root
-    storage, trusted mount identity and installer remain open.
+    The demo user's protected bind-mounted home and preferences survived
+    separate QEMU boots at [f642d6f](docs/validation/native-f642d6f/README.md).
+    New state-path hardening and installed-system root storage, trusted mount
+    identity and installer remain open.
 - [ ] Provide a documented installation path on a supported test target
   - A guarded private QEMU boot/state bundle with SHA256 verification and
     an offline launcher is implemented; user-facing validation is still open.
@@ -38,9 +39,10 @@ ready; full AI optimization and package management are not prerequisites.
 - [ ] Provide basic settings for the supported display/input/network setup
   - High-contrast/pointer-size controls now save a private versioned
     record when the QEMU ext4 state volume is mounted; host tests cover
-    atomic writing and invalid/symlink records. An opt-in QMP keyboard test
-    now exercises the actual GUI Save -> QEMU reboot -> Load path, pending
-    full guest validation. Display modes and network settings remain open.
+    atomic writing and invalid/symlink records. The QMP-driven GUI Save ->
+    independent QEMU boot -> Load test passed at
+    [f642d6f](docs/validation/native-f642d6f/README.md).
+    Display modes and network settings remain open.
 - [ ] Validate desktop startup, reboot persistence, and console fallback
 - [ ] Publish a checksummed test image and installation/test instructions
 

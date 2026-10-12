@@ -112,8 +112,10 @@ instance and requires `SYNVEIL_SETTINGS_LOADED` emitted by the menu.
 It also verifies a UID-1000-owned demo-home file survives. The QMP input
 helper is host-only, opt-in, key allowlisted, and its protocol is exercised
 against a fake monitor. The host unit test separately checks the menu's
-atomic file writer, corrupted records and symlink protections. Full QEMU
-execution remains necessary before marking the new behavior validated.
+atomic file writer, corrupted records and symlink protections. The real
+two-QEMU-process save/load and demo-home checks passed at
+[f642d6f](validation/native-f642d6f/README.md), but that result predates
+the latest state-directory hardening and graphical crash-restart guest gate.
 
 The [d875da39 full native QEMU run](validation/native-d875da39/README.md)
 passed its build pipeline and all guest gates: core recovery, observer,
