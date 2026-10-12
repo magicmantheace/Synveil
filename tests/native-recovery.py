@@ -17,6 +17,11 @@ class RecoveryTests(unittest.TestCase):
             root = Path(directory)
             (root / "tests").mkdir()
             (root / "build/scripts").mkdir(parents=True)
+            (root / "tools").mkdir()
+            (root / "tools/qmp_input.py").write_text(
+                "class QMPError(RuntimeError): pass\n"
+                "def open_demo_terminal(path, *, timeout): return None\n"
+            )
             shutil.copyfile(ROOT / "tests/smoke-recovery.py", root / "tests/smoke-recovery.py")
             (root / "build/scripts/qemu.sh").write_text(
                 'exec python3 "$(dirname "$0")/console.py"\n'
@@ -31,7 +36,7 @@ ready = 'SYNVEIL_CORE_UNAVAILABLE' if case == 'absent' else 'SYNVEIL_CORE_READY'
 print(ready + '\\r\\nSYNVEIL_BOOT_OK', flush=True)
 if case in ('state-missing', 'state-corrupt'):
     print('SYNVEIL_STATE_UNAVAILABLE', flush=True)
-if case in ('demo', 'desktop'):
+if case in ('demo', 'desktop', 'desktop-terminal'):
     print('SYNVEIL_VT_READY\\nSYNVEIL_DESKTOP_READY', flush=True)
 command = ''
 while not command.endswith('# SYNVEIL_TEST_COMMAND_END\\n'):
@@ -54,6 +59,10 @@ if mode == 'pass':
         assert 'kill -KILL' in command and 'pidof synveil-display' in command
         assert 'synctl --json status' in command
         print('SYNVEIL_DESKTOP_RESTARTING', flush=True)
+    elif case == 'desktop-terminal':
+        assert 'kill -KILL' in command and 'pidof synveil-display' in command
+        assert 'NoNewPrivs' in command and '/dev/tty1' in command
+        print('SYNVEIL_DESKTOP_RESTARTING', flush=True)
     elif case in ('state-missing', 'state-corrupt'):
         assert 'synctl --json status' in command
         assert '/tmp/state-recovery-probe' in command
@@ -66,7 +75,8 @@ if mode == 'pass':
         assert max(map(len, command.splitlines())) < 1024
     marker = {'crash': 'RECOVERY', 'absent': 'ABSENT', 'protocol': 'PROTOCOL',
               'observe': 'OBSERVE', 'demo': 'DEMO',
-              'desktop': 'DESKTOP_RECOVERY', 'state-missing': 'STATE_RECOVERY',
+              'desktop': 'DESKTOP_RECOVERY', 'desktop-terminal': 'TERMINAL_LIFETIME',
+              'state-missing': 'STATE_RECOVERY',
               'state-corrupt': 'STATE_RECOVERY', 'supervision': 'SUPERVISION'}[case]
     print('SYNVEIL_' + marker + '_OK', flush=True)
 elif mode == 'echo':
@@ -132,6 +142,10 @@ elif mode == 'timeout':
 
     def test_desktop_echo_cannot_pass(self):
         self.assertNotEqual(self.fixture("echo", "desktop")[0], 0)
+
+    def test_display_crash_closes_the_non_root_demo_terminal(self):
+        self.assertEqual(self.fixture("pass", "desktop-terminal")[0], 0)
+        self.assertNotEqual(self.fixture("echo", "desktop-terminal")[0], 0)
 
     def test_no_state_disk_keeps_independent_recovery(self):
         self.assertEqual(self.fixture("pass", "state-missing")[0], 0)

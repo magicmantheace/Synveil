@@ -165,6 +165,10 @@ jobs:
           SYNVEIL_QEMU_VIDEO: "1"
         run: bash build.sh recovery-smoke --case desktop --timeout 60
 
+      - name: Terminate the demo shell when the graphical launcher crashes
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: bash build.sh recovery-smoke --case desktop-terminal --timeout 60
+
       - name: Verify non-root VT demo terminal identity in guest
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         env:

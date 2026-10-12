@@ -11,7 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, settings_toggle, press
+from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys
 
 
 class QMPTests(unittest.TestCase):
@@ -52,6 +52,25 @@ class QMPTests(unittest.TestCase):
                     pressed.append(event["data"]["key"]["data"])
             self.assertEqual(pressed, ["right"] * 4 + ["ret", "right", "up"])
     
+    def test_terminal_requires_two_enter_actions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            endpoint = Path(tmp) / "qmp.sock"
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+                listener.bind(str(endpoint))
+                listener.listen(1)
+                commands = []
+                worker = threading.Thread(target=self.serve, args=(listener, commands))
+                worker.start()
+                open_demo_terminal(endpoint, timeout=5)
+                worker.join(timeout=3)
+                self.assertFalse(worker.is_alive())
+            presses = [
+                item["arguments"]["events"][0]["data"]["key"]["data"]
+                for item in commands[1:]
+                if item["arguments"]["events"][0]["data"]["down"]
+            ]
+            self.assertEqual(presses, ["right", "right", "right", "ret", "ret"])
+
     def test_error_and_unapproved_key_fail(self):
         with tempfile.TemporaryDirectory() as tmp:
             endpoint = Path(tmp) / "qmp.sock"
@@ -65,6 +84,10 @@ class QMPTests(unittest.TestCase):
                 worker.join(timeout=3)
             with self.assertRaises(ValueError):
                 press(None, None, "ctrl-alt-delete")
+            with self.assertRaises(ValueError):
+                send_keys(endpoint, ("ctrl-alt-delete",), timeout=1)
+            with self.assertRaises(ValueError):
+                send_keys(endpoint, (), timeout=1)
 
     def test_non_absolute_paths_are_refused(self):
         with self.assertRaises(ValueError):

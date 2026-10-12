@@ -111,6 +111,14 @@ or a temporary attached block image contains no valid ext4 filesystem.
 They never identify, open or format a physical disk. These cases require
 their own native-image guest validation.
 
+An additional QMP-driven `recovery-smoke --case desktop-terminal` exercise
+navigates the real Terminal tile, confirms the UID 1000/no-new-privileges VT1
+shell, kills the graphical launcher, and requires that shell to terminate while
+`synctl status` and serial recovery remain available. Host QMP tests enforce
+the two Enter actions and the allowlisted key sequence. Full native QEMU
+evidence is still pending; a successful host process-tree fixture alone does
+not validate guest VT cleanup.
+
 A dedicated `ui-preferences-smoke` test now sends keyboard actions through
 a private QEMU monitor into the actual Settings UI on the first boot,
 requires the expected saved file, then boots a second independent QEMU

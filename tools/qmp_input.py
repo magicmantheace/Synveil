@@ -10,8 +10,8 @@ from pathlib import Path
 import socket
 import time
 
-# QEMU QKeyCode enumerators. Only the short sequence needed by the desktop
-# settings UI can be emitted by this helper.
+# QEMU QKeyCode enumerators. Only short allowlisted sequences for isolated
+# settings and demo-terminal guest smoke tests are permitted.
 ALLOWED_KEYS = frozenset(("right", "left", "up", "down", "ret", "esc"))
 
 
@@ -60,8 +60,10 @@ def press(sock, reader, key):
                                 "arguments": {"events": [event]}})
 
 
-def settings_toggle(socket_path: Path, *, timeout=5.0):
-    """Use real guest input: Settings tile, contrast toggle, pointer enlargement."""
+def send_keys(socket_path: Path, keys: tuple[str, ...], *, timeout=5.0):
+    """Send a fixed, fully allowlisted test sequence over private host QMP."""
+    if not keys or any(key not in ALLOWED_KEYS for key in keys):
+        raise ValueError("unsupported QMP test sequence")
     socket_path = Path(socket_path)
     if not socket_path.is_absolute():
         raise ValueError("QMP socket must use an absolute path")
@@ -80,8 +82,21 @@ def settings_toggle(socket_path: Path, *, timeout=5.0):
         with sock.makefile("rb") as reader:
             _read_reply(reader, greeting=True)
             emit_command(sock, reader, {"execute": "qmp_capabilities"})
-            for key in ("right", "right", "right", "right", "ret", "right", "up"):
+            for key in keys:
                 if time.monotonic() >= deadline:
                     raise QMPError("QMP keyboard sequence exceeded deadline")
                 press(sock, reader, key)
                 time.sleep(0.075)
+
+
+
+def settings_toggle(socket_path: Path, *, timeout=5.0):
+    """Use guest input to change two display settings."""
+    return send_keys(socket_path, ("right", "right", "right", "right",
+                                   "ret", "right", "up"), timeout=timeout)
+
+
+def open_demo_terminal(socket_path: Path, *, timeout=5.0):
+    """Select Terminal and confirm, never opening privileged debug terminal."""
+    return send_keys(socket_path, ("right", "right", "right", "ret", "ret"),
+                     timeout=timeout)
