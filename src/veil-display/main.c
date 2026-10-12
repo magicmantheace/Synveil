@@ -826,6 +826,34 @@ static int auth_send_all(int fd, const unsigned char *bytes, size_t len) {
     return 0;
 }
 
+// A receive timeout per syscall can be extended by a slow/misbehaving seat
+// peer. Keep the entire short authorization response within one deadline.
+// poll() and MSG_DONTWAIT also prevent an accidental blocking recv after
+// readiness changes.
+static int auth_receive_response(int fd, unsigned char *buffer, size_t length,
+                                 long timeout_ms) {
+    struct timespec start;
+    if (clock_gettime(CLOCK_MONOTONIC, &start) != 0) return -1;
+    size_t read_bytes = 0;
+    while (read_bytes < length) {
+        struct timespec now;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return -1;
+        long long elapsed_ms = (long long)(now.tv_sec - start.tv_sec) * 1000LL +
+                               (now.tv_nsec - start.tv_nsec) / 1000000LL;
+        if (elapsed_ms >= timeout_ms) return -1;
+        struct pollfd ready = {.fd = fd, .events = POLLIN};
+        int result = poll(&ready, 1u, (int)(timeout_ms - elapsed_ms));
+        if (result < 0 && errno == EINTR) continue;
+        if (result <= 0 || !(ready.revents & POLLIN)) return -1;
+        ssize_t got = recv(fd, buffer + read_bytes, length - read_bytes, MSG_DONTWAIT);
+        if (got < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
+            continue;
+        if (got <= 0) return -1;
+        read_bytes += (size_t)got;
+    }
+    return 0;
+}
+
 static int auth_attempt(struct auth_input *state) {
     int connected = -1;
     if (state->length < 8u) goto denied;
@@ -853,13 +881,8 @@ static int auth_attempt(struct auth_input *state) {
     auth_clear(state);
     // The broker sends only ACTIVE/DENIED/THROTTLED; never a token.
     unsigned char response[7] = {0};
-    size_t have = 0;
-    while (have < sizeof(response)) {
-        ssize_t n = recv(connected, response+have, sizeof(response)-have, 0);
-        if (n <= 0) goto denied;
-        have += (size_t)n;
-    }
-    if (memcmp(response, "ACTIVE\n", sizeof(response)) != 0) goto denied;
+    if (auth_receive_response(connected, response, sizeof(response), 4000) != 0 ||
+        memcmp(response, "ACTIVE\n", sizeof(response)) != 0) goto denied;
     puts("\nSYNVEIL_GRAPHICAL_AUTH_ACTIVE");
     fflush(stdout);
     // This open descriptor is the lease. On a UI crash the OS closes the
@@ -1044,6 +1067,22 @@ static int self_test(void) {
     menu_click(&settings, 50u, 220u, 900u, 600u);
     menu_click(&settings, 50u, 330u, 900u, 600u);
     if (settings.high_contrast || settings.cursor_scale) return 1;
+    // An incomplete seat reply must not hold the login screen indefinitely.
+    // The successful path accepts exactly the broker's seven-byte ACTIVE reply.
+    int pair[2];
+    unsigned char seat_reply[7] = {0};
+    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, pair) != 0) return 1;
+    if (send(pair[1], "ACTIVE\n", 7u, MSG_NOSIGNAL) != 7 ||
+        auth_receive_response(pair[0], seat_reply, sizeof(seat_reply), 100) != 0 ||
+        memcmp(seat_reply, "ACTIVE\n", sizeof(seat_reply)) != 0) return 1;
+    close(pair[0]);
+    close(pair[1]);
+    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, pair) != 0) return 1;
+    if (send(pair[1], "ACT", 3u, MSG_NOSIGNAL) != 3 ||
+        auth_receive_response(pair[0], seat_reply, sizeof(seat_reply), 40) == 0)
+        return 1;
+    close(pair[0]);
+    close(pair[1]);
     // The VT restore loop must return to supervision at its fixed deadline,
     // including the nanosecond boundary rather than an extra whole second.
     struct timespec before = {.tv_sec = 100, .tv_nsec = 500000000};

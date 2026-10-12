@@ -169,3 +169,13 @@ supervisor can apply its recovery budget instead of hanging forever.
 The display self-test includes deadline-boundary assertions. This does not
 prove that tty2 restoration or terminal cleanup works on a real QEMU
 console; those still need exact-image guest validation.
+
+## Bounded graphical seat-response handling (host implementation; guest pending)
+
+The framebuffer login client now uses a single monotonic four-second deadline
+for the complete fixed authorization reply, rather than allowing a peer to
+extend a per-`recv` timeout by slowly sending bytes. A small self-test
+exercises both a complete `ACTIVE` response and a truncated response from
+a peer that remains connected. After a successful response the existing
+socket lease still remains open until the session exits. QEMU is required
+to validate the display and broker together.
