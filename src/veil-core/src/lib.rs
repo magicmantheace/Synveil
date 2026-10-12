@@ -99,7 +99,7 @@ fn observe(request: Request) -> Response {
             request.id,
             ProtocolError::new(
                 ErrorCode::InternalFailure,
-                "could not read kernel CPU/memory observations",
+                "could not read kernel observations",
             ),
         ),
     }

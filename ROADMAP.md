@@ -128,6 +128,12 @@ Durable audit rotation, integrity and disk-full policy remain open.
     utilization or process inventory; full lifecycle metrics remain open.
     The expanded QEMU observer check is pending.
 - [ ] disk/I/O metrics
+  - Raw, per-device read/write counts, 512-byte sector counters, in-flight I/O,
+    and cumulative busy time are exposed read-only by `synctl observe`.
+    The strict parser rejects malformed counters and bounds device output.
+    Partition and whole-device counters are never summed. Missing procfs
+    diskstats is explicitly unavailable, not estimated or fabricated;
+    interval-based throughput and persistent history remain open.
 - [ ] network metrics
 - [ ] thermal/power interface where available
 - [ ] event normalization

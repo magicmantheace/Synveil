@@ -127,7 +127,7 @@ fn print_help() {
          \n\
          Commands:\n\
            status    Query veil-core deterministic service status\n\
-           observe   Read kernel CPU, memory, and uptime snapshot"
+           observe   Read kernel CPU, memory, uptime, load and disk counters"
     );
 }
 
