@@ -112,7 +112,11 @@ Core-crash recovery passed at `248775a` in the
 [recovery evidence](docs/validation/core-crash-248775a/README.md).
 Absent-core recovery, supervision and structured logging passed in
 [guest validation at 810f66d](docs/validation/native-810f66d/README.md).
-Durable audit rotation, integrity and disk-full policy remain open.
+Persistent journal appends now enforce a prototype 4 MiB per-file limit
+with a nonblocking advisory write lock, reporting capacity failures to the
+console rather than consuming unlimited state space. This is not durable
+rotation or an integrity chain; archive retention, disk-full policy and
+tamper evidence remain open.
 
 ## Phase 3 — Observer
 

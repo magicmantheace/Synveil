@@ -182,6 +182,14 @@ If an implementation exists but validation is blocked by infrastructure, leave t
 
 ## Audit format validation
 
+Prototype persistent audit writes now enforce a per-journal 4 MiB bound:
+cooperative writers acquire a nonblocking kernel file lock before the
+capacity check and append. If the file is full or locked, the core emits
+a console warning instead of silently declaring that the audit record was
+persisted. This guards limited developer-VM state storage; audit rotation,
+retention, loss accounting and tamper-evident chaining remain release gates.
+It is not evidence of completed archival or fault-tolerant logging.
+
 The [audit v1 contract](AUDIT.md) has unit coverage for schema/build/process
 identity, ordering, unavailable time, and escaped field content. Its host
 integration test requires the actual core to answer status and emit valid
