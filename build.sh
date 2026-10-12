@@ -12,6 +12,7 @@ Usage:
   bash build.sh lint
   bash build.sh doctor
   bash build.sh native-check
+  bash build.sh offline-check [--level quick|host|guest] [--plan]
   bash build.sh native
   bash build.sh fetch
   bash build.sh toolchain
@@ -50,6 +51,9 @@ case "$command" in
         ;;
     doctor)
         bash "$ROOT_DIR/build/scripts/doctor.sh"
+        ;;
+    offline-check)
+        exec python3 "$ROOT_DIR/tools/offline_checks.py" "${@:2}"
         ;;
     native-check)
         source "$ROOT_DIR/build/scripts/common.sh"

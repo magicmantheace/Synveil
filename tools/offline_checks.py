@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MPL-2.0
+"""Offline host and opt-in guest validation; never invokes GitHub Actions.
+
+Run from a Synveil checkout. Results are tied to its Git HEAD and saved
+under out/local-validation; a host pass is not a QEMU or installer pass.
+"""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parents[1]
+HOST = (
+    ("bootstrap", "bash", "tests/lint-bootstrap.sh"),
+    ("native-preflight", "python3", "tests/native-preflight.py"),
+    ("native-build", "python3", "tests/native-build.py"),
+    ("native-rootfs", "python3", "tests/native-rootfs.py"),
+    ("native-startup", "python3", "tests/native-startup.py"),
+    ("seat-supervisor", "python3", "tests/seat-supervisor.py"),
+    ("native-smoke-fixtures", "python3", "tests/native-smoke.py"),
+    ("native-recovery-fixtures", "python3", "tests/native-recovery.py"),
+    ("qemu-lock", "python3", "tests/qemu-lock.py"),
+    ("protocol-fixtures", "python3", "tests/native-protocol-probe.py"),
+    ("guest-fixtures", "python3", "tests/native-guest-fixture.py"),
+    ("graphical-login-fixtures", "python3", "tests/graphical-login-fixture.py"),
+    ("display-build", "python3", "tests/display-build.py"),
+    ("desktop-lifetime", "python3", "tests/desktop-lifetime.py"),
+    ("state-mount", "python3", "tests/state-mount-safety.py"),
+    ("qmp-input", "python3", "tests/qmp-input.py"),
+    ("qemu-options", "python3", "tests/qemu-options.py"),
+)
+RUST = (
+    ("rustfmt", "cargo", "fmt", "--all", "--check"),
+    ("rust-tests", "cargo", "test", "--workspace", "--all-targets",
+     "--locked", "--offline"),
+    ("clippy", "cargo", "clippy", "--workspace", "--all-targets",
+     "--locked", "--offline", "--", "-D", "warnings"),
+)
+GUEST = (
+    ("qemu-boot", "bash", "build.sh", "native-smoke"),
+    ("qemu-locked-seat", "bash", "build.sh", "recovery-smoke",
+     "--case", "seat-locked", "--timeout", "90"),
+    ("qemu-graphical-login", "bash", "build.sh", "guest-fixture",
+     "--case", "graphical-login"),
+)
+
+
+def checks(level):
+    if level not in ("quick", "host", "guest"):
+        raise ValueError("invalid offline test level")
+    return list(HOST) + (list(RUST) if level != "quick" else []) + (
+        list(GUEST) if level == "guest" else []
+    )
+
+
+def git_identity():
+    try:
+        head = subprocess.check_output(["git", "rev-parse", "HEAD"],
+                                       cwd=ROOT, text=True, timeout=5).strip()
+        dirty = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=ROOT, timeout=5
+        )
+        diff = subprocess.check_output(["git", "diff", "HEAD", "--binary"],
+                                       cwd=ROOT, timeout=5)
+        return head, not bool(dirty), hashlib.sha256(diff).hexdigest()
+    except (OSError, subprocess.SubprocessError):
+        return "unknown", False, "unknown"
+
+
+def store(path, record):
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
+    temporary.replace(path)
+
+
+def run_check(command, logfile, timeout, environment):
+    started = time.monotonic()
+    with logfile.open("wb") as output:
+        try:
+            process = subprocess.Popen(command, cwd=ROOT, env=environment,
+                                       stdout=output, stderr=subprocess.STDOUT,
+                                       start_new_session=True)
+        except OSError as error:
+            output.write(("unable to start: " + str(error) + "\n").encode())
+            return "blocked", None, round(time.monotonic() - started, 3)
+        try:
+            code = process.wait(timeout=timeout)
+            status = "pass" if code == 0 else "fail"
+        except subprocess.TimeoutExpired:
+            status, code = "timeout", None
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+    return status, code, round(time.monotonic() - started, 3)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--level", choices=("quick", "host", "guest"),
+                        default="quick")
+    parser.add_argument("--timeout", type=int, default=240)
+    parser.add_argument("--plan", action="store_true")
+    args = parser.parse_args()
+    if args.timeout < 1:
+        parser.error("timeout must be positive")
+    steps = checks(args.level)
+    if args.plan:
+        for entry in steps:
+            print(" ".join(entry))
+        return 0
+    head, clean, diff_hash = git_identity()
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    output = ROOT / "out" / "local-validation" / (
+        timestamp + "-" + head[:8] + "-" + str(os.getpid())
+    )
+    output.mkdir(parents=True, exist_ok=False)
+    receipt_path = output / "results.json"
+    receipt = {
+        "schema": "synveil.offline-validation/v1",
+        "git_commit": head,
+        "clean_tracked_checkout": clean,
+        "tracked_diff_sha256": diff_hash,
+        "level": args.level,
+        "status": "incomplete",
+        "guest_validated": False,
+        "checks": [],
+    }
+    store(receipt_path, receipt)
+    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+    if args.level == "guest":
+        env["SYNVEIL_QEMU_VIDEO"] = "1"
+        env["SYNVEIL_SMOKE_REQUIRE_DISPLAY"] = "1"
+        env["SYNVEIL_SMOKE_REQUIRE_DESKTOP"] = "1"
+    image = Path(env.get("SYNVEIL_OUT_DIR", str(ROOT / "out"))) / "synveil-x86_64.img"
+    for i, entry in enumerate(steps, start=1):
+        name, *command = entry
+        logfile = output / f"{i:02d}-{name}.log"
+        if name.startswith("qemu-") and not image.is_file():
+            status, code, elapsed = "blocked", None, 0
+            logfile.write_text("QEMU image absent; guest validation not run\n")
+        elif command[0] == "cargo" and shutil.which("cargo") is None:
+            status, code, elapsed = "blocked", None, 0
+            logfile.write_text("Rust toolchain absent; Rust validation not run\n")
+        else:
+            limit = max(args.timeout, 2400) if name == "qemu-graphical-login" else args.timeout
+            status, code, elapsed = run_check(command, logfile, limit, env)
+        receipt["checks"].append({
+            "name": name, "command": command, "status": status,
+            "exit_code": code, "seconds": elapsed, "log": logfile.name,
+        })
+        store(receipt_path, receipt)
+        print(f"[offline] {name}: {status}", flush=True)
+    receipt["status"] = ("pass" if all(
+        item["status"] == "pass" for item in receipt["checks"]
+    ) else "fail")
+    receipt["guest_validated"] = (
+        args.level == "guest" and receipt["status"] == "pass"
+        and clean and head != "unknown"
+    )
+    store(receipt_path, receipt)
+    print(f"[offline] {receipt['status']} — {receipt_path}")
+    if args.level != "guest":
+        print("[offline] Host checks do NOT prove a bootable authenticated desktop")
+    if not clean:
+        print("[offline] Warning: not clean-commit validation evidence")
+    return 0 if receipt["status"] == "pass" else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

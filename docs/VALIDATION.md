@@ -191,3 +191,31 @@ emitter; it does not establish persistent storage or a durable journal.
 The [fc78195 result](validation/supervision-fc78195/README.md) leaves supervision,
 protocol, and absent-core guest cases pending. Independent guest cases must not
 be skipped merely because a previous guest test failed.
+
+
+## Offline validation during GitHub Actions unavailability
+
+When CI minutes or GitHub Actions are unavailable, tests can run on a trusted
+Linux build host **without invoking Actions or downloading dependencies**:
+
+- \`bash build.sh offline-check --level quick\` — shell/source lint, host-side
+  Python fixtures and C display build; no Rust toolchain or QEMU required.
+- \`bash build.sh offline-check --level host\` — quick checks plus
+  \`cargo fmt\`, \`cargo test --offline\`, and
+  \`cargo clippy --offline -- -D warnings\`. Dependencies must already be
+  cached. Missing Rust/caches are failures, not silently skipped.
+- \`bash build.sh offline-check --level guest\` — host checks plus guest
+  smoke and the isolated graphical-login QEMU fixture, using the **already
+  built** native image and toolchain. It never formats a physical device.
+  Guest tests are not attempted when the native boot image is missing.
+- \`bash build.sh offline-check --level quick --plan\` lists the exact
+  checks without running them.
+
+Every invocation saves a per-command log and structured
+\`out/local-validation/<timestamp>-<commit>/results.json\` receipt showing
+passed, failed, timed-out and blocked tests. The receipt carries the Git
+commit, tracked-worktree cleanliness and tracked-diff SHA-256.
+**Host-only green cannot be described as a passing boot, login or install.**
+Only guest-tier checks against a clean, manifest-matched image can support
+end-to-end QEMU claims. Keep failed logs and re-run after fixes. Do not
+turn off CI checks or fabricate their status while Actions is unavailable.
