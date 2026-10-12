@@ -67,7 +67,7 @@ def git_identity():
         head = subprocess.check_output(["git", "rev-parse", "HEAD"],
                                        cwd=ROOT, text=True, timeout=5).strip()
         dirty = subprocess.check_output(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
+            ["git", "status", "--porcelain", "--untracked-files=normal"],
             cwd=ROOT, timeout=5
         )
         diff = subprocess.check_output(["git", "diff", "HEAD", "--binary"],
@@ -123,7 +123,10 @@ def run_check(command, logfile, timeout, environment):
             status = "pass" if code == 0 else "fail"
         except subprocess.TimeoutExpired:
             status, code = "timeout", None
-            os.killpg(process.pid, signal.SIGKILL)
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
             process.wait()
     return status, code, round(time.monotonic() - started, 3)
 
@@ -160,7 +163,9 @@ def main():
         "checks": [],
     }
     store(receipt_path, receipt)
-    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+    # Do not allow Rustup/Cargo to install anything in an offline pass.
+    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1",
+           "CARGO_NET_OFFLINE": "true", "RUSTUP_AUTO_INSTALL": "0"}
     if args.level == "guest":
         env["SYNVEIL_QEMU_VIDEO"] = "1"
         env["SYNVEIL_SMOKE_REQUIRE_DISPLAY"] = "1"
