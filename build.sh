@@ -24,7 +24,7 @@ Usage:
   bash build.sh smoke
   bash build.sh native-smoke
   bash build.sh recovery-smoke
-  bash build.sh guest-fixture --case absent|protocol|graphical-login|graphical-locked
+  bash build.sh guest-fixture --case absent|protocol|graphical-login|graphical-locked|graphical-onboard
   bash build.sh state-disk [--path PATH] [--size-mib N]
   bash build.sh persistence-smoke [--timeout SECONDS]
   bash build.sh ui-preferences-smoke [--timeout SECONDS]

@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", choices=("absent", "protocol", "graphical-login", "graphical-locked"), required=True)
+    parser.add_argument("--case", choices=("absent", "protocol", "graphical-login", "graphical-locked", "graphical-onboard"), required=True)
     args = parser.parse_args()
     work = Path(os.environ.get("SYNVEIL_WORK_DIR", ROOT / "build/work")).resolve()
     rootfs = Path(os.environ.get("SYNVEIL_ROOTFS_DIR", work / "rootfs")).resolve()
@@ -35,7 +35,7 @@ def main():
     fixture_out.mkdir(parents=True, exist_ok=True)
     if args.case == "absent":
         (tree / "usr/sbin/veil-core").unlink()
-    elif args.case in ("graphical-login", "graphical-locked"):
+    elif args.case in ("graphical-login", "graphical-locked", "graphical-onboard"):
         marker = tree / "etc/synveil/auth-desktop"
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.touch(exist_ok=False)
@@ -76,6 +76,16 @@ def main():
         env["SYNVEIL_QEMU_VIDEO"] = "1"
         subprocess.run(["python3", str(ROOT / "tests/smoke-serial-locked.py"),
                         "--timeout", "60"], env=env, check=True)
+    elif args.case == "graphical-onboard":
+        # No developer serial marker: the password must be entered using
+        # the exclusive graphical keyboard, and persist across two distinct
+        # QEMU processes using this *test-only* state disk.
+        disk = fixture_out / "graphical-onboard-state.ext4"
+        create_state_disk(disk, 128)
+        env.update({"SYNVEIL_QEMU_STATE_DISK": str(disk),
+                    "SYNVEIL_QEMU_VIDEO": "1"})
+        subprocess.run(["python3", str(ROOT / "tests/smoke-graphical-onboard.py"),
+                        "--timeout", "105"], env=env, check=True)
     elif args.case == "graphical-login":
         # Separate, never-reused synthetic state volume and fresh test-only
         # credential. The baseline source/image and other VM disks are intact.

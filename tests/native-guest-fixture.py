@@ -43,7 +43,7 @@ class GuestFixtureTests(unittest.TestCase):
                     self.assertEqual((tree / "usr/libexec/synveil-test/protocol-probe").exists(),
                                      case == "protocol")
                     self.assertEqual((tree / "etc/synveil/auth-desktop").exists(),
-                                     case in ("graphical-login", "graphical-locked"))
+                                     case in ("graphical-login", "graphical-locked", "graphical-onboard"))
                     self.assertEqual((tree / "etc/synveil/developer-serial-recovery").exists(),
                                      case == "graphical-login")
                     kwargs["stdout"].write(b"fixture cpio")
@@ -57,6 +57,10 @@ class GuestFixtureTests(unittest.TestCase):
                 else:
                     if case == "graphical-login":
                         self.assertIn("smoke-graphical-login.py", command[1])
+                    elif case == "graphical-onboard":
+                        self.assertIn("smoke-graphical-onboard.py", command[1])
+                        self.assertEqual(kwargs["env"]["SYNVEIL_QEMU_VIDEO"], "1")
+                        self.assertIn("SYNVEIL_QEMU_STATE_DISK", kwargs["env"])
                     elif case == "graphical-locked":
                         self.assertIn("smoke-serial-locked.py", command[1])
                     else:
@@ -90,6 +94,9 @@ class GuestFixtureTests(unittest.TestCase):
 
     def test_locked_preview_does_not_stage_developer_serial_override(self):
         self.check("graphical-locked")
+
+    def test_graphical_onboarding_never_stages_root_serial_recovery(self):
+        self.check("graphical-onboard")
 
     def test_graphical_login_fixture_is_isolated_from_regular_vm(self):
         self.check("graphical-login")
