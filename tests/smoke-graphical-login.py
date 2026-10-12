@@ -20,6 +20,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from qmp_input import (QMPError, type_test_secret, logout_user_desktop,
+                       open_user_terminal, exit_user_terminal,
                        switch_to_login_vt)  # noqa: E402
 
 REQUIRED = {
@@ -73,6 +74,37 @@ CHECK_TTY = (
     "ready=1; break; fi; fi; done; "
     "[ \"$ready\" = 1 ] && break; sleep 0.1; done; "
     "[ \"$ready\" = 1 ] && printf '\\n%s\\n' SYNVEIL_AUTH_TTY_READY\n"
+)
+
+# Confirm QMP opened a *child* UID1000 interactive shell of the fixed user
+# dashboard rather than an unauthenticated root/developer terminal.
+CHECK_USER_TERMINAL = (
+    "user_session=; for status in /proc/[0-9]*/status; do "
+    "if grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' \"$status\"; then "
+    "pid=$(basename $(dirname \"$status\")); "
+    "if tr '\\000' ' ' < /proc/$pid/cmdline | "
+    "grep -Fq -- 'synveil-display --session'; then "
+    "user_session=$pid; break; fi; fi; done; "
+    "shell_pid=; for retry in $(seq 1 100); do "
+    "if [ -n \"$user_session\" ]; then "
+    "for child in $(cat /proc/$user_session/task/$user_session/children 2>/dev/null); do "
+    "if [ \"$(cat /proc/$child/comm 2>/dev/null)\" = sh ] && "
+    "grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' "
+    "/proc/$child/status 2>/dev/null; then shell_pid=$child; break; fi; done; fi; "
+    "[ -n \"$shell_pid\" ] && break; sleep 0.1; done; "
+    "if [ -n \"$user_session\" ] && [ -n \"$shell_pid\" ]; then "
+    "printf '\\n%s\\n' SYNVEIL_USER_TERMINAL_READY; fi\n"
+)
+
+# A foreground shell exit must return to the SAME graphical user process.
+CHECK_USER_RETURNED = (
+    "if [ -n \"$user_session\" ] && [ -n \"$shell_pid\" ]; then "
+    "for retry in $(seq 1 100); do "
+    "if ! kill -0 \"$shell_pid\" 2>/dev/null || "
+    "grep -q '^State:.*Z' /proc/$shell_pid/status 2>/dev/null; then "
+    "if kill -0 \"$user_session\" 2>/dev/null; then "
+    "printf '\\n%s\\n' SYNVEIL_USER_TERMINAL_RETURNED; fi; break; fi; "
+    "sleep 0.1; done; fi\n"
 )
 
 # A terminated session must not leave any *living* UID1000 terminal.
@@ -213,6 +245,26 @@ def smoke(timeout_seconds: float) -> bool:
                         process.stdin.flush()
                         phase = "waiting-for-second-tty"
                     if phase == "waiting-for-second-tty" and b"SYNVEIL_AUTH_TTY_READY" in seen:
+                        try:
+                            open_user_terminal(qmp_socket, timeout=8)
+                        except (QMPError, OSError, ValueError) as error:
+                            evidence.write(("[synveil] open user terminal: " +
+                                            str(error) + "\n").encode())
+                            return False
+                        process.stdin.write(CHECK_USER_TERMINAL.encode())
+                        process.stdin.flush()
+                        phase = "checking-user-terminal"
+                    if phase == "checking-user-terminal" and b"SYNVEIL_USER_TERMINAL_READY" in seen:
+                        try:
+                            exit_user_terminal(qmp_socket, timeout=8)
+                        except (QMPError, OSError, ValueError) as error:
+                            evidence.write(("[synveil] return from user terminal: " +
+                                            str(error) + "\n").encode())
+                            return False
+                        process.stdin.write(CHECK_USER_RETURNED.encode())
+                        process.stdin.flush()
+                        phase = "checking-user-return"
+                    if phase == "checking-user-return" and b"SYNVEIL_USER_TERMINAL_RETURNED" in seen:
                         try:
                             logout_user_desktop(qmp_socket, timeout=8)
                         except (QMPError, OSError, ValueError) as error:
