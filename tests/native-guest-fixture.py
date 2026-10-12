@@ -53,7 +53,6 @@ class GuestFixtureTests(unittest.TestCase):
                     output = Path(kwargs["env"]["SYNVEIL_OUT_DIR"])
                     (output / "synveil-x86_64.img").write_bytes(b"fixture disk")
                 else:
-                    self.assertIn("smoke-recovery.py", command[1])
                     if case == "graphical-login":
                         self.assertIn("smoke-graphical-login.py", command[1])
                     else:
