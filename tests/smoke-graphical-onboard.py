@@ -59,7 +59,8 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                     while b"\n" in pending:
                         line, pending = pending.split(b"\n", 1)
                         line = line.rstrip(b"\r")
-                        evidence.write(line.replace(secret.encode(), b"[REDACTED]") + b"\n")
+                        evidence.write(line.replace(secret.encode(), b"[REDACTED]")
+                                       .replace(incorrect.encode(), b"[REDACTED]") + b"\n")
                         evidence.flush()
                         if b"Recovery/bootstrap shell" in line:
                             return False
