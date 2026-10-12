@@ -40,7 +40,7 @@ if mode == 'unlocked':
 elif mode == 'echo-only':
     print(probe, flush=True)
 else:
-    time.sleep(2)
+    time.sleep(6)
 ''')
             env = {**os.environ, "FIXTURE_MODE": mode,
                    "SYNVEIL_OUT_DIR": str(root / "out")}
