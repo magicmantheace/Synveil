@@ -15,12 +15,10 @@ class QMPError(RuntimeError): pass
 def type_test_secret(path, value, *, timeout):
     assert re.fullmatch(r'[0-9a-f]{32}', value)
     slot = pathlib.Path(os.environ['QMP_SECRET_SLOT'])
-    if slot.exists():
-        assert slot.read_text() == value
-    else:
+    if not slot.exists():
         slot.write_text(value)
     with open(os.environ['QMP_SIGNALS'], 'a') as out:
-        out.write('KEYS\\n')
+        out.write('KEYS\\n' if slot.read_text() == value else 'KEY_WRONG\\n')
 """
 
 CONSOLE_FAKE = """import os, pathlib, sys, time
@@ -53,14 +51,20 @@ if boot == 1:
     assert wait_for(1)
     print('SYNVEIL_ENROLL_CONFIRM_READY', flush=True)
     assert wait_for(2)
+    if mode == 'missing-rejection':
+        sys.exit(0)
+    print('SYNVEIL_ENROLL_FAILED', flush=True)
+    assert wait_for(3)
+    print('SYNVEIL_ENROLL_CONFIRM_READY', flush=True)
+    assert wait_for(4)
     if mode == 'missing-confirmation':
         sys.exit(0)
     print('SYNVEIL_ENROLL_COMPLETED', flush=True)
     print('SYNVEIL_LOGIN_READY', flush=True)
-    assert wait_for(3)
+    assert wait_for(5)
     print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
 else:
-    assert wait_for(4)
+    assert wait_for(6)
     if mode == 'reboot-denied':
         print('SYNVEIL_GRAPHICAL_AUTH_DENIED', flush=True)
         sys.exit(0)
@@ -106,13 +110,18 @@ class GraphicalOnboardFixtures(unittest.TestCase):
         code, count, signals = self.run_case("pass")
         self.assertEqual(code, 0)
         self.assertEqual(count, 2)
-        self.assertEqual(signals, ["KEYS"] * 4)
+        self.assertEqual(signals, [
+            "KEYS", "KEY_WRONG", "KEYS", "KEYS", "KEYS", "KEYS",
+        ])
 
     def test_early_boot_exit_never_passes(self):
         self.assertNotEqual(self.run_case("early-exit")[0], 0)
 
     def test_root_serial_shell_bypass_never_passes(self):
         self.assertNotEqual(self.run_case("serial-bypass")[0], 0)
+
+    def test_wrong_confirmation_must_be_rejected_before_provisioning(self):
+        self.assertNotEqual(self.run_case("missing-rejection")[0], 0)
 
     def test_missing_enrollment_confirmation_fails(self):
         self.assertNotEqual(self.run_case("missing-confirmation")[0], 0)
