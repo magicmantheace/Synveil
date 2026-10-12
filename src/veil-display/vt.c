@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <grp.h>
 #include <linux/vt.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 #include "lifetime.h"
 
@@ -45,6 +47,36 @@ static int is_root_debug_mode(int argc, char **argv) {
            strcmp(argv[2], "--i-understand-root-shell") == 0;
 }
 
+// VT_WAITACTIVE can block forever when fbcon/VT activation breaks. Every
+// launcher (including the authenticated one) has a finite wait budget.
+#define VT_START_TIMEOUT_SECONDS 2
+#define VT_START_POLL_MS 25
+
+static int deadline_reached(const struct timespec *deadline,
+                            const struct timespec *now) {
+    return now->tv_sec > deadline->tv_sec ||
+           (now->tv_sec == deadline->tv_sec && now->tv_nsec >= deadline->tv_nsec);
+}
+
+static int activate_terminal_vt(int fd, unsigned vt) {
+    if (ioctl(fd, VT_ACTIVATE, vt) != 0) return -1;
+    struct timespec deadline;
+    if (clock_gettime(CLOCK_MONOTONIC, &deadline) != 0) return -1;
+    deadline.tv_sec += VT_START_TIMEOUT_SECONDS;
+    for (;;) {
+        struct vt_stat current = {0};
+        if (ioctl(fd, VT_GETSTATE, &current) != 0) return -1;
+        if (current.v_active == vt) return 0;
+        struct timespec now;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return -1;
+        if (deadline_reached(&deadline, &now)) {
+            errno = ETIMEDOUT;
+            return -1;
+        }
+        if (poll(NULL, 0u, VT_START_POLL_MS) < 0 && errno != EINTR) return -1;
+    }
+}
+
 static int self_test(void) {
     char *demo[] = {"synveil-vt", "--demo-terminal", NULL};
     char *authenticated[] = {"synveil-vt", "--authenticated-terminal", NULL};
@@ -56,6 +88,13 @@ static int self_test(void) {
         !is_root_debug_mode(3, confirmed) || is_root_debug_mode(2, demo)) {
         return 1;
     }
+    struct timespec cutoff = {.tv_sec = 105, .tv_nsec = 420000000};
+    struct timespec before = {.tv_sec = 105, .tv_nsec = 419999999};
+    struct timespec exactly = {.tv_sec = 105, .tv_nsec = 420000000};
+    struct timespec after = {.tv_sec = 106, .tv_nsec = 0};
+    if (deadline_reached(&cutoff, &before) ||
+        !deadline_reached(&cutoff, &exactly) ||
+        !deadline_reached(&cutoff, &after)) return 1;
     return DEMO_UID != 1000 || DEMO_GID != 1000;
 }
 
@@ -93,10 +132,9 @@ static int launch_terminal(bool demo, bool authenticated) {
         perror("[synveil-vt] open tty0");
         return 1;
     }
-    int activate = ioctl(controller, VT_ACTIVATE, 1);
-    int waited = activate < 0 ? -1 : ioctl(controller, VT_WAITACTIVE, 1);
+    int activated = activate_terminal_vt(controller, 1u);
     close(controller);
-    if (activate < 0 || waited < 0) {
+    if (activated != 0) {
         perror("[synveil-vt] activate tty1");
         return 1;
     }
