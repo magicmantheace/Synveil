@@ -277,3 +277,10 @@ allow user code to observe keystrokes outside the intended pointer boundary.
 A pure bitmap self-test covers accepted pointer and rejected hybrid cases.
 This is a conservative first-QEMU-target filter rather than a production
 input security policy; native guest testing remains required.
+
+The evdev pointer classifier has been tightened further: rather than
+sampling selected letter and modifier codes, it rejects **every** key code
+below Linux `BTN_MISC` while still requiring `BTN_LEFT` and valid ABS axes.
+This rejects partial or unusual composite keyboards too. The VT reset now
+uses `TCSAFLUSH` so stale raw tty keystrokes cannot flow into the next
+canonical session after a crash. Both hardenings remain unverified in QEMU.

@@ -46,13 +46,11 @@ static int input_bit(const unsigned char *bits, size_t bytes, unsigned key) {
  // as a pointer lease. The user process receives raw events on this FD,
  // so even ignored text keys would cross the login device boundary.
 static int safe_pointer_keys(const unsigned char *keys, size_t count) {
-    const unsigned forbidden[] = {
-        KEY_A, KEY_Z, KEY_0, KEY_1, KEY_ENTER,
-        KEY_BACKSPACE, KEY_SPACE, KEY_LEFTSHIFT, KEY_RIGHTSHIFT
-    };
     if (!input_bit(keys, count, BTN_LEFT)) return 0;
-    for (size_t i = 0; i < sizeof(forbidden)/sizeof(forbidden[0]); ++i) {
-        if (input_bit(keys, count, forbidden[i])) return 0;
+    // All Linux KEY_* text and function codes occupy the range below
+    // BTN_MISC. No keyboard-capable composite may cross this raw FD lease.
+    for (unsigned key = 0u; key < BTN_MISC; ++key) {
+        if (input_bit(keys, count, key)) return 0;
     }
     return 1;
 }
@@ -177,6 +175,9 @@ static int self_test(void) {
     if (safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
     pointer_keys[KEY_A / 8u] &= (unsigned char)~(1u << (KEY_A % 8u));
     pointer_keys[KEY_ENTER / 8u] |= (unsigned char)(1u << (KEY_ENTER % 8u));
+    if (safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
+    pointer_keys[KEY_ENTER / 8u] &= (unsigned char)~(1u << (KEY_ENTER % 8u));
+    pointer_keys[KEY_B / 8u] |= (unsigned char)(1u << (KEY_B % 8u));
     if (safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
     if (!is_demo_mode(2, demo) || !is_authenticated_mode(2, authenticated) ||
         is_authenticated_mode(2, demo) || is_root_debug_mode(2, unconfirmed) ||
@@ -311,7 +312,8 @@ static int launch_terminal(bool demo, bool authenticated) {
         struct termios mode;
         if (tcgetattr(STDIN_FILENO, &mode) < 0) _exit(1);
         restore_session_tty_mode(&mode);
-        if (tcsetattr(STDIN_FILENO, TCSANOW, &mode) < 0) _exit(1);
+        // Drop raw-mode keystrokes queued by a crashed previous session.
+        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &mode) < 0) _exit(1);
     }
     const char *banner = authenticated ?
         "\033[2J\033[H"
