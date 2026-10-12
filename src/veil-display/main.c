@@ -31,6 +31,7 @@
 #include "core_health.h"
 #include "network_diag.h"
 #include "lifetime.h"
+#include "mapping.h"
 
 struct surface {
     unsigned char *mapped;
@@ -1397,6 +1398,17 @@ int main(int argc, char **argv) {
     close(fd);
     if (screen.mapped == MAP_FAILED) {
         fprintf(stderr, "[synveil-display] mmap failed: %s\n", strerror(errno));
+        return 1;
+    }
+    // A child process can inherit mmap() even when the fd was CLOEXEC or
+    // explicitly closed. The authenticated user terminal must never see a
+    // framebuffer mapping, including if exec of the shell fails or races
+    // with the seat being revoked. Refuse to start if the kernel cannot
+    // enforce MADV_DONTFORK for this framebuffer.
+    if (user_session &&
+        synveil_exclude_mapping_from_children(screen.mapped, screen.length) != 0) {
+        fputs("[synveil-display] cannot isolate framebuffer from child processes\n", stderr);
+        munmap(screen.mapped, screen.length);
         return 1;
     }
     int result = 0;

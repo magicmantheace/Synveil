@@ -254,3 +254,14 @@ restoration assertions. **This is not compilation of Synveil's complete
 `vt.c`, nor of a native target image.** The same exhaustive pointer
 check is included in the committed `synveil-vt --self-test` source for
 future clean host validation.
+
+### Authenticated framebuffer process boundary
+
+A CLOEXEC or closed framebuffer FD does not stop a `fork` child from
+inheriting an already-mapped framebuffer. The UID1000 dashboard must
+mark its framebuffer `MADV_DONTFORK` before it spawns an interactive
+terminal, failing closed if this cannot be enforced. The host build suite
+now includes `tests/display-mapping.c`, which forks a real child after
+marking a mapping and observes `ENOMEM` from `mincore` in the child.
+That is host helper validation only; the actual fbdev driver mapping still
+needs exact-image guest validation.

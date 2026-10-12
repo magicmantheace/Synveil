@@ -284,3 +284,16 @@ below Linux `BTN_MISC` while still requiring `BTN_LEFT` and valid ABS axes.
 This rejects partial or unusual composite keyboards too. The VT reset now
 uses `TCSAFLUSH` so stale raw tty keystrokes cannot flow into the next
 canonical session after a crash. Both hardenings remain unverified in QEMU.
+
+## Prevent framebuffer memory inheritance into the user terminal
+
+Closing the inherited framebuffer descriptor alone did **not** protect
+its existing `mmap` from `fork`: the fixed UID1000 shell could inherit
+a direct mapped view of screen memory without an open device node. The
+authenticated session now marks its framebuffer mapping `MADV_DONTFORK`
+before accepting input or launching terminals, and **fails closed** if
+the framebuffer driver/kernel refuses that protection. No privilege is
+added and developer diagnostics retain their previous behavior. A host
+fork/mincore fixture confirms the exact isolation helper makes an
+anonymous mapping absent in the child; fbdev-specific behavior remains
+a native-QEMU runtime gate before installation.

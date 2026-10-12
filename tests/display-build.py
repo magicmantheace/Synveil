@@ -22,6 +22,17 @@ class DisplaySourceTests(unittest.TestCase):
             )
             subprocess.run([str(executable)], check=True, timeout=3)
 
+    def test_user_terminal_cannot_inherit_framebuffer_mappings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            executable = Path(tmp) / "synveil-mapping-test"
+            subprocess.run(
+                ["gcc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                 "-I", str(ROOT / "src/veil-display"),
+                 str(ROOT / "tests/display-mapping.c"), "-o", str(executable)],
+                check=True, timeout=15,
+            )
+            subprocess.run([str(executable)], check=True, timeout=3)
+
     def test_developer_virtual_terminal_requires_explicit_manual_launch(self):
         with tempfile.TemporaryDirectory() as tmp:
             executable = Path(tmp) / "synveil-vt"
