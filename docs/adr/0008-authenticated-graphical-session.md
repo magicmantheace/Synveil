@@ -337,3 +337,15 @@ backend does not change existing file-ownership, authentication or seat
 policy. Re-enrollment is refused by both UI gating and the Rust verifier.
 The new two-boot locked-serial QEMU scenario is pending validation and
 owner recovery is still unimplemented.
+
+### Graphical enrollment storage identity guard
+
+In addition to the root-owned private state directory and a separate
+mounted device, the onboarding GUI now requires an exact `/dev/vdb` ext4
+mount at `/var`, matching the explicitly configured developer QEMU state
+disk. A tmpfs-mounted `/var` or another disk cannot appear to enroll a
+password that the Rust verifier would refuse after reboot. This is a
+**QEMU-only fixed device policy**, not proof of a trusted or encrypted
+physical-disk identity: a physical installer must have its own authenticated
+volume binding and recovery model. The mount predicate is host-tested against
+other disk names, filesystems and mountpoints.

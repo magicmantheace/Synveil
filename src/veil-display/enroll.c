@@ -4,6 +4,8 @@
 #include "enroll.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <mntent.h>
+#include <stdio.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdint.h>
@@ -39,6 +41,31 @@ int synveil_enroll_matches(const unsigned char *first, size_t first_length,
            difference == 0u;
 }
 
+// The graphical setup must agree with the Rust verifier about mounted,
+// durable credential storage. Merely seeing a different st_dev would accept
+// ephemeral tmpfs and then create a password no subsequent boot can use.
+int synveil_enroll_mount_matches(const char *source, const char *target,
+                                  const char *type) {
+    return source && target && type && strcmp(source, "/dev/vdb") == 0 &&
+           strcmp(target, "/var") == 0 && strcmp(type, "ext4") == 0;
+}
+
+static int mounted_expected_state(void) {
+    FILE *mounts = fopen("/proc/mounts", "re");
+    if (!mounts) return 0;
+    int matched = 0;
+    struct mntent *entry;
+    while ((entry = getmntent(mounts)) != NULL) {
+        if (strcmp(entry->mnt_dir, "/var") != 0) continue;
+        matched = synveil_enroll_mount_matches(entry->mnt_fsname,
+                                                entry->mnt_dir,
+                                                entry->mnt_type);
+        break;
+    }
+    fclose(mounts);
+    return matched;
+}
+
 static int private_directory(const char *path) {
     struct stat info;
     return lstat(path, &info) == 0 && S_ISDIR(info.st_mode) &&
@@ -58,9 +85,10 @@ int synveil_enroll_can_start(void) {
         (marker.st_mode & 0777) != 0644) return 0;
     if (lstat("/etc/synveil/developer-serial-recovery", &marker) == 0 ||
         errno != ENOENT) return 0;
-    if (stat("/", &root) != 0 || stat("/var", &state) != 0 ||
-        !S_ISDIR(state.st_mode) || root.st_dev == state.st_dev ||
-        !private_directory(STATE_DIR)) return 0;
+    if (stat("/", &root) != 0 || lstat("/var", &state) != 0 ||
+        !S_ISDIR(state.st_mode) || state.st_uid != 0 || state.st_gid != 0 ||
+        (state.st_mode & 0022) != 0 || root.st_dev == state.st_dev ||
+        !mounted_expected_state() || !private_directory(STATE_DIR)) return 0;
     if (lstat(CREDENTIAL, &record) == 0 || errno != ENOENT) return 0;
     if (lstat(AUTH_DIR, &record) == 0)
         return S_ISDIR(record.st_mode) && record.st_uid == 0 &&

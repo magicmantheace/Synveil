@@ -18,6 +18,11 @@ int main(void) {
     synveil_enroll_wipe(again, sizeof(again));
     for (unsigned i = 0; i < sizeof(first); ++i)
         if (first[i] || again[i]) return 6;
+    if (!synveil_enroll_mount_matches("/dev/vdb", "/var", "ext4")) return 7;
+    if (synveil_enroll_mount_matches("/dev/vdb", "/var", "tmpfs") ||
+        synveil_enroll_mount_matches("/dev/vda", "/var", "ext4") ||
+        synveil_enroll_mount_matches("/dev/vdb", "/tmp", "ext4") ||
+        synveil_enroll_mount_matches(NULL, "/var", "ext4")) return 8;
     // A direct host invocation is neither the installed authenticated image
     // nor the expected isolated state volume, even if running as root.
     if (synveil_enroll_can_start()) return 7;
