@@ -1,0 +1,30 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# Bounded developer-VM seat restart. Serial recovery and core stay independent.
+binary="${SYNVEIL_SEAT_BINARY:-/usr/sbin/veil-seat}"
+pause="${SYNVEIL_SEAT_RETRY_DELAY:-1}"
+case "$pause" in
+    0|1) ;;
+    *) echo "[synveil-seat] invalid retry delay" >&2; exit 2 ;;
+esac
+if [ ! -x "$binary" ]; then
+    printf '\nSYNVEIL_SEAT_UNAVAILABLE\n'
+    exit 1
+fi
+attempt=1
+while [ "$attempt" -le 3 ]; do
+    "$binary"
+    status=$?
+    if [ "$status" -eq 0 ]; then
+        printf '\nSYNVEIL_SEAT_EXITED\n'
+        exit 0
+    fi
+    if [ "$attempt" -ge 3 ]; then
+        printf '\nSYNVEIL_SEAT_RESTART_EXHAUSTED\n'
+        exit 1
+    fi
+    printf '\nSYNVEIL_SEAT_RESTARTING\n'
+    attempt=$((attempt + 1))
+    sleep "$pause"
+done
+exit 1

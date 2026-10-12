@@ -20,6 +20,7 @@ on:
       - tools/package_native.py
       - tests/native-rootfs.py
       - tests/native-startup.py
+      - tests/seat-supervisor.py
       - tests/native-smoke.py
       - tests/native-recovery.py
       - tests/native-protocol-probe.py
@@ -58,6 +59,7 @@ jobs:
           python3 tests/native-build.py
           python3 tests/native-rootfs.py
           python3 tests/native-startup.py
+          python3 tests/seat-supervisor.py
           python3 tests/native-smoke.py
           python3 tests/native-recovery.py
           python3 tests/qemu-lock.py

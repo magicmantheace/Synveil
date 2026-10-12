@@ -91,6 +91,7 @@ fi
 if [[ "$NATIVE_ROOTFS" == 1 ]]; then
     python3 "$ROOT_DIR/tools/package_native.py" --bundle "$OUT_DIR/native" --rootfs "$ROOTFS_DIR"
     install -D -m 0755 "$ROOT_DIR/build/rootfs/start-core" "$ROOTFS_DIR/usr/libexec/synveil/start-core"
+    install -D -m 0755 "$ROOT_DIR/build/rootfs/start-seat" "$ROOTFS_DIR/usr/libexec/synveil/start-seat"
 fi
 chmod 1777 "$ROOTFS_DIR/tmp" "$ROOTFS_DIR/var/tmp"
 

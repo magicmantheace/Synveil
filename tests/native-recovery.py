@@ -71,6 +71,7 @@ if mode == 'pass':
         assert 'NoNewPrivs' in command and '/dev/tty1' in command
         assert 'sha256sum' in command and '600:0:1' in command
     elif case == 'seat-crash':
+        print('SYNVEIL_SEAT_RESTARTING', flush=True)
         assert 'veil-enroll --password-stdin' in command
         assert 'veil-seat --login-stdin' in command
         assert 'NoNewPrivs' in command and '/dev/tty1' in command

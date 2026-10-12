@@ -302,8 +302,10 @@ def smoke(timeout_seconds, case="crash"):
                     process.stdin.flush()
                     sent = True
                 if sent and marker in seen and (
-                    case not in ("desktop", "desktop-terminal") or
-                    b"SYNVEIL_DESKTOP_RESTARTING" in seen
+                    (case not in ("desktop", "desktop-terminal") or
+                     b"SYNVEIL_DESKTOP_RESTARTING" in seen) and
+                    (case != "seat-crash" or
+                     b"SYNVEIL_SEAT_RESTARTING" in seen)
                 ):
                     return True
                 if len(pending) > 65536:
