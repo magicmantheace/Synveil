@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 //! One-shot developer-VM credential enrollment. No stdin TTY echo, argv
 //! password, environment password, default credential or login IPC.
+use std::ffi::OsStr;
 use std::io::{self, IsTerminal, Read};
 use std::process::ExitCode;
 use veil_core::credential::enroll_root_credential;
 
 fn main() -> ExitCode {
-    if std::env::args_os().skip(1).collect::<Vec<_>>() != ["--password-stdin"] {
+    let mut args = std::env::args_os().skip(1);
+    if args.next().as_deref() != Some(OsStr::new("--password-stdin")) || args.next().is_some() {
         eprintln!("usage: veil-enroll --password-stdin (protected pipe only)");
         return ExitCode::FAILURE;
     }
