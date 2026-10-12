@@ -105,7 +105,12 @@ impl SessionTracker {
         username: &str,
         password: &[u8],
     ) -> Result<u64, SessionError> {
-        self.complete_with_verifier(attempt, username, password, crate::credential::verify_root_credential)
+        self.complete_with_verifier(
+            attempt,
+            username,
+            password,
+            crate::credential::verify_root_credential,
+        )
     }
 
     fn complete_with_verifier<F>(
@@ -123,7 +128,13 @@ impl SessionTracker {
             self.state = SessionState::Locked;
             return Err(SessionError::Denied);
         }
-        self.complete_login(attempt, VerifiedIdentity { uid: 1000, gid: 1000 })
+        self.complete_login(
+            attempt,
+            VerifiedIdentity {
+                uid: 1000,
+                gid: 1000,
+            },
+        )
     }
 
     pub fn request_logout(&mut self) -> Result<(), SessionError> {

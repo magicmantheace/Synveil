@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Strict local Argon2id verification. No login IPC, password prompt or
 //! enrollment command exists yet. No credential ships in the QEMU rootfs.
-use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use argon2::Argon2;
+use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use std::fs::{self, OpenOptions};
 use std::io::Read;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
@@ -28,10 +28,11 @@ fn valid_phc_format(phc: &str) -> bool {
     // PHC base64 without padding: 16 salt bytes -> 22 chars,
     // 32 tag bytes -> 43 chars. No unbounded memory/time parameters.
     let is_phc_base64 = |value: &str| {
-        value.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'+' || c == b'/')
+        value
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || c == b'+' || c == b'/')
     };
-    salt.len() == 22 && tag.len() == 43
-        && is_phc_base64(salt) && is_phc_base64(tag)
+    salt.len() == 22 && tag.len() == 43 && is_phc_base64(salt) && is_phc_base64(tag)
 }
 
 fn verify_phc(username: &str, password: &[u8], phc: &str) -> bool {
@@ -91,7 +92,9 @@ fn read_private_record(path: &Path, required_uid: u32) -> Option<String> {
     if bytes.len() > MAX_PHC_BYTES {
         return None;
     }
-    String::from_utf8(bytes).ok().filter(|s| valid_phc_format(s))
+    String::from_utf8(bytes)
+        .ok()
+        .filter(|s| valid_phc_format(s))
 }
 
 #[cfg(test)]
@@ -114,7 +117,9 @@ mod tests {
 
     fn private_dir() -> std::path::PathBuf {
         let path = std::env::temp_dir().join(format!(
-            "synveil-cred-{}-{}", std::process::id(), IDS.fetch_add(1, Ordering::Relaxed)
+            "synveil-cred-{}-{}",
+            std::process::id(),
+            IDS.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&path).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
@@ -128,7 +133,11 @@ mod tests {
         assert!(!verify_phc(LOCAL_ACCOUNT, b"wrong-password", &phc));
         assert!(!verify_phc("root", b"unit-test-password", &phc));
         assert!(!verify_phc(LOCAL_ACCOUNT, b"", &phc));
-        assert!(!verify_phc(LOCAL_ACCOUNT, &[b'a'; MAX_PASSWORD_BYTES + 1], &phc));
+        assert!(!verify_phc(
+            LOCAL_ACCOUNT,
+            &[b'a'; MAX_PASSWORD_BYTES + 1],
+            &phc
+        ));
     }
 
     #[test]
@@ -171,7 +180,10 @@ mod tests {
         let phc = fixture_phc();
         fs::write(&record, format!("{phc}\n")).unwrap();
         fs::set_permissions(&record, fs::Permissions::from_mode(0o600)).unwrap();
-        assert_eq!(read_private_record(&record, owner).as_deref(), Some(phc.as_str()));
+        assert_eq!(
+            read_private_record(&record, owner).as_deref(),
+            Some(phc.as_str())
+        );
         fs::set_permissions(&record, fs::Permissions::from_mode(0o644)).unwrap();
         assert!(read_private_record(&record, owner).is_none());
         fs::set_permissions(&record, fs::Permissions::from_mode(0o600)).unwrap();
