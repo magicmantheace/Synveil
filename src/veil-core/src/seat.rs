@@ -13,6 +13,7 @@ use std::io::{self, Read, Write};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::os::unix::io::AsRawFd;
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Child, Command};
 use std::time::Duration;
@@ -34,6 +35,9 @@ struct LinuxUcred {
 }
 
 unsafe extern "C" {
+    fn getpid() -> i32;
+    fn getppid() -> i32;
+    fn prctl(option: i32, ...) -> i32;
     fn getsockopt(
         socket: i32,
         level: i32,
@@ -106,12 +110,36 @@ fn prepare_seat_socket(path: &Path, owner: u32) -> io::Result<UnixListener> {
     Ok(listener)
 }
 
+/// Linux protects the entire nested VT process chain if the seat authority
+/// crashes: once its immediate launcher dies, synveil-vt's own parent-death
+/// guard reaps the non-root terminal. pre_exec is intentionally async-signal
+/// safe; no heap allocation, logging or locks between fork and exec.
+fn spawn_guarded(mut command: Command) -> io::Result<Child> {
+    let expected = unsafe { getpid() };
+    unsafe {
+        command.pre_exec(move || {
+            // PR_SET_PDEATHSIG=1 and SIGKILL=9 are stable Linux UAPI values.
+            if prctl(1, 9u64, 0u64, 0u64, 0u64) != 0 {
+                return Err(io::Error::last_os_error());
+            }
+            if getppid() != expected {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "seat broker exited during terminal launch",
+                ));
+            }
+            Ok(())
+        });
+    }
+    command.spawn()
+}
+
 fn start_fixed_terminal() -> io::Result<Child> {
-    // No shell interpolation or client-selected argv. synveil-vt forks an
-    // unprivileged UID 1000 shell and waits for it, with parent-death guards.
-    Command::new("/usr/bin/synveil-vt")
-        .arg("--demo-terminal")
-        .spawn()
+    // No shell interpolation or client-selected argv. This process dies
+    // with its broker; its UID1000 child dies with its parent.
+    let mut command = Command::new("/usr/bin/synveil-vt");
+    command.arg("--demo-terminal");
+    spawn_guarded(command)
 }
 
 fn close_session(tracker: &mut SessionTracker, session: u64, child: &mut Child) {
@@ -328,6 +356,14 @@ mod tests {
             .write_all(&(password.len() as u16).to_be_bytes())
             .unwrap();
         stream.write_all(password).unwrap();
+    }
+
+    #[test]
+    fn guarded_launcher_can_start_and_be_reaped() {
+        let mut command = Command::new("sh");
+        command.arg("-c").arg("exit 0");
+        let mut child = spawn_guarded(command).unwrap();
+        assert!(child.wait().unwrap().success());
     }
 
     #[test]
