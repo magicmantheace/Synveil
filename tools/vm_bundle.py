@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from state_disk import create_state_disk
+from initramfs_profile import inspect_demo_archive
 
 ROOT = Path(__file__).resolve().parents[1]
 NEEDED_KERNEL = (
@@ -61,6 +62,16 @@ def verify_build(out: Path, rootfs: Path, revision: str) -> dict:
     if (archive.is_symlink() or not archive.is_file() or
         not isinstance(archived_hash, str) or sha256(archive) != archived_hash):
         raise ValueError("staged rootfs archive failed SHA256 verification")
+    # Verify the *embedded* boot payload, not only the editable staging
+    # folder. A stale rootfs tree can disagree with the already-packed newc
+    # archive that the kernel build actually consumes.
+    initramfs = out / "synveil-initramfs.cpio"
+    archived_cpio = manifest.get("artifacts", {}).get(initramfs.name, {})
+    if (initramfs.is_symlink() or not initramfs.is_file() or
+        archived_cpio.get("bytes") != initramfs.stat().st_size or
+        archived_cpio.get("sha256") != sha256(initramfs)):
+        raise ValueError("embedded initramfs failed manifest verification")
+    inspect_demo_archive(initramfs)
     # Never accidentally distribute a gated authentication preview via
     # the old unauthenticated developer bundle or ship a root serial bypass.
     # These marker-bearing configurations are only for isolated guest tests.
