@@ -97,9 +97,15 @@ the [d875da39 full QEMU run](docs/validation/native-d875da39/README.md).
 The authenticated framebuffer login, credential enrollment through the
 developer serial fixture, non-root graphical session, and guest session
 revocation also passed at [5cf3fb5](https://github.com/magicmantheace/Synveil/actions/runs/38297915844).
-The next change adds masked graphical first-user setup; its independent
-two-boot guest validation is pending. This remains a developer-only VM
-prototype, **not** a production desktop or physical installer. The first hands-on test contract
+Graphical first-user password creation, rejection of mismatched confirmation,
+and authentication across two independent QEMU boots passed at
+[d4604f7](https://github.com/magicmantheace/Synveil/actions/runs/38319031076).
+A private authenticated QEMU bundle is implemented and its host checks passed
+at e3e44cd. Independent boots of the *packaged* image are an additional,
+separately tracked guest gate. An intermittent graphical terminal-return
+failure is also under investigation; a host pass is not a guest regression pass.
+This remains an experimental VM, **not** a production desktop, signed release,
+owner-recovery system, or physical installer. The first hands-on test contract
 is in [ROADMAP.md](ROADMAP.md) and [docs/FIRST_INSTALL.md](docs/FIRST_INSTALL.md).
 
 ## Licensing
