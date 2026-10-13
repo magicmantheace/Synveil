@@ -91,6 +91,9 @@ CRASH_USER = (
     "printf '\\n%s\\n' SYNVEIL_USER_DASHBOARD_KILLED; fi\n"
 )
 
+# A newly forked interactive shell may flush queued tty input during
+# initialization. Confirm the privileged-boundary identity still holds
+# after a short stabilization window before sending QMP exit keystrokes.
 CHECK_USER_TERMINAL = (
     "user_session=; for status in /proc/[0-9]*/status; do "
     "if grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' \"$status\"; then "
@@ -108,7 +111,14 @@ CHECK_USER_TERMINAL = (
     "/proc/$child/status 2>/dev/null; then shell_pid=$child; break; fi; done; fi; "
     "[ -n \"$shell_pid\" ] && break; sleep 0.1; done; "
     "if [ -n \"$user_session\" ] && [ -n \"$shell_pid\" ]; then "
-    "printf '\\n%s\\n' SYNVEIL_USER_TERMINAL_READY; fi\n"
+    "sleep 0.5; "
+    "if kill -0 \"$shell_pid\" 2>/dev/null && "
+    "grep -Eq '^Uid:[[:space:]]*1000[[:space:]]+1000' "
+    "\"/proc/$shell_pid/status\" 2>/dev/null && "
+    "grep -Eq '^NoNewPrivs:[[:space:]]*1$' "
+    "\"/proc/$shell_pid/status\" 2>/dev/null && "
+    "[ \"$(readlink /proc/$shell_pid/fd/0)\" = /dev/tty1 ]; then "
+    "printf '\\n%s\\n' SYNVEIL_USER_TERMINAL_READY; fi; fi\n"
 )
 
 # A foreground shell exit must return to the SAME graphical user process.
@@ -375,6 +385,8 @@ def smoke(timeout_seconds: float) -> bool:
                         b"SYNVEIL_GRAPHICAL_LOGIN_CLEANED" in seen and
                         b"SYNVEIL_LOGIN_READY" in seen):
                         return True
+                evidence.write(("[synveil] incomplete graphical-login phase: " +
+                                phase + "\n").encode())
             return False
         finally:
             try:
