@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class SerialLockedSmokeTests(unittest.TestCase):
-    def fixture(self, mode):
+    def fixture(self, mode, recovery=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "tests").mkdir()
@@ -24,9 +24,18 @@ class SerialLockedSmokeTests(unittest.TestCase):
             )
             (root / "build/scripts/console.py").write_text('''import os, sys, time
 mode = os.environ['FIXTURE_MODE']
-for label in ('SYNVEIL_BOOT_OK', 'SYNVEIL_CORE_READY',
-              'SYNVEIL_LOGIN_READY'):
-    print(label, flush=True)
+if os.environ.get('RECOVERY_MODE') == '1':
+    labels = ('SYNVEIL_RECOVERY_STATUS_V1',
+              'SYNVEIL_RECOVERY_STATE_NOT_MOUNTED',
+              'SYNVEIL_RECOVERY_CORE_UNAVAILABLE',
+              'SYNVEIL_RECOVERY_SEAT_UNAVAILABLE',
+              'SYNVEIL_RECOVERY_READ_ONLY')
+else:
+    labels = ('SYNVEIL_BOOT_OK', 'SYNVEIL_CORE_READY',
+              'SYNVEIL_LOGIN_READY')
+for label in labels:
+    if mode != 'missing-readonly' or label != 'SYNVEIL_RECOVERY_READ_ONLY':
+        print(label, flush=True)
 if mode == 'no-ready':
     time.sleep(2)
     sys.exit(0)
@@ -49,13 +58,24 @@ else:
     time.sleep(6)
 ''')
             env = {**os.environ, "FIXTURE_MODE": mode,
+                   "RECOVERY_MODE": "1" if recovery else "0",
                    "SYNVEIL_OUT_DIR": str(root / "out")}
+            command = ["python3", str(root / "tests/smoke-serial-locked.py"),
+                       "--timeout", "4"]
+            if recovery:
+                command.append("--recovery-status")
             result = subprocess.run(
-                ["python3", str(root / "tests/smoke-serial-locked.py"),
-                 "--timeout", "4"], env=env, capture_output=True,
+                command, env=env, capture_output=True,
                 text=True, timeout=8
             )
             return result.returncode
+
+    def test_recovery_mode_rejects_root_shell_and_missing_proof(self):
+        self.assertEqual(self.fixture("locked", recovery=True), 0)
+        self.assertEqual(self.fixture("echo-only", recovery=True), 0)
+        self.assertNotEqual(self.fixture("missing-readonly", recovery=True), 0)
+        self.assertNotEqual(self.fixture("unlocked", recovery=True), 0)
+        self.assertNotEqual(self.fixture("early-exit", recovery=True), 0)
 
     def test_locked_shell_does_not_execute_probe(self):
         self.assertEqual(self.fixture("locked"), 0)

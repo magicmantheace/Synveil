@@ -148,6 +148,13 @@ jobs:
           set -o pipefail
           bash build.sh guest-fixture --case absent 2>&1 | tee out/logs/absent-fixture.log
 
+      - name: Prove isolated read-only recovery with core seat and desktop missing
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          bash build.sh guest-fixture --case recovery-status 2>&1 \
+            | tee out/logs/recovery-status-fixture.log
+
       - name: Recover from absent or invalid QEMU state disk
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |

@@ -104,7 +104,11 @@ the volume is corrupt. This is not a filesystem diagnosis, owner login,
 password reset, usable physical boot selector, or recovery authorization.
 
 Host checks exercise the diagnostic output and serial-root fail-closed order.
-A dedicated guest boot selecting the recovery argument is still needed;
+An isolated QEMU fixture for the explicit diagnostic boot is now implemented.
+It removes the core, seat and graphical executable, requires a fixed read-only
+status transcript, and probes that the locked serial console cannot execute
+root commands. **Passing host fixtures is not proof of successful native
+QEMU recovery; guest evidence at an exact revision is still required.**
 do not mark ADR gate A complete until that evidence exists.
 
 ## Explicit non-decision

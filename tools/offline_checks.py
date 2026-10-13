@@ -87,6 +87,8 @@ GUEST = (
      "--case", "protocol"),
     ("qemu-serial-locked", "bash", "build.sh", "guest-fixture",
      "--case", "graphical-locked"),
+    ("qemu-read-only-recovery", "bash", "build.sh", "guest-fixture",
+     "--case", "recovery-status"),
     ("qemu-graphical-login", "bash", "build.sh", "guest-fixture",
      "--case", "graphical-login"),
     ("qemu-graphical-onboard", "bash", "build.sh", "guest-fixture",
