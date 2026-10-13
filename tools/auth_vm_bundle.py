@@ -98,6 +98,15 @@ if ! (cd "$bundle" && sha256sum --status --check SHA256SUMS); then
     echo "[synveil-auth-vm] immutable image checksum mismatch" >&2
     exit 1
 fi
+# The image's QEMU evidence applies to a specific Synveil revision.
+# Do not silently execute a different or modified checkout's QEMU runner.
+expected="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["git_revision"])' "$bundle/VM-BUNDLE.json")" || exit 1
+actual="$(git -C "$SYNVEIL_REPO_ROOT" rev-parse HEAD 2>/dev/null)" || exit 1
+dirty="$(git -C "$SYNVEIL_REPO_ROOT" status --porcelain --untracked-files=no 2>/dev/null)" || exit 1
+if [ "$expected" != "$actual" ] || [ -n "$dirty" ]; then
+    echo "[synveil-auth-vm] checkout revision or tracked worktree differs from validated image" >&2
+    exit 1
+fi
 # Never inherit developer QMP control, serial override or host networking.
 unset SYNVEIL_QEMU_QMP_SOCKET SYNVEIL_DEV_SERIAL_ROOTFS SYNVEIL_AUTH_DESKTOP_ROOTFS
 export SYNVEIL_OUT_DIR="$bundle"

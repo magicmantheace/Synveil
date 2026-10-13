@@ -73,7 +73,7 @@ class AuthenticatedBundleTests(unittest.TestCase):
         with patch("state_disk.subprocess.run"):
             return create_authenticated_bundle(self.fixture, self.destination, REV, 64)
 
-    def launch(self):
+    def launch(self, *, revision=REV, dirty=False):
         fake_repo = self.root / "repo"
         fake_repo.mkdir(exist_ok=True)
         stub = fake_repo / "build.sh"
@@ -83,9 +83,20 @@ class AuthenticatedBundleTests(unittest.TestCase):
             'printf "%s %s %s" "$SYNVEIL_QEMU_NETWORK" "$SYNVEIL_QEMU_DISPLAY" '
             '"$qmp" > "$VM_CALL_LOG"\n')
         stub.chmod(0o755)
+        fake_bin = self.root / "bin"
+        fake_bin.mkdir(exist_ok=True)
+        fake_git = fake_bin / "git"
+        fake_git.write_text(
+            '#!/bin/sh\nif [ "$3" = rev-parse ]; then '
+            'printf "%s\\n" "$FAKE_HEAD"; '
+            'elif [ "$3" = status ]; then printf "%s" "$FAKE_DIRTY"; '
+            'else exit 1; fi\n')
+        fake_git.chmod(0o755)
         log = self.root / "launched"
         log.unlink(missing_ok=True)
         env = {**os.environ, "SYNVEIL_REPO_ROOT": str(fake_repo),
+               "PATH": str(fake_bin) + ":" + os.environ.get("PATH", ""),
+               "FAKE_HEAD": revision, "FAKE_DIRTY": " M build.sh" if dirty else "",
                "VM_CALL_LOG": str(log), "SYNVEIL_QEMU_QMP_SOCKET": "/tmp/unsafe"}
         result = subprocess.run(
             ["sh", str(self.destination / "run-vm.sh")], env=env,
@@ -112,6 +123,14 @@ class AuthenticatedBundleTests(unittest.TestCase):
         launched, log = self.launch()
         self.assertEqual(launched.returncode, 0, launched.stderr)
         self.assertEqual(log.read_text(), "0 gtk none")
+
+    def test_rejects_mismatched_or_dirty_checkout_at_launch(self):
+        self.create()
+        for params in ({"revision": "b" * 40}, {"dirty": True}):
+            result, log = self.launch(**params)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("checkout revision", result.stderr)
+            self.assertFalse(log.exists())
 
     def test_refuses_existing_destination_or_symlink(self):
         self.destination.mkdir()
