@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 """Test bounded, purely advisory A/B generation decisions."""
 import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -119,6 +120,84 @@ class SystemGenerationTests(unittest.TestCase):
             path.write_bytes(b"\xff")
             with self.assertRaises(mod.LayoutError):
                 mod.read_layout(path)
+
+    def test_staged_images_fall_back_only_to_matching_confirmed_bytes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            a = Path(folder) / "A.img"
+            b = Path(folder) / "B.img"
+            a.write_bytes(b"confirmed image bytes")
+            b.write_bytes(b"candidate image bytes")
+            data = layout()
+            data["slots"]["A"]["image_sha256"] = hashlib.sha256(a.read_bytes()).hexdigest()
+            data["slots"]["B"]["image_sha256"] = hashlib.sha256(b.read_bytes()).hexdigest()
+            trial = mod.plan_staged_boot(data, {"A": a, "B": b})
+            self.assertEqual(trial["selected_slot"], "B")
+            self.assertEqual(trial["reason"], "candidate_trial")
+            self.assertEqual(trial["staged_image_matches"], {"A": True, "B": True})
+            self.assertFalse(trial["image_verification_performed"])
+            self.assertFalse(trial["partition_identity_verified"])
+            self.assertFalse(trial["boot_image_authenticity_verified"])
+            b.write_bytes(b"corrupted candidate bytes")
+            fallback = mod.plan_staged_boot(data, {"A": a, "B": b})
+            self.assertEqual(fallback["selected_slot"], "A")
+            self.assertEqual(fallback["reason"], "candidate_staged_image_mismatch")
+            self.assertEqual(fallback["staged_image_matches"], {"A": True, "B": False})
+            a.write_bytes(b"corrupted confirmed bytes")
+            with self.assertRaisesRegex(mod.LayoutError, "confirmed system image"):
+                mod.plan_staged_boot(data, {"A": a, "B": b})
+
+    def test_staged_images_reject_symlinks_hardlinks_and_devices(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            image = root / "image"
+            image.write_bytes(b"test image bytes")
+            link = root / "symlink"
+            link.symlink_to(image)
+            with self.assertRaises(OSError):
+                mod.staged_image_sha256(link)
+            hardlink = root / "hardlink"
+            hardlink.hardlink_to(image)
+            with self.assertRaises(mod.LayoutError):
+                mod.staged_image_sha256(image)
+            hardlink.unlink()
+            self.assertEqual(mod.staged_image_sha256(image),
+                             hashlib.sha256(image.read_bytes()).hexdigest())
+            image.write_bytes(b"")
+            with self.assertRaises(mod.LayoutError):
+                mod.staged_image_sha256(image)
+            # A named pipe must not block or become a source of disk identity.
+            pipe = root / "pipe"
+            import os
+            os.mkfifo(pipe)
+            with self.assertRaises(mod.LayoutError):
+                mod.staged_image_sha256(pipe)
+
+    def test_cli_staged_image_checks_do_not_modify_inputs(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            a, b = root / "A.img", root / "B.img"
+            a.write_bytes(b"a-v1")
+            b.write_bytes(b"b-v2")
+            data = layout()
+            for slot, path in (("A", a), ("B", b)):
+                data["slots"][slot]["image_sha256"] = hashlib.sha256(
+                    path.read_bytes()
+                ).hexdigest()
+            manifest = root / "layout.json"
+            manifest.write_text(json.dumps(data))
+            command = [sys.executable, str(SCRIPT), "--manifest", str(manifest),
+                       "--staged-slot-a", str(a), "--staged-slot-b", str(b)]
+            result = subprocess.run(command, capture_output=True, text=True,
+                                    check=True, timeout=5)
+            decision = json.loads(result.stdout)
+            self.assertTrue(decision["staged_image_hashes_checked"])
+            self.assertEqual(decision["selected_slot"], "B")
+            invalid = subprocess.run(command[:-2] + [str(a)],
+                                     capture_output=True, text=True, timeout=5)
+            self.assertNotEqual(invalid.returncode, 0)
+            self.assertEqual(a.read_bytes(), b"a-v1")
+            self.assertEqual(b.read_bytes(), b"b-v2")
+            self.assertEqual(manifest.read_text(), json.dumps(data))
 
     def test_cli_rejects_write_mode_and_preserves_input(self):
         with tempfile.TemporaryDirectory() as folder:
