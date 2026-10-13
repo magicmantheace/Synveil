@@ -1,0 +1,28 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# A bounded, unauthenticated, read-only boot diagnostic. No arbitrary input,
+# credentials, filesystem repair, recovery commands, or root shell.
+[ "$#" -eq 0 ] || exit 2
+
+printf '\nSYNVEIL_RECOVERY_STATUS_V1\n'
+if grep -q ' /var ext4 ' /proc/mounts 2>/dev/null; then
+    echo SYNVEIL_RECOVERY_STATE_MOUNTED
+else
+    echo SYNVEIL_RECOVERY_STATE_NOT_MOUNTED
+fi
+if [ -x /usr/sbin/veil-core ]; then
+    echo SYNVEIL_RECOVERY_CORE_PRESENT
+else
+    echo SYNVEIL_RECOVERY_CORE_UNAVAILABLE
+fi
+if [ -x /usr/sbin/veil-seat ]; then
+    echo SYNVEIL_RECOVERY_SEAT_PRESENT
+else
+    echo SYNVEIL_RECOVERY_SEAT_UNAVAILABLE
+fi
+if [ -c /dev/fb0 ]; then
+    echo SYNVEIL_RECOVERY_FRAMEBUFFER_PRESENT
+else
+    echo SYNVEIL_RECOVERY_FRAMEBUFFER_UNAVAILABLE
+fi
+printf 'SYNVEIL_RECOVERY_READ_ONLY\n'

@@ -91,6 +91,22 @@ E. Record exact commit and complete guest evidence for each gate. Host
 fixtures alone are not accepted as recovery validation. Physical
 installation remains blocked until the complete recovery path is exercised.
 
+## Read-only diagnostic prototype (host-only until guest validation)
+
+The experimental initramfs now supports an explicit
+`synveil.recovery=status` kernel argument. Before attempting any persistent
+state mount or starting core, seat, graphics, network, or inference, it prints
+only fixed state-mount, core-binary, seat-binary and framebuffer-presence
+markers. It accepts no interactive commands or file paths, and then locks
+the serial console regardless of the authenticated/developer image profile.
+Absence of a mounted state volume in this mode is expected, not proof that
+the volume is corrupt. This is not a filesystem diagnosis, owner login,
+password reset, usable physical boot selector, or recovery authorization.
+
+Host checks exercise the diagnostic output and serial-root fail-closed order.
+A dedicated guest boot selecting the recovery argument is still needed;
+do not mark ADR gate A complete until that evidence exists.
+
 ## Explicit non-decision
 
 This ADR does not approve or implement password resets, a physical installer,

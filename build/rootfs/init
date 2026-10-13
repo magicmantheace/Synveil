@@ -52,6 +52,21 @@ mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp || true
 
 hostname synveil 2>/dev/null || true
 
+# BEGIN READ_ONLY_RECOVERY
+# Explicit boot argument selects unauthenticated, bounded diagnostics only.
+# This branch MUST run before state mount, networking, core, seat and display.
+# Neither success nor failure ever opens an interactive root serial shell.
+if grep -qw 'synveil.recovery=status' /proc/cmdline 2>/dev/null; then
+    if [ -x /usr/libexec/synveil/recovery-status ]; then
+        /usr/libexec/synveil/recovery-status ||
+            echo SYNVEIL_RECOVERY_DIAGNOSTICS_UNAVAILABLE
+    else
+        echo SYNVEIL_RECOVERY_DIAGNOSTICS_UNAVAILABLE
+    fi
+    serial_lock_forever
+fi
+# END READ_ONLY_RECOVERY
+
 # Opt-in QEMU state storage is independent from the bootstrap recovery shell.
 if [ -x /usr/libexec/synveil/mount-state ]; then
     /usr/libexec/synveil/mount-state || echo SYNVEIL_STATE_UNAVAILABLE

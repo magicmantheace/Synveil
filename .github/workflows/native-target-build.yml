@@ -68,7 +68,7 @@ jobs:
           python3 tests/native-startup.py
           python3 tests/seat-supervisor.py
           python3 tests/native-smoke.py
-          python3 tests/native-recovery.py
+          python3 tests/native-recovery.py\n          python3 tests/recovery-status.py
           python3 tests/qemu-lock.py
           python3 tests/native-protocol-probe.py
           python3 tests/native-guest-fixture.py
