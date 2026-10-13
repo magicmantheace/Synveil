@@ -6,8 +6,11 @@ on:
     paths:
       - build.sh
       - tools/vm_bundle.py
+      - tools/auth_vm_bundle.py
+      - tools/initramfs_profile.py
       - tools/state_disk.py
       - tests/vm-bundle.py
+      - tests/auth-vm-bundle.py
       - .github/workflows/vm-bundle-host.yml
   workflow_dispatch:
 
@@ -23,5 +26,7 @@ jobs:
         uses: actions/checkout@v6
       - name: Test VM bundle integrity and non-overwrite contract
         run: python3 tests/vm-bundle.py
+      - name: Test authenticated QEMU bundle and profile isolation
+        run: python3 tests/auth-vm-bundle.py
       - name: Validate entrypoint syntax
         run: bash -n build.sh
