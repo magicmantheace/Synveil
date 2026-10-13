@@ -94,6 +94,28 @@ if [ ! -f "$bundle/synveil-state.ext4" ] ||
     echo "[synveil-auth-vm] state disk must be private, regular, mode 0600" >&2
     exit 1
 fi
+# sha256sum --check alone can ignore malformed or missing entries and still
+# report success for the remaining files. Require the complete exact inventory.
+if ! python3 - "$bundle/SHA256SUMS" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+names = ("synveil-x86_64.img", "fixture.json", "validation.json", "VM-BUNDLE.json")
+try:
+    lines = Path(sys.argv[1]).read_text(encoding="ascii").splitlines()
+except (OSError, UnicodeError):
+    sys.exit(1)
+if len(lines) != len(names) or any(
+    re.fullmatch(r"[0-9a-f]{64}  " + re.escape(name), line) is None
+    for line, name in zip(lines, names)
+):
+    sys.exit(1)
+PY
+then
+    echo "[synveil-auth-vm] malformed or incomplete checksum inventory" >&2
+    exit 1
+fi
 if ! (cd "$bundle" && sha256sum --status --check SHA256SUMS); then
     echo "[synveil-auth-vm] immutable image checksum mismatch" >&2
     exit 1

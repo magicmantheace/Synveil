@@ -231,6 +231,26 @@ class AuthenticatedBundleTests(unittest.TestCase):
                 path.write_bytes(original)
                 path.chmod(0o400)
 
+    def test_launcher_rejects_incomplete_or_duplicate_checksum_inventory(self):
+        self.create()
+        checksum = self.destination / "SHA256SUMS"
+        original = checksum.read_text()
+        lines = original.splitlines(keepends=True)
+        for malformed in ("".join(lines[1:]),
+                          "".join(lines[:-1]) + lines[0],
+                          "".join(reversed(lines))):
+            with self.subTest(malformed=malformed[:16]):
+                checksum.chmod(0o600)
+                checksum.write_text(malformed)
+                checksum.chmod(0o400)
+                result, log = self.launch()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("checksum", result.stderr)
+                self.assertFalse(log.exists())
+        checksum.chmod(0o600)
+        checksum.write_text(original)
+        checksum.chmod(0o400)
+
     def test_formatter_failure_cleans_only_new_bundle(self):
         with patch("state_disk.subprocess.run", side_effect=RuntimeError("mkfs failed")):
             with self.assertRaises(RuntimeError):
