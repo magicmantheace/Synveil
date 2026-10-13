@@ -94,6 +94,7 @@ if mode == 'pass':
         assert 'synveil.observe/v1' in command
         assert 'total_threads' in command and 'average_1m' in command
         assert 'sectors_read_512b' in command and 'rx_bytes' in command
+        assert 'pressure' in command and 'io' in command
     else:
         assert '/children' in command and 'restarted=1' in command
         assert 'for round in 1 2 3' in command and 'shell-alive' in command

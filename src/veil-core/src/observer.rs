@@ -23,6 +23,13 @@ pub fn sample() -> io::Result<Value> {
         Ok(raw) => parse_net_dev(&raw)?,
         Err(_) => json!({"status": "unavailable", "interfaces": []}),
     };
+    // PSI reports observed scheduler stalls, not CPU utilization. Keep
+    // kernel builds lacking /proc/pressure usable and never invent zeros.
+    snapshot["pressure"] = json!({
+        "cpu": read_pressure("/proc/pressure/cpu", false),
+        "memory": read_pressure("/proc/pressure/memory", true),
+        "io": read_pressure("/proc/pressure/io", true),
+    });
     Ok(snapshot)
 }
 
@@ -154,6 +161,74 @@ fn parse_loadavg(input: &str) -> io::Result<Value> {
         "runnable": runnable,
         "total_threads": total,
     }))
+}
+
+/// Linux PSI exposes 10/60/300-second averaged *stall percentages* and
+/// cumulative microseconds, not CPU load, memory usage or I/O throughput.
+/// Optional fields from unsupported kernels must not fabricate zero stalls.
+fn parse_pressure(input: &str, require_full: bool) -> io::Result<Value> {
+    let mut some = None;
+    let mut full = None;
+    for line in input.lines() {
+        let mut fields = line.split_whitespace();
+        let kind = fields.next().ok_or_else(|| invalid_data("empty PSI line"))?;
+        let mut averages = [0.0f64; 3];
+        for (index, expected) in ["avg10", "avg60", "avg300"].iter().enumerate() {
+            let field = fields
+                .next()
+                .ok_or_else(|| invalid_data("missing PSI average"))?;
+            let (key, raw) = field
+                .split_once('=')
+                .ok_or_else(|| invalid_data("invalid PSI average field"))?;
+            if key != *expected {
+                return Err(invalid_data("unexpected PSI average field"));
+            }
+            let value = raw
+                .parse::<f64>()
+                .map_err(|_| invalid_data("invalid PSI average"))?;
+            if !value.is_finite() || !(0.0..=100.0).contains(&value) {
+                return Err(invalid_data("out-of-range PSI average"));
+            }
+            averages[index] = value;
+        }
+        let total_field = fields
+            .next()
+            .ok_or_else(|| invalid_data("missing PSI total"))?;
+        let (key, raw) = total_field
+            .split_once('=')
+            .ok_or_else(|| invalid_data("invalid PSI total field"))?;
+        if key != "total" || fields.next().is_some() {
+            return Err(invalid_data("unexpected PSI field"));
+        }
+        let total = raw
+            .parse::<u64>()
+            .map_err(|_| invalid_data("invalid PSI total"))?;
+        let record = json!({
+            "avg10_pct": averages[0],
+            "avg60_pct": averages[1],
+            "avg300_pct": averages[2],
+            "total_stall_us": total,
+        });
+        match kind {
+            "some" if some.is_none() => some = Some(record),
+            "full" if full.is_none() => full = Some(record),
+            _ => return Err(invalid_data("duplicate or unknown PSI category")),
+        }
+    }
+    let some = some.ok_or_else(|| invalid_data("missing PSI some category"))?;
+    if require_full && full.is_none() {
+        return Err(invalid_data("missing PSI full category"));
+    }
+    Ok(json!({"status": "ready", "some": some, "full": full}))
+}
+
+fn read_pressure(path: &str, require_full: bool) -> Value {
+    match fs::read_to_string(path) {
+        Err(_) => json!({"status": "unavailable"}),
+        Ok(input) if input.len() > 1024 => json!({"status": "invalid"}),
+        Ok(input) => parse_pressure(&input, require_full)
+            .unwrap_or_else(|_| json!({"status": "invalid"})),
+    }
 }
 
 /// Kernel /proc/diskstats gives cumulative counters, NOT read/write
@@ -372,6 +447,43 @@ mod tests {
         assert_eq!(parsed["status"], "truncated");
         assert_eq!(parsed["devices"].as_array().unwrap().len(), 128);
         assert_eq!(parsed["omitted_devices"], 2);
+    }
+
+    const PSI_SOME: &str = "some avg10=0.25 avg60=1.50 avg300=2.00 total=987654\n";
+    const PSI_FULL: &str = "full avg10=0.00 avg60=0.02 avg300=0.10 total=123\n";
+
+    #[test]
+    fn psi_reports_stalls_and_supports_cpu_without_full() {
+        let parsed = parse_pressure(PSI_SOME, false).unwrap();
+        assert_eq!(parsed["status"], "ready");
+        assert_eq!(parsed["some"]["avg10_pct"], 0.25);
+        assert_eq!(parsed["some"]["total_stall_us"], 987654u64);
+        assert!(parsed["full"].is_null());
+        let parsed = parse_pressure(&format!("{PSI_SOME}{PSI_FULL}"), true).unwrap();
+        assert_eq!(parsed["full"]["avg60_pct"], 0.02);
+        assert_eq!(parsed["full"]["total_stall_us"], 123u64);
+    }
+
+    #[test]
+    fn psi_rejects_missing_duplicate_or_corrupt_kernel_records() {
+        for raw in [
+            "",
+            PSI_FULL,
+            "some avg10=0.1 avg60=0.2 avg300=0.3\n",
+            "some avg10=NaN avg60=0 avg300=0 total=1\n",
+            "some avg10=101 avg60=0 avg300=0 total=1\n",
+            "some avg10=-1 avg60=0 avg300=0 total=1\n",
+            "some avg60=1 avg10=2 avg300=3 total=1\n",
+            "some avg10=1 avg60=2 avg300=3 total=-1\n",
+            "some avg10=1 avg60=2 avg300=3 total=1 extra=9\n",
+            "other avg10=1 avg60=2 avg300=3 total=1\n",
+            "some avg10=1 avg60=2 avg300=3 total=18446744073709551616\n",
+        ] {
+            assert!(parse_pressure(raw, false).is_err(), "{raw:?}");
+        }
+        assert!(parse_pressure(PSI_SOME, true).is_err());
+        assert!(parse_pressure(&format!("{PSI_SOME}{PSI_SOME}"), false).is_err());
+        assert!(parse_pressure(&format!("{PSI_FULL}{PSI_FULL}{PSI_SOME}"), true).is_err());
     }
 
     const NET_HEADER: &str = "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n";

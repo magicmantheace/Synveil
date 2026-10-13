@@ -125,7 +125,9 @@ tamper evidence remain open.
 - [ ] CPU metrics
   - Read-only cumulative CPU counters and logical count implemented; live utilization sampling remains open.
 - [ ] memory/pressure metrics
-  - Read-only MemTotal/MemAvailable snapshot implemented; pressure metrics remain open.
+  - Read-only MemTotal/MemAvailable and bounded Linux PSI CPU, memory, and I/O
+    stall snapshots implemented. Host/guest validation of PSI is required;
+    pressure history, attribution, and long-term measurements remain open.
 - [ ] process lifecycle and resource metrics
   - Read-only 1/5/15-minute Linux load averages and runnable/total thread
     counts are now parsed with strict schema checks. They are not CPU

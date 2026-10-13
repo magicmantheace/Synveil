@@ -37,3 +37,18 @@ CPU utilization sampling requires a time delta; process inventory and
 lifecycle tracking, PSI pressure, I/O, networking, resource history and
 long-term aggregation are separate roadmap items. The observer does not
 yet implement these metrics.
+
+## Linux pressure stall information (PSI)
+
+The `pressure.cpu`, `pressure.memory`, and `pressure.io` objects
+report the kernel's `/proc/pressure/{cpu,memory,io}` values when present.
+A ready record contains `some` and optional `full` groups with
+`avg10_pct`, `avg60_pct`, `avg300_pct` (stall time percentages over
+10/60/300 seconds), and `total_stall_us` (cumulative microseconds).
+
+CPU's `full` record is optional; memory and I/O require both records
+when PSI is available. Unsupported kernels return `status: unavailable`.
+Malformed, oversized, duplicate, or out-of-range PSI records return
+`status: invalid`, without inventing zero-pressure measurements or
+breaking unrelated CPU/memory observation. No sampling daemon, historical
+recording, process control, or inference authorization is introduced.
