@@ -213,6 +213,24 @@ class AuthenticatedBundleTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(log.exists())
 
+    def test_launcher_rejects_mutated_packaged_receipts(self):
+        self.create()
+        for name in ("fixture.json", "validation.json", "VM-BUNDLE.json",
+                     "SHA256SUMS"):
+            with self.subTest(name=name):
+                path = self.destination / name
+                original = path.read_bytes()
+                path.chmod(0o600)
+                path.write_bytes(b"x" + original[1:])
+                path.chmod(0o400)
+                result, log = self.launch()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("checksum", result.stderr)
+                self.assertFalse(log.exists())
+                path.chmod(0o600)
+                path.write_bytes(original)
+                path.chmod(0o400)
+
     def test_formatter_failure_cleans_only_new_bundle(self):
         with patch("state_disk.subprocess.run", side_effect=RuntimeError("mkfs failed")):
             with self.assertRaises(RuntimeError):
