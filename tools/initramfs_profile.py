@@ -85,7 +85,7 @@ def inspect_authenticated_archive(path: Path):
         raise ValueError("embedded authenticated initramfs enables root serial recovery")
     for marker in ("etc/synveil/auth-desktop", "etc/synveil/desktop-autostart"):
         value = records[marker]
-        if (value["mode"] & 0o177777) != 0o100644 or
+        if ((value["mode"] & 0o177777) != 0o100644 or
                 value["uid"] != 0 or value["gid"] != 0):
             raise ValueError("unsafe embedded authenticated marker owner or mode")
     return records
