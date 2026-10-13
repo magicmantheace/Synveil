@@ -25,6 +25,11 @@ class GuestFixtureTests(unittest.TestCase):
             core = baseline / "usr/sbin/veil-core"
             core.parent.mkdir(parents=True)
             core.write_bytes(b"unchanged native core")
+            seat = baseline / "usr/sbin/veil-seat"
+            seat.write_bytes(b"unchanged native seat")
+            display = baseline / "usr/bin/synveil-display"
+            display.parent.mkdir(parents=True)
+            display.write_bytes(b"unchanged native display")
             out = root / "out"
             out.mkdir()
             original = out / "synveil-x86_64.img"
@@ -39,15 +44,23 @@ class GuestFixtureTests(unittest.TestCase):
                     Path(command[-1]).write_bytes(b"fixture probe")
                 elif "cpio" in command[-1]:
                     tree = Path(kwargs["cwd"])
-                    self.assertEqual((tree / "usr/sbin/veil-core").exists(), case != "absent")
+                    self.assertEqual((tree / "usr/sbin/veil-core").exists(),
+                                     case not in ("absent", "recovery-status"))
+                    self.assertEqual((tree / "usr/sbin/veil-seat").exists(),
+                                     case != "recovery-status")
+                    self.assertEqual((tree / "usr/bin/synveil-display").exists(),
+                                     case != "recovery-status")
                     self.assertEqual((tree / "usr/libexec/synveil-test/protocol-probe").exists(),
                                      case == "protocol")
                     self.assertEqual((tree / "etc/synveil/auth-desktop").exists(),
-                                     case in ("graphical-login", "graphical-locked", "graphical-onboard"))
+                                     case in ("graphical-login", "graphical-locked", "graphical-onboard",
+                                              "recovery-status"))
                     self.assertEqual((tree / "etc/synveil/developer-serial-recovery").exists(),
                                      case == "graphical-login")
                     kwargs["stdout"].write(b"fixture cpio")
                 elif command[-1].endswith("kernel.sh"):
+                    self.assertEqual(kwargs["env"].get("SYNVEIL_KERNEL_TEST_RECOVERY_STATUS"),
+                                     "1" if case == "recovery-status" else None)
                     output = Path(kwargs["env"]["SYNVEIL_OUT_DIR"])
                     (output / "manifests").mkdir()
                     (output / "synveil-x86_64.efi").write_bytes(b"fixture kernel")
@@ -63,6 +76,9 @@ class GuestFixtureTests(unittest.TestCase):
                         self.assertIn("SYNVEIL_QEMU_STATE_DISK", kwargs["env"])
                     elif case == "graphical-locked":
                         self.assertIn("smoke-serial-locked.py", command[1])
+                    elif case == "recovery-status":
+                        self.assertIn("smoke-serial-locked.py", command[1])
+                        self.assertIn("--recovery-status", command)
                     else:
                         self.assertIn("smoke-recovery.py", command[1])
                         self.assertEqual(command[command.index("--case") + 1], case)
@@ -93,12 +109,17 @@ class GuestFixtureTests(unittest.TestCase):
                     else:
                         self.assertFalse(proof_path.exists())
             self.assertEqual(core.read_bytes(), b"unchanged native core")
+            self.assertEqual(seat.read_bytes(), b"unchanged native seat")
+            self.assertEqual(display.read_bytes(), b"unchanged native display")
             self.assertEqual(original.read_bytes(), b"unchanged native image")
             self.assertFalse((baseline / "usr/libexec/synveil-test").exists())
             self.assertFalse((baseline / "etc/synveil/auth-desktop").exists())
             self.assertFalse((baseline / "etc/synveil/developer-serial-recovery").exists())
             if fail_probe:
                 self.assertEqual(len(calls), 1)
+
+    def test_recovery_status_runs_without_core_seat_or_display(self):
+        self.check("recovery-status")
 
     def test_locked_preview_does_not_stage_developer_serial_override(self):
         self.check("graphical-locked")

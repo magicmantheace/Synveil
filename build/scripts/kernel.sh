@@ -21,7 +21,16 @@ make -C "$LINUX_SRC"     O="$KERNEL_BUILD"     ARCH=x86     CROSS_COMPILE="$TARG
 
 "$LINUX_SRC/scripts/kconfig/merge_config.sh"     -m     -O "$KERNEL_BUILD"     "$KERNEL_BUILD/.config"     "$ROOT_DIR/build/config/kernel.fragment"
 
-"$LINUX_SRC/scripts/config" --file "$KERNEL_BUILD/.config"     --set-str INITRAMFS_SOURCE "$INITRAMFS"     --set-str CMDLINE "console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6"     -e EFI     -e EFI_STUB     -e BLK_DEV_INITRD     -e SERIAL_8250     -e SERIAL_8250_CONSOLE     -e CMDLINE_BOOL     -e CMDLINE_OVERRIDE
+# Dedicated recovery QEMU fixture only: no arbitrary injected command line.
+RECOVERY_STATUS_TEST="${SYNVEIL_KERNEL_TEST_RECOVERY_STATUS:-0}"
+[[ "$RECOVERY_STATUS_TEST" == 0 || "$RECOVERY_STATUS_TEST" == 1 ]] ||
+    die "SYNVEIL_KERNEL_TEST_RECOVERY_STATUS must be 0 or 1"
+KERNEL_CMDLINE="console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6"
+if [[ "$RECOVERY_STATUS_TEST" == 1 ]]; then
+    KERNEL_CMDLINE="$KERNEL_CMDLINE synveil.recovery=status"
+fi
+
+"$LINUX_SRC/scripts/config" --file "$KERNEL_BUILD/.config"     --set-str INITRAMFS_SOURCE "$INITRAMFS"     --set-str CMDLINE "$KERNEL_CMDLINE"     -e EFI     -e EFI_STUB     -e BLK_DEV_INITRD     -e SERIAL_8250     -e SERIAL_8250_CONSOLE     -e CMDLINE_BOOL     -e CMDLINE_OVERRIDE
 
 make -C "$LINUX_SRC"     O="$KERNEL_BUILD"     ARCH=x86     CROSS_COMPILE="$TARGET-"     olddefconfig
 

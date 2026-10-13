@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", choices=("absent", "protocol", "graphical-login", "graphical-locked", "graphical-onboard"), required=True)
+    parser.add_argument("--case", choices=("absent", "protocol", "graphical-login", "graphical-locked", "graphical-onboard", "recovery-status"), required=True)
     args = parser.parse_args()
     work = Path(os.environ.get("SYNVEIL_WORK_DIR", ROOT / "build/work")).resolve()
     rootfs = Path(os.environ.get("SYNVEIL_ROOTFS_DIR", work / "rootfs")).resolve()
@@ -38,7 +38,7 @@ def main():
     proof.unlink(missing_ok=True)
     if args.case == "absent":
         (tree / "usr/sbin/veil-core").unlink()
-    elif args.case in ("graphical-login", "graphical-locked", "graphical-onboard"):
+    elif args.case in ("graphical-login", "graphical-locked", "graphical-onboard", "recovery-status"):
         marker = tree / "etc/synveil/auth-desktop"
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.touch(exist_ok=False)
@@ -49,6 +49,11 @@ def main():
         # debug override. A locked-preview fixture must never receive it.
         if args.case == "graphical-login":
             debug.touch(exist_ok=False)
+        if args.case == "recovery-status":
+            # Deliberately remove the protected services from the guest.
+            for name in ("usr/sbin/veil-core", "usr/sbin/veil-seat",
+                         "usr/bin/synveil-display"):
+                (tree / name).unlink(missing_ok=True)
     else:
         toolchain = Path(os.environ.get("SYNVEIL_TOOLCHAIN_DIR", ROOT / "build/toolchain/out"))
         target = os.environ.get("SYNVEIL_TARGET", "x86_64-synveil-linux-gnu")
@@ -64,6 +69,8 @@ def main():
                        cwd=tree, stdout=packed, check=True)
     env = {**os.environ, "SYNVEIL_OUT_DIR": str(fixture_out),
            "SYNVEIL_WORK_DIR": str(staging / "build")}
+    if args.case == "recovery-status":
+        env["SYNVEIL_KERNEL_TEST_RECOVERY_STATUS"] = "1"
     for name in ("kernel", "image"):
         subprocess.run(["bash", str(ROOT / "build/scripts" / (name + ".sh"))],
                        env=env, check=True)
@@ -75,7 +82,10 @@ def main():
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
         identity["artifacts"][name] = {"sha256": digest, "bytes": path.stat().st_size}
     (fixture_out / "manifests/fixture.json").write_text(json.dumps(identity, indent=2) + "\n")
-    if args.case == "graphical-locked":
+    if args.case == "recovery-status":
+        subprocess.run(["python3", str(ROOT / "tests/smoke-serial-locked.py"),
+                        "--timeout", "60", "--recovery-status"], env=env, check=True)
+    elif args.case == "graphical-locked":
         env["SYNVEIL_QEMU_VIDEO"] = "1"
         subprocess.run(["python3", str(ROOT / "tests/smoke-serial-locked.py"),
                         "--timeout", "60"], env=env, check=True)
