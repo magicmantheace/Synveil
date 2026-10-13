@@ -33,6 +33,9 @@ def main():
     shutil.copytree(rootfs, tree, symlinks=True)
     fixture_out = out / "guest-fixtures" / args.case
     fixture_out.mkdir(parents=True, exist_ok=True)
+    proof = fixture_out / "manifests/validation.json"
+    # A previous success must never survive a rebuild that then fails.
+    proof.unlink(missing_ok=True)
     if args.case == "absent":
         (tree / "usr/sbin/veil-core").unlink()
     elif args.case in ("graphical-login", "graphical-locked", "graphical-onboard"):
@@ -86,6 +89,21 @@ def main():
                     "SYNVEIL_QEMU_VIDEO": "1"})
         subprocess.run(["python3", str(ROOT / "tests/smoke-graphical-onboard.py"),
                         "--timeout", "105"], env=env, check=True)
+        # This receipt is created only AFTER both independent QEMU sessions
+        # pass. Never publish or bundle the test-only enrolled state disk.
+        proof.write_text(json.dumps({
+            "schema": "synveil.guest-proof/v1",
+            "case": "graphical-onboard",
+            "git_commit": identity["git_commit"],
+            "fixture_sha256": hashlib.sha256(
+                (fixture_out / "manifests/fixture.json").read_bytes()
+            ).hexdigest(),
+            "result": "passed",
+            "independent_qemu_boots": 2,
+            "locked_serial": True,
+            "first_user_enrollment": True,
+            "persistent_authentication": True,
+        }, indent=2) + "\n")
     elif args.case == "graphical-login":
         # Separate, never-reused synthetic state volume and fresh test-only
         # credential. The baseline source/image and other VM disks are intact.

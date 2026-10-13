@@ -15,9 +15,9 @@ MAX_ENTRY_BYTES = 2 * 1024 * 1024 * 1024
 MAX_ENTRIES = 200000
 
 
-def scan_names(path: Path):
-    """Return entry names from one bounded newc archive, or fail closed."""
-    entries = set()
+def scan_entries(path: Path):
+    """Return immutable entry mode/owner metadata from a bounded newc archive."""
+    entries = {}
     with path.open("rb") as stream:
         count = 0
         while count < MAX_ENTRIES:
@@ -56,10 +56,39 @@ def scan_names(path: Path):
                     ".." in name.split("/") or "\0" in name or
                     name in entries):
                 raise ValueError("unsafe or duplicate initramfs path")
-            entries.add(name)
+            entries[name] = {"mode": fields[1], "uid": fields[2], "gid": fields[3]}
             stream.seek(filesize + ((-filesize) % 4), 1)
             count += 1
     raise ValueError("missing newc trailer or excessive entries")
+
+
+def scan_names(path: Path):
+    """Return entry names from one bounded newc archive, or fail closed."""
+    return set(scan_entries(path))
+
+
+def inspect_authenticated_archive(path: Path):
+    """Only the locked-serial, first-owner QEMU guest can be packaged.
+
+    File metadata is taken from the actual cpio payload, not the rootfs
+    staging tree. No symlink, missing marker or debug override is permitted.
+    """
+    records = scan_entries(path)
+    required = {
+        "init", "usr/bin/synveil-display", "usr/bin/synveil-vt",
+        "usr/sbin/veil-enroll", "usr/sbin/veil-seat",
+        "etc/synveil/auth-desktop", "etc/synveil/desktop-autostart",
+    }
+    if not required <= records.keys():
+        raise ValueError("embedded authenticated initramfs missing required components")
+    if "etc/synveil/developer-serial-recovery" in records:
+        raise ValueError("embedded authenticated initramfs enables root serial recovery")
+    for marker in ("etc/synveil/auth-desktop", "etc/synveil/desktop-autostart"):
+        value = records[marker]
+        if (value["mode"] & 0o177777) != 0o100644 or
+                value["uid"] != 0 or value["gid"] != 0):
+            raise ValueError("unsafe embedded authenticated marker owner or mode")
+    return records
 
 
 def inspect_demo_archive(path: Path):

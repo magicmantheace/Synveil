@@ -8,7 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from initramfs_profile import inspect_demo_archive, scan_names  # noqa: E402
+from initramfs_profile import inspect_authenticated_archive, inspect_demo_archive, scan_names  # noqa: E402
 
 REQUIRED = (
     "./init", "./usr/bin/synveil-display", "./usr/bin/synveil-vt",
@@ -39,6 +39,31 @@ class InitramfsProfileTests(unittest.TestCase):
     def test_clean_dev_initramfs_is_accepted(self):
         self.assertIn("init", self.check(newc(REQUIRED)))
         self.assertIn("usr/bin/synveil-vt", self.check(newc(REQUIRED)))
+
+    def test_authenticated_profile_requires_locked_root_and_regular_markers(self):
+        mandatory = (*REQUIRED, "./etc/synveil/auth-desktop",
+                     "./usr/sbin/veil-enroll", "./usr/sbin/veil-seat")
+        self.assertIn("etc/synveil/auth-desktop",
+                      inspect_authenticated_archive(self._archive(newc(mandatory))))
+        for forbidden in ("./etc/synveil/developer-serial-recovery",):
+            with self.assertRaisesRegex(ValueError, "root serial"):
+                inspect_authenticated_archive(
+                    self._archive(newc((*mandatory, forbidden))))
+        for deleted in ("./usr/sbin/veil-enroll", "./usr/sbin/veil-seat",
+                        "./etc/synveil/auth-desktop"):
+            with self.assertRaises(ValueError):
+                inspect_authenticated_archive(
+                    self._archive(newc(tuple(x for x in mandatory if x != deleted))))
+
+    def _archive(self, raw):
+        # Used only inside this test's temporary fixture lifetime; its
+        # caller immediately scans the returned path before it is reused.
+        if not hasattr(self, "_local_temp"):
+            self._local_temp = tempfile.TemporaryDirectory()
+            self.addCleanup(self._local_temp.cleanup)
+        path = Path(self._local_temp.name) / "auth.cpio"
+        path.write_bytes(raw)
+        return path
 
     def test_rejects_auth_and_developer_root_override_markers(self):
         for forbidden in ("etc/synveil/auth-desktop",
