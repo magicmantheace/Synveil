@@ -326,3 +326,14 @@ It is not a physical installation, recovery entry, signed system
 or full multiwindow desktop. First physical installation remains blocked
 by persistent root filesystem layout, hardware driver breadth,
 owner recovery, secure disk identity and installer validation.
+
+## Kernel stall information on the provisional Status page
+
+The QEMU framebuffer Status page now shows CPU, memory and I/O
+10-second Linux PSI `some` stall percentages in tenths, read from
+`/proc/pressure/{cpu,memory,io}`. These are wait/stall signals, **not**
+utilization or throughput. A bounded non-root-compatible C reader rejects
+bad kernel records, overlong lines and symlinks and reports unavailable
+instead of inventing zero values. Host parser/build tests precede guest
+display validation; this does not turn the framebuffer menu into a full
+compositor or authorize AI-driven resource management.

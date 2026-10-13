@@ -81,6 +81,27 @@ class DisplaySourceTests(unittest.TestCase):
             )
             subprocess.run([str(executable)], check=True, timeout=3)
 
+    def test_read_only_psi_status_parsing_and_missing_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            executable = folder / "psi-test"
+            sample = folder / "cpu.pressure"
+            sample.write_text(
+                "some avg10=1.25 avg60=0.50 avg300=0.02 total=12345\n"
+            )
+            symlink = folder / "link"
+            symlink.symlink_to(sample)
+            subprocess.run(
+                ["gcc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                 str(ROOT / "src/veil-display/pressure_diag.c"),
+                 str(ROOT / "tests/display-pressure.c"),
+                 "-I", str(ROOT / "src/veil-display"),
+                 "-o", str(executable)],
+                check=True, timeout=15,
+            )
+            subprocess.run([str(executable), str(sample), str(symlink)],
+                           check=True, timeout=3)
+
     def test_compiles_and_rejects_out_of_bounds_framebuffer(self):
         with tempfile.TemporaryDirectory() as tmp:
             executable = Path(tmp) / "synveil-display"
@@ -90,6 +111,7 @@ class DisplaySourceTests(unittest.TestCase):
                  str(ROOT / "src/veil-display/preferences.c"),
                  str(ROOT / "src/veil-display/core_health.c"),
                  str(ROOT / "src/veil-display/network_diag.c"),
+                 str(ROOT / "src/veil-display/pressure_diag.c"),
                  str(ROOT / "src/veil-display/enroll.c"),
                  "-o", str(executable)],
                 check=True,

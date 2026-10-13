@@ -30,6 +30,7 @@
 #include "preferences.h"
 #include "core_health.h"
 #include "network_diag.h"
+#include "pressure_diag.h"
 #include "lifetime.h"
 #include "mapping.h"
 #include "seat_privacy.h"
@@ -245,6 +246,25 @@ static void show_runtime_details(const struct surface *screen, int page,
                 heading(screen, line, 32u, y + 68u, 2u, color);
             }
             fclose(uptime);
+        }
+        // PSI is a scheduler stall percentage, not CPU utilization.
+        // An absent or malformed kernel source does not display fake zeroes.
+        static const char *const pressure_paths[] = {
+            "/proc/pressure/cpu", "/proc/pressure/memory", "/proc/pressure/io"
+        };
+        static const char *const pressure_labels[] = {
+            "CPU", "MEM", "IO"
+        };
+        for (unsigned i = 0; i < 3u; i++) {
+            unsigned tenths = 0u;
+            if (synveil_pressure_some_avg10(pressure_paths[i], &tenths)) {
+                snprintf(line, sizeof(line), "%s STALL %u.%u",
+                         pressure_labels[i], tenths / 10u, tenths % 10u);
+            } else {
+                snprintf(line, sizeof(line), "%s STALL UNAVAILABLE",
+                         pressure_labels[i]);
+            }
+            heading(screen, line, 32u, y + 102u + 34u * i, 2u, color);
         }
     } else if (page == 1 && mounted_state()) {
         struct statvfs filesystem;

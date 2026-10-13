@@ -70,6 +70,7 @@ if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
         "$ROOT_DIR/src/veil-display/main.c" "$ROOT_DIR/src/veil-display/preferences.c" \
         "$ROOT_DIR/src/veil-display/core_health.c" \
         "$ROOT_DIR/src/veil-display/network_diag.c" \
+        "$ROOT_DIR/src/veil-display/pressure_diag.c" \
         "$ROOT_DIR/src/veil-display/enroll.c" \
         -o "$ROOTFS_DIR/usr/bin/synveil-display"
     "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \
