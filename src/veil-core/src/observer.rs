@@ -171,7 +171,9 @@ fn parse_pressure(input: &str, require_full: bool) -> io::Result<Value> {
     let mut full = None;
     for line in input.lines() {
         let mut fields = line.split_whitespace();
-        let kind = fields.next().ok_or_else(|| invalid_data("empty PSI line"))?;
+        let kind = fields
+            .next()
+            .ok_or_else(|| invalid_data("empty PSI line"))?;
         let mut averages = [0.0f64; 3];
         for (index, expected) in ["avg10", "avg60", "avg300"].iter().enumerate() {
             let field = fields
@@ -226,8 +228,9 @@ fn read_pressure(path: &str, require_full: bool) -> Value {
     match fs::read_to_string(path) {
         Err(_) => json!({"status": "unavailable"}),
         Ok(input) if input.len() > 1024 => json!({"status": "invalid"}),
-        Ok(input) => parse_pressure(&input, require_full)
-            .unwrap_or_else(|_| json!({"status": "invalid"})),
+        Ok(input) => {
+            parse_pressure(&input, require_full).unwrap_or_else(|_| json!({"status": "invalid"}))
+        }
     }
 }
 
