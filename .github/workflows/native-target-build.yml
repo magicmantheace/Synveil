@@ -238,6 +238,7 @@ jobs:
             | tee out/logs/graphical-onboard-fixture.log
 
       - name: Package validated authenticated VM without copying test credentials
+        id: authenticated_package
         if: ${{ !cancelled() && steps.onboarding_guest.outcome == 'success' }}
         run: |
           set -o pipefail
@@ -247,6 +248,20 @@ jobs:
           test -f out/auth-vm/synveil-state.ext4
           test ! -e out/auth-vm/graphical-onboard-state.ext4
           sh -n out/auth-vm/run-vm.sh
+
+      - name: Independently enroll and log in using packaged VM artifacts
+        if: ${{ !cancelled() && steps.authenticated_package.outcome == 'success' }}
+        env:
+          SYNVEIL_QEMU_NETWORK: "0"
+          SYNVEIL_QEMU_DISPLAY: none
+          SYNVEIL_QEMU_VIDEO: "1"
+        run: |
+          # The fresh CI bundle has a separate, empty credential state disk.
+          # Never run this automated scenario on an owner's existing disk.
+          test "$(stat -c '%a' out/auth-vm/synveil-state.ext4)" = 600
+          SYNVEIL_OUT_DIR="$PWD/out/auth-vm" \
+          SYNVEIL_QEMU_STATE_DISK="$PWD/out/auth-vm/synveil-state.ext4" \
+            python3 tests/smoke-graphical-onboard.py --timeout 105
 
       - name: Preserve native build evidence
         if: always()
@@ -260,6 +275,7 @@ jobs:
             out/logs/
             out/manifests/
             out/guest-fixtures/*/logs/
+            out/auth-vm/logs/onboard-*.log
             out/guest-fixtures/*/manifests/
             build/toolchain/out/SYNVEIL-TOOLCHAIN
             build/work/native/build-*/maps/
