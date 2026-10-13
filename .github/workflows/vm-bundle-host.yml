@@ -11,6 +11,7 @@ on:
       - tools/state_disk.py
       - tests/vm-bundle.py
       - tests/auth-vm-bundle.py
+      - tests/smoke-auth-vm-bundle.py
       - .github/workflows/vm-bundle-host.yml
   workflow_dispatch:
 
@@ -28,5 +29,10 @@ jobs:
         run: python3 tests/vm-bundle.py
       - name: Test authenticated QEMU bundle and profile isolation
         run: python3 tests/auth-vm-bundle.py
+      - name: Check packaged-image guest smoke harness syntax
+        run: |
+          python3 -m py_compile tests/smoke-auth-vm-bundle.py
+          python3 tests/smoke-auth-vm-bundle.py --help
+
       - name: Validate entrypoint syntax
         run: bash -n build.sh

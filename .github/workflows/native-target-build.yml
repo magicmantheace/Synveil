@@ -256,12 +256,9 @@ jobs:
           SYNVEIL_QEMU_DISPLAY: none
           SYNVEIL_QEMU_VIDEO: "1"
         run: |
-          # The fresh CI bundle has a separate, empty credential state disk.
-          # Never run this automated scenario on an owner's existing disk.
-          test "$(stat -c '%a' out/auth-vm/synveil-state.ext4)" = 600
-          SYNVEIL_OUT_DIR="$PWD/out/auth-vm" \
-          SYNVEIL_QEMU_STATE_DISK="$PWD/out/auth-vm/synveil-state.ext4" \
-            python3 tests/smoke-graphical-onboard.py --timeout 105
+          # Exercise the packaged boot image with a throwaway copy of its
+          # blank state, preserving a credential-free distributable bundle.
+          python3 tests/smoke-auth-vm-bundle.py --bundle "$PWD/out/auth-vm" --timeout 105
 
       - name: Preserve native build evidence
         if: always()
@@ -275,7 +272,6 @@ jobs:
             out/logs/
             out/manifests/
             out/guest-fixtures/*/logs/
-            out/auth-vm/logs/onboard-*.log
             out/guest-fixtures/*/manifests/
             build/toolchain/out/SYNVEIL-TOOLCHAIN
             build/work/native/build-*/maps/
