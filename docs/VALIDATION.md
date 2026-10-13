@@ -327,3 +327,17 @@ At October 12, 2026 the new source, positive QMP scenario and negative host
 fixtures are implemented; end-to-end new guest evidence is pending. None of
 the first-install or full production security boxes is satisfied solely by
 host validation.
+
+
+## Authenticated VM package evidence gate
+
+On completion of both independent QEMU boots, the graphical-onboard
+fixture writes a result-bound SHA256 validation receipt. A separate
+host packaging test checks that authenticated VM bundling rejects
+wrong/missing receipts, stale commits, altered guest EFI/initramfs
+artifacts, unsafe auth markers, root-serial override and replacement
+of existing user state. A real native CI integration step runs the
+packager only after the graphical-onboard guest step succeeds.
+The packaged state volume must be freshly initialized rather than
+copied from the synthetic test fixture. This test provides no
+signature, hardware installer or owner recovery certification.

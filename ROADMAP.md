@@ -363,3 +363,15 @@ The new 'graphical-onboard' guest fixture boots a locked-serial image,
 completes graphical setup, logs in, reboots with the same test state disk and
 requires ordinary login. It remains an incomplete dependency until an
 exact-revision native QEMU run and independent recovery design are validated.
+
+
+### Authenticated QEMU bundle (physical installation remains open)
+
+A successful locked-serial, two-boot first-user QEMU fixture now emits
+a hash-bound validation receipt. The optional `auth-vm-bundle`
+packager verifies that exact revision and the embedded authentication
+profile, then creates a private offline QEMU image with a brand-new
+state disk. The previous unauthenticated developer VM bundle remains
+isolated. This is an experimental VM path and does not complete
+the first-test physical installer, installed root, recovery, signing
+or production desktop prerequisites.

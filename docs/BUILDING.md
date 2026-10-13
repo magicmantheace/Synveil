@@ -401,3 +401,33 @@ The pipeline honors `SOURCE_DATE_EPOCH` where implemented and records it in the 
 - Secure Boot/signing is not implemented.
 - The initramfs is embedded in the kernel, so rootfs changes rebuild the kernel.
 - The image has no persistent writable root filesystem yet.
+
+
+### Private authenticated QEMU preview bundle (experimental)
+
+After the native framebuffer image builds, run the locked-serial two-boot
+graphical-onboard guest fixture to produce a successful validation receipt.
+For the *same Git commit*, the optional `auth-vm-bundle` command can
+create an isolated authenticated desktop test VM:
+
+```sh
+bash build.sh guest-fixture --case graphical-onboard
+bash build.sh auth-vm-bundle --dest "$PWD/out/auth-vm" --size-mib 256
+SYNVEIL_REPO_ROOT="$PWD" ./out/auth-vm/run-vm.sh
+```
+
+The packager refuses a missing or failed two-boot validation receipt,
+stale Git revision, altered EFI/image/initramfs artifacts, unexpected or
+wrong-mode authenticated login markers, and any developer root-serial
+override. It validates the *embedded* initramfs rather than relying on
+a mutable rootfs staging directory. It creates a NEW ext4 volume and
+never copies the synthetic credential-bearing CI guest state disk.
+
+The launcher enforces private owner-only mode-0700 bundle storage,
+checks immutable SHA256 hashes, disables QMP monitoring and networking
+and runs QEMU with an interactive GTK framebuffer. Existing bundles
+and state disks are never overwritten. The old unauthenticated developer
+VM bundle remains separate. The proof/manifest and SHA256 checks are
+not digital signatures or trusted boot. This is a developer-only
+offline QEMU preview, NOT a physical installer, signed release,
+general-purpose compositor or validated owner recovery mechanism.

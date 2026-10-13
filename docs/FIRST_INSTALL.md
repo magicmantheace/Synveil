@@ -309,3 +309,20 @@ This removes one developer-shell dependency for first-user creation, but
 **does not authorize a physical installation**. Missing pieces include an
 independent secure recovery mechanism, persistent installed rootfs,
 hardware support and a production-quality input/compositor design.
+
+
+## Isolated authenticated QEMU preview packaging
+
+The `auth-vm-bundle` build target accepts only the locked-serial
+`graphical-onboard` scenario with a matching successful two-boot QEMU
+receipt. It verifies the build revision, all three guest artifact hashes,
+the root-owned immutable authentication markers and absence of any
+developer serial-recovery marker inside the actual initramfs.
+The resulting bundle has a new private ext4 state disk and an offline
+GTK launch script; synthetic CI passwords and CI state are not shipped.
+
+This is a reproducible, guarded virtual demonstration path.
+It is not a physical installation, recovery entry, signed system
+or full multiwindow desktop. First physical installation remains blocked
+by persistent root filesystem layout, hardware driver breadth,
+owner recovery, secure disk identity and installer validation.
