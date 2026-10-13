@@ -120,6 +120,11 @@ class SystemGenerationTests(unittest.TestCase):
             path.write_bytes(b"\xff")
             with self.assertRaises(mod.LayoutError):
                 mod.read_layout(path)
+            import os
+            pipe = Path(folder) / "manifest-fifo"
+            os.mkfifo(pipe)
+            with self.assertRaises(mod.LayoutError):
+                mod.read_layout(pipe)
 
     def test_staged_images_fall_back_only_to_matching_confirmed_bytes(self):
         with tempfile.TemporaryDirectory() as folder:
