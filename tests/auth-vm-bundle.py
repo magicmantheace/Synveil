@@ -18,6 +18,7 @@ from auth_vm_bundle import create_authenticated_bundle, verify_authenticated_fix
 REV = "a" * 40
 REQUIRED = ("init", "usr/bin/synveil-display", "usr/bin/synveil-vt",
             "usr/sbin/veil-enroll", "usr/sbin/veil-seat",
+            "usr/libexec/synveil/recovery-status",
             "etc/synveil/desktop-autostart", "etc/synveil/auth-desktop")
 
 
@@ -27,7 +28,8 @@ def newc(names, overrides=None):
     for name in (*names, "TRAILER!!!"):
         raw = name.encode() + b"\0"
         executable = {"init", "usr/bin/synveil-display", "usr/bin/synveil-vt",
-                      "usr/sbin/veil-enroll", "usr/sbin/veil-seat"}
+                      "usr/sbin/veil-enroll", "usr/sbin/veil-seat",
+                      "usr/libexec/synveil/recovery-status"}
         default_mode = 0o100755 if name in executable else 0o100644
         fields = [1, overrides.get(name, default_mode), 0, 0, 1, 0,
                   0, 0, 0, 0, 0, len(raw), 0]
@@ -205,6 +207,24 @@ class AuthenticatedBundleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsafe embedded executable"):
             self.create()
         self.assertFalse(self.destination.exists())
+
+    def test_rejects_missing_or_unsafe_recovery_executable(self):
+        name = "usr/libexec/synveil/recovery-status"
+        for names, overrides in (
+            (tuple(n for n in REQUIRED if n != name), {}),
+            (REQUIRED, {name: 0o120777}),
+            (REQUIRED, {name: 0o100644}),
+            (REQUIRED, {name: 0o100777}),
+        ):
+            with self.subTest(names=names, overrides=overrides):
+                (self.fixture / "synveil-initramfs.cpio").write_bytes(
+                    newc(names, overrides))
+                self.refresh_receipts()
+                with self.assertRaisesRegex(
+                    ValueError, "missing required|unsafe embedded executable"
+                ):
+                    self.create()
+                self.assertFalse(self.destination.exists())
 
     def test_launcher_rechecks_checksums_and_private_state(self):
         self.create()

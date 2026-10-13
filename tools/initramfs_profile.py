@@ -54,9 +54,17 @@ def scan_entries(path: Path):
                 return entries
             while name.startswith("./"):
                 name = name[2:]
-            if (not name or name.startswith("/") or
-                    ".." in name.split("/") or "\0" in name or
-                    name in entries):
+            parts = name.split("/")
+            if name == ".":
+                # cpio includes the root directory; require a safe owner/mode.
+                if ((fields[1] & 0o170000) != 0o040000 or
+                        (fields[1] & 0o022) != 0 or
+                        fields[2] != 0 or fields[3] != 0):
+                    raise ValueError("unsafe initramfs root directory")
+            elif (not name or name.startswith("/") or "\0" in name or
+                  any(part in ("", ".", "..") for part in parts)):
+                raise ValueError("unsafe initramfs path alias")
+            if name in entries:
                 raise ValueError("unsafe or duplicate initramfs path")
             entries[name] = {"mode": fields[1], "uid": fields[2], "gid": fields[3]}
             padded_bytes = filesize + ((-filesize) % 4)
@@ -105,6 +113,7 @@ def inspect_authenticated_archive(path: Path):
     required = {
         "init", "usr/bin/synveil-display", "usr/bin/synveil-vt",
         "usr/sbin/veil-enroll", "usr/sbin/veil-seat",
+        "usr/libexec/synveil/recovery-status",
         "etc/synveil/auth-desktop", "etc/synveil/desktop-autostart",
     }
     if not required <= records.keys():
@@ -119,6 +128,7 @@ def inspect_authenticated_archive(path: Path):
     require_privileged_executables(records, (
         "init", "usr/bin/synveil-display", "usr/bin/synveil-vt",
         "usr/sbin/veil-enroll", "usr/sbin/veil-seat",
+        "usr/libexec/synveil/recovery-status",
     ))
     return records
 

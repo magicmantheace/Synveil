@@ -341,3 +341,13 @@ packager only after the graphical-onboard guest step succeeds.
 The packaged state volume must be freshly initialized rather than
 copied from the synthetic test fixture. This test provides no
 signature, hardware installer or owner recovery certification.
+
+### Authenticated VM recovery and archive alias validation
+
+Packaged authenticated QEMU previews must contain a root-owned, non-writable,
+executable independent read-only recovery-status binary in their embedded
+initramfs. Host checks reject missing, symlinked, nonexecutable and writable
+copies. The archive scanner also rejects ambiguous path components that could
+alias privileged files, while requiring safe metadata for the cpio root record.
+This is a packaging gate, not a password reset or physical installer. Native
+guest validation of each revision is still required.
