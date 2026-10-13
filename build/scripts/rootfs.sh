@@ -62,7 +62,8 @@ log "building BusyBox $(source_version busybox)"
 mkdir -p     "$ROOTFS_DIR"/{dev,etc,proc,root,run,sys,tmp,var}     "$ROOTFS_DIR"/usr/{bin,sbin}     "$ROOTFS_DIR"/var/{log,tmp}
 
 install -m 0755 "$ROOT_DIR/build/rootfs/init" "$ROOTFS_DIR/init"
-install -D -m 0755 "$ROOT_DIR/build/rootfs/recovery-status" \\\n    "$ROOTFS_DIR/usr/libexec/synveil/recovery-status"
+install -D -m 0755 "$ROOT_DIR/build/rootfs/recovery-status" \
+    "$ROOTFS_DIR/usr/libexec/synveil/recovery-status"
 if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
     # Diagnostic framebuffer splash, not a desktop compositor.
     "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \

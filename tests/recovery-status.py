@@ -70,5 +70,25 @@ class ReadOnlyRecoveryTests(unittest.TestCase):
         subprocess.run(["sh", "-n", str(SCRIPT)], check=True)
 
 
+    def test_recovery_status_installs_into_a_fresh_rootfs(self):
+        # Execute the real shell fragment: a malformed escaped line break
+        # passes shell -n but breaks the full native rootfs build.
+        lines = ROOTFS.read_text().splitlines()
+        index = next(i for i, line in enumerate(lines)
+                     if 'install -D -m 0755 "$ROOT_DIR/build/rootfs/recovery-status"' in line)
+        command = "\n".join(lines[index:index + 2]) + "\n"
+        with tempfile.TemporaryDirectory() as temp:
+            destination = Path(temp) / "rootfs"
+            result = subprocess.run(
+                ["bash", "-euc", command],
+                env={"ROOT_DIR": str(ROOT), "ROOTFS_DIR": str(destination),
+                     "PATH": "/usr/bin:/bin"},
+                capture_output=True, text=True, timeout=3,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            installed = destination / "usr/libexec/synveil/recovery-status"
+            self.assertEqual(installed.read_bytes(), SCRIPT.read_bytes())
+            self.assertEqual(installed.stat().st_mode & 0o777, 0o755)
+
 if __name__ == "__main__":
     unittest.main()
