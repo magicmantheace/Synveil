@@ -19,6 +19,8 @@ def scan_entries(path: Path):
     """Return immutable entry mode/owner metadata from a bounded newc archive."""
     entries = {}
     with path.open("rb") as stream:
+        archive_bytes = stream.seek(0, 2)
+        stream.seek(0)
         count = 0
         while count < MAX_ENTRIES:
             header = stream.read(HEADER_BYTES)
@@ -57,7 +59,10 @@ def scan_entries(path: Path):
                     name in entries):
                 raise ValueError("unsafe or duplicate initramfs path")
             entries[name] = {"mode": fields[1], "uid": fields[2], "gid": fields[3]}
-            stream.seek(filesize + ((-filesize) % 4), 1)
+            padded_bytes = filesize + ((-filesize) % 4)
+            if stream.tell() + padded_bytes > archive_bytes:
+                raise ValueError("truncated newc payload")
+            stream.seek(padded_bytes, 1)
             count += 1
     raise ValueError("missing newc trailer or excessive entries")
 
@@ -65,6 +70,29 @@ def scan_entries(path: Path):
 def scan_names(path: Path):
     """Return entry names from one bounded newc archive, or fail closed."""
     return set(scan_entries(path))
+
+
+def require_privileged_executables(records: dict, names: tuple) -> None:
+    """Reject missing execute bits, symlinks and untrusted owners in boot binaries."""
+    for name in names:
+        entry = records[name]
+        mode = entry["mode"]
+        if ((mode & 0o170000) != 0o100000 or
+                (mode & 0o100) == 0 or (mode & 0o022) != 0 or
+                entry["uid"] != 0 or entry["gid"] != 0):
+            raise ValueError("unsafe embedded executable: " + name)
+        # cpio may explicitly carry directories: a linked or writable parent
+        # changes where the kernel unpacks an otherwise legitimate filename.
+        components = name.split("/")
+        for depth in range(1, len(components)):
+            parent = "/".join(components[:depth])
+            directory = records.get(parent)
+            if directory is not None and (
+                (directory["mode"] & 0o170000) != 0o040000 or
+                (directory["mode"] & 0o022) != 0 or
+                directory["uid"] != 0 or directory["gid"] != 0
+            ):
+                raise ValueError("unsafe embedded executable parent: " + parent)
 
 
 def inspect_authenticated_archive(path: Path):
@@ -88,6 +116,10 @@ def inspect_authenticated_archive(path: Path):
         if ((value["mode"] & 0o177777) != 0o100644 or
                 value["uid"] != 0 or value["gid"] != 0):
             raise ValueError("unsafe embedded authenticated marker owner or mode")
+    require_privileged_executables(records, (
+        "init", "usr/bin/synveil-display", "usr/bin/synveil-vt",
+        "usr/sbin/veil-enroll", "usr/sbin/veil-seat",
+    ))
     return records
 
 

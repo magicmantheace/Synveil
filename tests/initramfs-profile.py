@@ -16,11 +16,16 @@ REQUIRED = (
 )
 
 
-def newc(names):
+def newc(names, overrides=None):
     data = bytearray()
+    overrides = overrides or {}
+    executable = {"init", "usr/bin/synveil-display", "usr/bin/synveil-vt",
+                  "usr/sbin/veil-enroll", "usr/sbin/veil-seat"}
     for name in (*names, "TRAILER!!!"):
         raw = name.encode("utf-8") + b"\0"
-        fields = (1, 0o100644, 0, 0, 1, 0, 0, 0, 0, 0, 0, len(raw), 0)
+        normalized = name.removeprefix("./")
+        default_mode = 0o100755 if normalized in executable else 0o100644
+        fields = (1, overrides.get(normalized, default_mode), 0, 0, 1, 0, 0, 0, 0, 0, 0, len(raw), 0)
         data.extend(b"070701")
         data.extend(b"".join(f"{field:08x}".encode() for field in fields))
         data.extend(raw)
@@ -64,6 +69,29 @@ class InitramfsProfileTests(unittest.TestCase):
         path = Path(self._local_temp.name) / "auth.cpio"
         path.write_bytes(raw)
         return path
+
+    def test_rejects_unsafe_authenticated_executables_and_parents(self):
+        mandatory = (*REQUIRED, "./etc/synveil/auth-desktop",
+                     "./usr/sbin/veil-enroll", "./usr/sbin/veil-seat")
+        for pathname, mode in (
+            ("usr/sbin/veil-seat", 0o120777),  # symlink
+            ("usr/sbin/veil-enroll", 0o100644),  # not executable
+            ("usr/bin/synveil-display", 0o100777),  # world-writable
+        ):
+            with self.subTest(pathname=pathname, mode=mode):
+                with self.assertRaisesRegex(ValueError, "unsafe embedded executable"):
+                    inspect_authenticated_archive(
+                        self._archive(newc(mandatory, {pathname: mode})))
+        with self.assertRaisesRegex(ValueError, "unsafe embedded executable parent"):
+            inspect_authenticated_archive(
+                self._archive(newc((*mandatory, "./usr"), {"usr": 0o120777})))
+
+    def test_rejects_declared_payload_beyond_archive_length(self):
+        archive = bytearray(newc(REQUIRED))
+        # The first newc header stores its file size at offset 54.
+        archive[54:62] = b"00010000"
+        with self.assertRaisesRegex(ValueError, "truncated newc payload"):
+            self.check(bytes(archive))
 
     def test_rejects_auth_and_developer_root_override_markers(self):
         for forbidden in ("etc/synveil/auth-desktop",

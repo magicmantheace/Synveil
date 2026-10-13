@@ -26,7 +26,10 @@ def newc(names, overrides=None):
     blob = bytearray()
     for name in (*names, "TRAILER!!!"):
         raw = name.encode() + b"\0"
-        fields = [1, overrides.get(name, 0o100644), 0, 0, 1, 0,
+        executable = {"init", "usr/bin/synveil-display", "usr/bin/synveil-vt",
+                      "usr/sbin/veil-enroll", "usr/sbin/veil-seat"}
+        default_mode = 0o100755 if name in executable else 0o100644
+        fields = [1, overrides.get(name, default_mode), 0, 0, 1, 0,
                   0, 0, 0, 0, 0, len(raw), 0]
         blob.extend(b"070701" + b"".join(f"{value:08x}".encode() for value in fields))
         blob.extend(raw)
@@ -194,6 +197,14 @@ class AuthenticatedBundleTests(unittest.TestCase):
         self.refresh_receipts()
         with self.assertRaisesRegex(ValueError, "marker"):
             self.create()
+
+    def test_rejects_unsafe_seat_executable_from_verified_cpio(self):
+        self.fixture.joinpath("synveil-initramfs.cpio").write_bytes(
+            newc(REQUIRED, {"usr/sbin/veil-seat": 0o100644}))
+        self.refresh_receipts()
+        with self.assertRaisesRegex(ValueError, "unsafe embedded executable"):
+            self.create()
+        self.assertFalse(self.destination.exists())
 
     def test_launcher_rechecks_checksums_and_private_state(self):
         self.create()
