@@ -38,10 +38,13 @@ int synveil_pressure_parse_some(const char *line, unsigned *tenths) {
     if (!line || !tenths || strncmp(line, "some ", 5u) != 0) return 0;
     const char *p = line + 5u;
     unsigned avg10, ignored;
-    if (!percentage_field(&p, "avg10=", &avg10) || *p++ != ' ' ||
-        !percentage_field(&p, "avg60=", &ignored) || *p++ != ' ' ||
-        !percentage_field(&p, "avg300=", &ignored) || *p++ != ' ' ||
-        strncmp(p, "total=", 6u) != 0) return 0;
+    if (!percentage_field(&p, "avg10=", &avg10) || *p != ' ') return 0;
+    p++;
+    if (!percentage_field(&p, "avg60=", &ignored) || *p != ' ') return 0;
+    p++;
+    if (!percentage_field(&p, "avg300=", &ignored) || *p != ' ') return 0;
+    p++;
+    if (strncmp(p, "total=", 6u) != 0) return 0;
     p += 6u;
     if (*p < '0' || *p > '9') return 0;
     uint64_t total = 0;
