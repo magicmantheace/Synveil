@@ -29,6 +29,7 @@ HOST = (
     ("desktop-marker-policy", "python3", "tests/desktop-marker-policy.py"),
     ("serial-lock-smoke-fixture", "python3", "tests/serial-lock-smoke-fixture.py"),
     ("initramfs-profile", "python3", "tests/initramfs-profile.py"),
+    ("auth-vm-bundle", "python3", "tests/auth-vm-bundle.py"),
     ("offline-runner-fixtures", "python3", "tests/offline-checks.py"),
     ("native-smoke-fixtures", "python3", "tests/native-smoke.py"),
     ("native-recovery-fixtures", "python3", "tests/native-recovery.py"),

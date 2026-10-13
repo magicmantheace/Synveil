@@ -8,6 +8,9 @@ on:
       - tests/display-lifetime.c
       - tests/desktop-lifetime.py
       - tests/display-build.py
+      - tests/auth-vm-bundle.py
+      - tools/auth_vm_bundle.py
+      - tools/initramfs_profile.py
       - tests/graphical-onboard-fixture.py
       - tests/smoke-graphical-onboard.py
       - tests/desktop-supervisor.py
@@ -43,6 +46,8 @@ jobs:
         run: python3 tests/display-build.py
       - name: Test locked-serial first-user onboarding with fake QEMU
         run: python3 tests/graphical-onboard-fixture.py
+      - name: Enforce private authenticated VM packaging contract
+        run: python3 tests/auth-vm-bundle.py
       - name: Test two-boot UI smoke verdicts with fake QEMU
         run: python3 tests/ui-preferences-smoke-fixture.py
       - name: Validate typed QMP keyboard events with fake monitor

@@ -31,7 +31,7 @@ sh -n build/rootfs/start-seat
 sh -n build/rootfs/mount-state
 sh -n build/rootfs/configure-network
 sh -n build/rootfs/udhcpc-script
-python3 -m py_compile tests/smoke-graphical-onboard.py tests/graphical-onboard-fixture.py tools/offline_checks.py tools/source_lock.py tools/build_manifest.py tools/state_disk.py tests/smoke-persistence.py tests/smoke-ui-preferences.py tools/qmp_input.py tools/vm_bundle.py tests/vm-bundle.py
+python3 -m py_compile tests/smoke-graphical-onboard.py tests/graphical-onboard-fixture.py tools/auth_vm_bundle.py tests/auth-vm-bundle.py tools/offline_checks.py tools/source_lock.py tools/build_manifest.py tools/state_disk.py tests/smoke-persistence.py tests/smoke-ui-preferences.py tools/qmp_input.py tools/vm_bundle.py tests/vm-bundle.py
 python3 -m json.tool build/manifests/sources.json >/dev/null
 python3 tools/source_lock.py dump >/dev/null
 python3 tools/offline_checks.py --level quick --plan >/dev/null
@@ -42,6 +42,7 @@ bash tests/source-extraction.sh
 python3 tests/build-lock.py
 python3 tests/state-disk.py
 python3 tests/vm-bundle.py
+python3 tests/auth-vm-bundle.py
 python3 tests/network-config.py
 python3 tests/qemu-options.py
 python3 tests/desktop-supervisor.py

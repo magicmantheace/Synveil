@@ -25,6 +25,9 @@ on:
       - tests/native-recovery.py
       - tests/native-protocol-probe.py
       - tests/native-guest-fixture.py
+      - tests/auth-vm-bundle.py
+      - tools/auth_vm_bundle.py
+      - tools/initramfs_profile.py
       - tests/graphical-login-fixture.py
       - tests/graphical-onboard-fixture.py
       - tests/smoke-graphical-onboard.py
@@ -67,6 +70,7 @@ jobs:
           python3 tests/qemu-lock.py
           python3 tests/native-protocol-probe.py
           python3 tests/native-guest-fixture.py
+          python3 tests/auth-vm-bundle.py
           python3 tests/graphical-login-fixture.py
           python3 tests/graphical-onboard-fixture.py
 

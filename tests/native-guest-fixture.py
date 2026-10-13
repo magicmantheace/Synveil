@@ -84,6 +84,14 @@ class GuestFixtureTests(unittest.TestCase):
                     self.assertEqual(data["case"], case)
                     self.assertEqual(data["git_commit"], "fixture-commit")
                     self.assertEqual(len(data["artifacts"]), 3)
+                    proof_path = out / "guest-fixtures" / case / "manifests/validation.json"
+                    if case == "graphical-onboard":
+                        proof = json.loads(proof_path.read_text())
+                        self.assertEqual(proof["result"], "passed")
+                        self.assertEqual(proof["independent_qemu_boots"], 2)
+                        self.assertTrue(proof["locked_serial"])
+                    else:
+                        self.assertFalse(proof_path.exists())
             self.assertEqual(core.read_bytes(), b"unchanged native core")
             self.assertEqual(original.read_bytes(), b"unchanged native image")
             self.assertFalse((baseline / "usr/libexec/synveil-test").exists())
