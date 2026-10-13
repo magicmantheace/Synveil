@@ -230,11 +230,23 @@ jobs:
             | tee out/logs/graphical-login-fixture.log
 
       - name: Enroll first owner graphically with locked serial and reboot
+        id: onboarding_guest
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |
           set -o pipefail
           bash build.sh guest-fixture --case graphical-onboard 2>&1 \
             | tee out/logs/graphical-onboard-fixture.log
+
+      - name: Package validated authenticated VM without copying test credentials
+        if: ${{ !cancelled() && steps.onboarding_guest.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          bash build.sh auth-vm-bundle --dest "$PWD/out/auth-vm" --size-mib 64
+          test -s out/auth-vm/synveil-x86_64.img
+          test -s out/auth-vm/validation.json
+          test -f out/auth-vm/synveil-state.ext4
+          test ! -e out/auth-vm/graphical-onboard-state.ext4
+          sh -n out/auth-vm/run-vm.sh
 
       - name: Preserve native build evidence
         if: always()
