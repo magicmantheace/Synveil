@@ -131,3 +131,19 @@ fn fifo_is_refused_without_waiting_for_a_writer() {
     );
     assert!(!fixture.invoke("fifo").status.success());
 }
+
+#[test]
+fn ambiguous_record_is_preserved_without_printing_its_fields() {
+    let fixture = Fixture::new();
+    let path = fixture.journal();
+    let record = veil_core::audit::record("start", json!({})).to_string();
+    let bytes = format!("{{\"pid\":123,{}\n", &record[1..]).into_bytes();
+    fs::write(&path, &bytes).unwrap();
+    let output = fixture.invoke("journal");
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert_eq!(fs::read(&path).unwrap(), bytes);
+    let error = String::from_utf8(output.stderr).unwrap();
+    assert!(error.contains("InvalidData"));
+    assert!(!error.contains("pid"));
+}

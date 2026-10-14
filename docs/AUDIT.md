@@ -85,14 +85,14 @@ final-component symlinks, hardlinks, non-regular files and modes other than 0600
 nonblocking shared advisory lock during inspection. Cooperative writers refuse
 to append while inspection holds the lock. Input is capped at 4 MiB and each
 record, including its mandatory newline, at 64 KiB. Invalid UTF-8/JSON, blank
-records, raw carriage returns, unknown schemas, missing/extra top-level fields
-and invalid field types or bounds are refused. Fields use the v1 envelope;
+records, raw carriage returns, unknown schemas, missing/extra top-level fields,
+duplicate object keys at any nesting level, and invalid field types or bounds
+are refused. Escaped key aliases are compared after JSON decoding. Fields use the v1 envelope;
 process IDs and sequences must be positive and event/build labels bounded.
 
 This is structural inspection, not proof of origin or completeness: it cannot
-identify fabricated well-formed events, edits, removed records, duplicated JSON
-keys collapsed by the JSON parser, reordered events or lost console-only
-records. It does not impose global PID/sequence ordering across restarts.
+identify fabricated well-formed events, edits, removed records, reordered
+events or lost console-only records. It does not impose global PID/sequence ordering across restarts.
 An attacker with write access can still create a structurally valid file.
 Cryptographic integrity, retention/rotation and power-loss testing remain open.
 
@@ -105,3 +105,10 @@ is not yet guest-validated.
 The two-independent-boot persistence smoke now requires the packaged checker
 to accept the journal on both boots before emitting its success markers.
 Passing host tests is not evidence that this stronger guest gate has passed.
+
+Audit inspection uses a strict recursive JSON decoder with the existing pinned
+Serde dependency (now explicitly declared by veil-core). It keeps the JSON
+parser recursion limit and rejects trailing input. Duplicate-key errors do not
+include key names; the CLI emits only the failure category. Regression tests
+cover repeated envelope keys, Unicode-escaped aliases, nested objects inside
+arrays, and the preservation of ambiguous input files.

@@ -58,7 +58,7 @@ fn inspect_bytes(bytes: &[u8]) -> io::Result<Value> {
         if line.len() > MAX_LINE || line.contains(&b'\r') {
             return Err(invalid());
         }
-        let value: Value = serde_json::from_slice(line).map_err(|_| invalid())?;
+        let value = super::audit_json::decode(line).map_err(|_| invalid())?;
         check_record(&value)?;
         records += 1;
     }
@@ -161,5 +161,18 @@ mod tests {
             value[key] = wrong;
             assert!(check_record(&value).is_err(), "accepted invalid {key}");
         }
+    }
+
+    #[test]
+    fn duplicate_envelope_and_nested_field_keys_are_refused() {
+        let original = record().to_string();
+        for key in ["pid", "\\u0070id"] {
+            let line = format!("{{\"{key}\":123,{}\n", &original[1..]);
+            assert!(inspect_bytes(line.as_bytes()).is_err());
+        }
+        let mut value = record();
+        value["fields"] = json!({"nested": [{"x": 1}]});
+        let line = format!("{value}\n").replace("\"x\":1", "\"x\":1,\"\\u0078\":2");
+        assert!(inspect_bytes(line.as_bytes()).is_err());
     }
 }
