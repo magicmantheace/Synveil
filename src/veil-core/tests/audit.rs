@@ -128,5 +128,6 @@ fn exercise_core_journal(incomplete: bool) {
         "journal must be owner-readable only"
     );
     std::fs::remove_file(journal).unwrap();
+    std::fs::remove_file(directory.join(".audit-lock")).unwrap();
     std::fs::remove_dir(directory).unwrap();
 }
