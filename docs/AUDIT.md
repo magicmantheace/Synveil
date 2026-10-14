@@ -116,7 +116,7 @@ include key names; the CLI emits only the failure category. Regression tests
 cover repeated envelope keys, Unicode-escaped aliases, nested objects inside
 arrays, and the preservation of ambiguous input files.
 
-## Bounded journal rollover (guest validation pending)
+## Bounded journal rollover
 
 Before an append would exceed 4 MiB, the writer synchronizes the complete
 active journal and preserves it as `core-audit.jsonl.1`. Linux atomic
@@ -145,9 +145,10 @@ by audit code.
 Host regressions cover archive byte preservation and structural inspection,
 continued appends/restart, an occupied archive, incomplete tails, writer/reader
 lock contention, unsafe lock content and reopening after a rename with no
-active file. Real guest rollover and crash/power-loss evidence remain pending.
+active file. The original guest rollover gate passed at
+[f973531](validation/native-f973531/README.md). Crash/power-loss evidence remains pending.
 
-The native workflow's pending `recovery-smoke --case audit-rotation` guest gate
+The native workflow's `recovery-smoke --case audit-rotation` guest gate
 uses a separate, exclusively created directory on the disposable QEMU state
 volume. It generates exactly 512 valid 8192-byte fixture records (4 MiB), checks
 them with the target inspector, and starts a bounded one-connection native core
@@ -156,8 +157,8 @@ the rollover. The gate requires unchanged archive SHA256, root/private/single-
 link archive metadata, 512 archived records, a valid new journal and healthy
 status from the independent main core. The existing journal and user state
 are not overwritten. Host tests validate the exact normalized AWK/shell
-command and reject command echo or missing boot readiness; they do not prove
-that this scenario has passed QEMU.
+command and reject command echo or missing boot readiness. Its original
+rollover scenario passed QEMU at [f973531](validation/native-f973531/README.md).
 
 The expanded gate then fills the synthetic active journal while keeping the
 existing archive, runs another bounded native core, and requires healthy

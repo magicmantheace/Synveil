@@ -395,8 +395,9 @@ modified launchers, symlinks, permissions/owner mismatches and output replacemen
 Host tests inspect and extract the generated tar to verify private modes,
 state identity, deterministic archive bytes and failure cleanup. Native runtime
 validation of the audit inspector and archive/upload path passed at
-[262d275](validation/native-262d275/README.md). Later bounded rotation remains
-pending its own exact-revision native and guest validation.
+[262d275](validation/native-262d275/README.md). The original bounded rotation
+guest gate passed at [f973531](validation/native-f973531/README.md), alongside
+all existing guest and downloadable-preview gates.
 
 The later audit rollover gate also exercises exhausted archival capacity and
 an incomplete synthetic active journal. Success requires healthy native IPC,
@@ -405,3 +406,10 @@ preservation of active and archived evidence, and inspector refusal of the
 incomplete file. Host shell fixtures cover pass/failure control flow, including
 silent sink failures and automatic repair. These gates are pending their own
 exact-revision QEMU run and do not establish power-loss durability.
+The archive host suite also checks a state disk modified during copying and
+restored before final validation, and refuses hardlinked source members. Each
+copied member's streaming digest must match its expected digest; the state disk
+uses the blank-state digest recorded at package creation. Open descriptors are
+checked before and after copying for regular-file identity, size, owner, mode
+and single-link count. These additional checks have host evidence only until
+their own exact-revision native archive/upload run succeeds.
