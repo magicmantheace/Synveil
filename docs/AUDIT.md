@@ -130,7 +130,17 @@ directory using Linux descriptor-relative operations. A renamed or substituted
 parent pathname cannot redirect those operations. Cleanup inspects the final
 object without reading it or following symlinks and refuses unrelated inodes.
 Host regressions substitute a directory path and preserve replacement files
-and symlink targets. This extension awaits host and native validation.
+and symlink targets, including cleanup without read permission on a failed
+copy. Host validation passed; target validation remains pending.
+
+The isolated exhaustion/read-only guest gate now also attempts snapshot
+exports into a separate private directory on its synthetic filesystem. It
+requires the specific storage-full/read-only failure category, no remaining
+partial copy and an unchanged source hash. After recovering write access,
+export and verification must succeed and copy/source hashes must match.
+Host fixtures reject false success, leftover partial files, wrong failure
+categories, failed recovered export and altered copy bytes. Native evidence
+for these export-failure gates remains pending.
 
 The compact `synveil.audit-export/v1` stdout receipt includes the exact byte
 count, record count, BLAKE2b-512 digest and `authenticated: false`; it contains

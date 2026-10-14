@@ -419,6 +419,12 @@ digest. Target build/link audits and guest export/verify execution are required
 before runtime completion. A digest match is not origin authentication or an
 independent retention/integrity system; archive deletion remains unavailable.
 
+The isolated tmpfs gate must also require export failure on full/read-only
+storage with no partial snapshot and unchanged source, then successful
+export/verification after recovery. Specific failure categories prevent a
+permissions or invalid-input error from passing as storage-exhaustion evidence.
+These added native scenarios remain pending their exact-revision execution.
+
 ## Downloadable authenticated preview gate
 
 Archive creation/upload is conditional on independent packaged-image guest
