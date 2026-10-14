@@ -358,6 +358,10 @@ unchanged generated launcher, an exact file inventory and a state disk matching
 the blank-state SHA256 recorded at package creation. Modified or enrolled state,
 extra files and existing output archives are refused. The workflow never
 archives the disposable enrolled disk used by its guest test.
+The packager hashes each member as it is copied and checks its open file's
+identity, size, ownership, mode and single-link count before and after copying.
+A source change during copying causes the partial archive to be removed, even
+if the source is restored before the final bundle check.
 
 After a successful run, download that run's authenticated-preview artifact.
 Use a Linux checkout of the exact revision in `VM-BUNDLE.json`, with QEMU/OVMF
