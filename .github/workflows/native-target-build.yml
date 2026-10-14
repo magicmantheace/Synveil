@@ -209,7 +209,7 @@ jobs:
           bash build.sh state-disk --size-mib 128
           bash build.sh persistence-smoke --timeout 60
 
-      - name: Preserve full audit journal and retain healthy native services
+      - name: Preserve audit history through rollover capacity and incomplete tails
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |
           SYNVEIL_QEMU_STATE_DISK="$PWD/out/synveil-state.ext4" \

@@ -170,7 +170,34 @@ AUDIT_ROTATION = (
     'grep -Fq \'"records":512\' "$d/archive-report.json" &&\n'
     '/usr/sbin/veil-audit check --path "$journal" >/dev/null &&\n'
     'timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then\n'
-    "printf '\\n%s%s\\n' SYNVEIL_ AUDIT_ROTATION_OK; fi; fi\n"
+    # All replacements below are synthetic fixture data in this private test
+    # directory. Never fill, truncate or alter the main core's journal.
+    'audit_probe() {\n'
+    'log="$d/$1.log"; socket="$d/$1.sock";\n'
+    'SYNVEIL_AUDIT_PATH="$journal" timeout -s KILL 10 /usr/sbin/veil-core --once --socket "$socket" >"$log" 2>&1 & helper=$!; ok=;\n'
+    'for retry in $(seq 1 40); do\n'
+    'if timeout -s KILL 2 /usr/bin/synctl --socket "$socket" --json status >/dev/null 2>&1; then ok=1; break; fi; sleep 0.1; done;\n'
+    '[ "$ok" = 1 ] && wait "$helper" &&\n'
+    'grep -Fq \'"event":"request"\' "$log" &&\n'
+    'grep -Fq \'"event":"shutdown"\' "$log";\n'
+    '};\n'
+    'if cp "$journal.1" "$journal" &&\n'
+    'audit_probe capacity &&\n'
+    'grep -Fq "audit archive exists; retention capacity reached" "$d/capacity.log" &&\n'
+    '[ "$(sha256sum "$journal" | cut -d " " -f1)" = "$old" ] &&\n'
+    '[ "$(sha256sum "$journal.1" | cut -d " " -f1)" = "$old" ] &&\n'
+    '[ "$(stat -c "%a:%u:%h:%s" "$journal")" = 600:0:1:4194304 ] &&\n'
+    '/usr/sbin/veil-audit check --path "$journal" >/dev/null &&\n'
+    '/usr/sbin/veil-audit check --path "$journal.1" >/dev/null &&\n'
+    'printf \'{"schema":\' > "$journal"; then\n'
+    'tail=$(sha256sum "$journal" | cut -d " " -f1);\n'
+    'if audit_probe incomplete &&\n'
+    'grep -Fq "persistent audit journal has an incomplete final record" "$d/incomplete.log" &&\n'
+    '[ "$(sha256sum "$journal" | cut -d " " -f1)" = "$tail" ] &&\n'
+    '[ "$(sha256sum "$journal.1" | cut -d " " -f1)" = "$old" ] &&\n'
+    '! /usr/sbin/veil-audit check --path "$journal" >/dev/null 2>&1 &&\n'
+    'timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then\n'
+    "printf '\\n%s%s\\n' SYNVEIL_ AUDIT_ROTATION_OK; fi; fi; fi; fi\n"
 )
 
 SCENARIOS = {

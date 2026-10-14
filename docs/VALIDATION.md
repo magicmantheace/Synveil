@@ -397,3 +397,11 @@ state identity, deterministic archive bytes and failure cleanup. Native runtime
 validation of the audit inspector and archive/upload path passed at
 [262d275](validation/native-262d275/README.md). Later bounded rotation remains
 pending its own exact-revision native and guest validation.
+
+The later audit rollover gate also exercises exhausted archival capacity and
+an incomplete synthetic active journal. Success requires healthy native IPC,
+console request/shutdown events and the specific sink-failure notice, byte
+preservation of active and archived evidence, and inspector refusal of the
+incomplete file. Host shell fixtures cover pass/failure control flow, including
+silent sink failures and automatic repair. These gates are pending their own
+exact-revision QEMU run and do not establish power-loss durability.

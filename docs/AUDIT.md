@@ -53,9 +53,10 @@ chains and a history API. The durable-audit roadmap item remains open. Future
 privileged actions also require typed cause, parameters, result, authorization,
 and rollback evidence.
 
-The native two-boot QEMU persistence gate now also verifies that the
-versioned audit journal is present, root-owned, mode 0600 and singly linked.
-That stronger guest gate is pending on the latest native-image workflow.
+The native two-boot QEMU persistence gate verifies that the versioned audit
+journal is present, root-owned, mode 0600 and singly linked. This gate and
+target structural inspection passed at
+[262d275](validation/native-262d275/README.md).
 
 Unit tests cover identity, sequence, unavailable clocks, escaped fields,
 symlink/hardlink rejection, owner-only mode and unsafe-parent refusal. A host integration test starts the actual core with a temporary journal,
@@ -99,12 +100,14 @@ Cryptographic integrity, retention/rotation and power-loss testing remain open.
 The native builder audits the new `veil-audit` ELF and link inputs alongside
 core, CLI, enrollment and seat binaries. Rootfs packaging requires its hash-bound
 artifact and installs it as `/usr/sbin/veil-audit`. Host inspection and packaging
-checks precede an exact-revision native build/guest recovery check; the checker
-is not yet guest-validated.
+checks precede an exact-revision native build/guest recovery check. The checker
+passed that validation at [262d275](validation/native-262d275/README.md).
 
 The two-independent-boot persistence smoke now requires the packaged checker
 to accept the journal on both boots before emitting its success markers.
-Passing host tests is not evidence that this stronger guest gate has passed.
+The two-boot inspector gate passed at
+[262d275](validation/native-262d275/README.md); later rollover/failure gates
+require their own exact-revision evidence.
 
 Audit inspection uses a strict recursive JSON decoder with the existing pinned
 Serde dependency (now explicitly declared by veil-core). It keeps the JSON
@@ -155,3 +158,14 @@ status from the independent main core. The existing journal and user state
 are not overwritten. Host tests validate the exact normalized AWK/shell
 command and reject command echo or missing boot readiness; they do not prove
 that this scenario has passed QEMU.
+
+The expanded gate then fills the synthetic active journal while keeping the
+existing archive, runs another bounded native core, and requires healthy
+status, console request/shutdown events, the explicit retention-capacity error,
+and unchanged hashes for both files. Finally it replaces only the synthetic
+active file with an incomplete JSON tail. Another core must retain console
+events and status, report the incomplete-tail refusal, preserve both hashes,
+and leave the damaged file rejected by the inspector. Host fixtures execute
+the normalized shell and reject altered history, automatic tail repair,
+missing failure notices, failed helper exits and an inspector that accepts
+the incomplete tail. Native guest evidence for these additions remains pending.
