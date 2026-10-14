@@ -532,6 +532,39 @@ mod tests {
     }
 
     #[test]
+    fn unsafe_lock_objects_cannot_modify_journal_or_link_target() {
+        let dir = test_dir("unsafe-lock");
+        let journal = dir.join("journal");
+        append_record(&journal, "original").unwrap();
+        let lock = dir.join(".audit-lock");
+        fs::remove_file(&lock).unwrap();
+        let target = dir.join("target");
+        fs::write(&target, b"private target").unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o600)).unwrap();
+        std::os::unix::fs::symlink(&target, &lock).unwrap();
+        assert!(append_record(&journal, "blocked").is_err());
+        fs::remove_file(&lock).unwrap();
+        fs::hard_link(&target, &lock).unwrap();
+        assert!(append_record(&journal, "blocked").is_err());
+        fs::remove_file(&lock).unwrap();
+        fs::write(&lock, b"").unwrap();
+        fs::set_permissions(&lock, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(append_record(&journal, "blocked").is_err());
+        fs::remove_file(&lock).unwrap();
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(&lock)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(append_record(&journal, "blocked").is_err());
+        assert_eq!(fs::read(&journal).unwrap(), b"original\n");
+        assert_eq!(fs::read(&target).unwrap(), b"private target");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn untrusted_fields_cannot_inject_record_lines() {
         let value = record("request", json!({ "id": "one\ntwo\r\nthree" }));
         let encoded = serde_json::to_string(&value).unwrap();
