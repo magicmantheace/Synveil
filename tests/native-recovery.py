@@ -94,6 +94,8 @@ if mode == 'pass':
     elif case == 'audit-enospc':
         assert 'size=1048576' in command and 'count=2048' in command
         assert 'No space left on device' in command and 'audit_probe resumed' in command
+        assert 'remount,ro' in command and 'remount,rw' in command
+        assert 'Read-only file system' in command and 'audit_probe writable' in command
         assert 'umount' in command and 'sha256sum' in command
         assert max(map(len, command.splitlines())) < 1024
     elif case == 'audit-rotation':
@@ -211,11 +213,22 @@ elif mode == 'timeout':
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         for mode in ("pass", "no-exhaustion", "full-write", "no-warning",
-                     "resume-failed", "unmount-failed"):
+                     "resume-failed", "unmount-failed", "ro-write", "ro-silent",
+                     "rw-failed", "ro-remount-failed", "rw-remount-failed"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 scripts = {
-                    "mount": "#!/bin/sh\nexit 0\n",
+                    "mount": '''#!/usr/bin/env python3
+import os, pathlib, sys
+mode = os.environ['ENOSPC_MODE']
+marker = pathlib.Path(sys.argv[-1]).parent / 'readonly'
+if 'remount,ro' in sys.argv:
+    if mode == 'ro-remount-failed': sys.exit(1)
+    marker.touch()
+elif 'remount,rw' in sys.argv:
+    if mode == 'rw-remount-failed': sys.exit(1)
+    marker.unlink()
+''',
                     "umount": '#!/bin/sh\n[ "$ENOSPC_MODE" != unmount-failed ]\n',
                     "client": "#!/bin/sh\nexit 0\n",
                     "dd": '''#!/usr/bin/env python3
@@ -228,12 +241,18 @@ sys.exit(0 if os.environ['ENOSPC_MODE'] == 'no-exhaustion' else 1)
 import json, os, pathlib
 journal = pathlib.Path(os.environ['SYNVEIL_AUDIT_PATH'])
 mode = os.environ['ENOSPC_MODE']
-if journal.with_name('filler').exists():
+if (journal.parent.parent / 'readonly').exists():
+    if mode == 'ro-write':
+        with journal.open('ab') as stream: stream.write(b'changed')
+    if mode != 'ro-silent':
+        print('[synveil-audit] persistent write failed: Read-only file system')
+elif journal.with_name('filler').exists():
     if mode == 'full-write': journal.write_text('lost evidence')
     if mode != 'no-warning':
         print('[synveil-audit] persistent write failed: No space left on device')
 else:
-    if mode == 'resume-failed': print('[synveil-audit] persistent write failed')
+    if mode == 'resume-failed' or (mode == 'rw-failed' and journal.stat().st_size > 4096):
+        print('[synveil-audit] persistent write failed')
     else:
         original = journal.read_bytes()
         with journal.open('ab') as stream: stream.write(original)
@@ -255,6 +274,8 @@ print(json.dumps({'records': len(data.splitlines()), 'schema': 'fixture'}, separ
                 command = module.AUDIT_ENOSPC[3].replace(
                     "/run/synveil-audit-enospc-test", str(root / "test")
                 ).replace("mount -t tmpfs", str(root / "mount") + " -t tmpfs").replace(
+                    "mount -o remount", str(root / "mount") + " -o remount"
+                ).replace(
                     'umount "$store"', str(root / "umount") + ' "$store"'
                 ).replace("dd if=", str(root / "dd") + " if=").replace(
                     "/usr/sbin/veil-core", str(root / "core")

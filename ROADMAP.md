@@ -139,8 +139,10 @@ authenticate records or prove completeness. Its exact-revision native guest
 validation passed at [262d275](docs/validation/native-262d275/README.md).
 Expanded guest gates for exhausted archive capacity and incomplete tails are
 validated at [3fb0158](docs/validation/native-3fb0158/README.md).
-An isolated tmpfs ENOSPC/recovered-space gate is implemented but awaits native
-guest validation. Ext4 disk-full policy, power-loss and tamper evidence remain open.
+The isolated tmpfs ENOSPC/recovered-space gate passed native guest validation at
+[ebc9f4e](docs/validation/native-ebc9f4e/README.md). A read-only/read-write
+remount recovery extension is implemented but awaits its own guest run.
+Ext4 disk-full policy, power-loss and tamper evidence remain open.
 
 ## Phase 3 — Observer
 

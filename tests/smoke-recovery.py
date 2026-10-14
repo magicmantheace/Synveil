@@ -232,7 +232,17 @@ AUDIT_ENOSPC = (
     '! grep -Fq "persistent write failed" "$d/resumed.log" &&\n'
     '[ "$(stat -c %s "$journal")" -gt 4096 ] &&\n'
     '/usr/sbin/veil-audit check --path "$journal" >/dev/null &&\n'
-    'timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then passed=1; fi; fi;\n'
+    'mount -o remount,ro "$store"; then\n'
+    'before_ro=$(sha256sum "$journal" | cut -d " " -f1);\n'
+    'if audit_probe readonly &&\n'
+    'grep -Fq "Read-only file system" "$d/readonly.log" &&\n'
+    '[ "$(sha256sum "$journal" | cut -d " " -f1)" = "$before_ro" ] &&\n'
+    '/usr/sbin/veil-audit check --path "$journal" >/dev/null &&\n'
+    'mount -o remount,rw "$store" && audit_probe writable &&\n'
+    '! grep -Fq "persistent write failed" "$d/writable.log" &&\n'
+    '[ "$(sha256sum "$journal" | cut -d " " -f1)" != "$before_ro" ] &&\n'
+    '/usr/sbin/veil-audit check --path "$journal" >/dev/null &&\n'
+    'timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then passed=1; fi; fi; fi;\n'
     'if umount "$store" && [ "$passed" = 1 ]; then\n'
     "printf '\\n%s%s\\n' SYNVEIL_ AUDIT_ENOSPC_OK; fi; fi\n"
 )
