@@ -125,6 +125,12 @@ a separate mode-0700 directory owned by the effective caller. Existing files,
 final symlinks, unsafe output directories and the source journal directory
 are refused. Successful output and its parent are synchronized. Failed copies
 remove only a destination still matching the created inode.
+Creation and failed-copy cleanup are anchored to the opened private destination
+directory using Linux descriptor-relative operations. A renamed or substituted
+parent pathname cannot redirect those operations. Cleanup inspects the final
+object without reading it or following symlinks and refuses unrelated inodes.
+Host regressions substitute a directory path and preserve replacement files
+and symlink targets. This extension awaits host and native validation.
 
 The compact `synveil.audit-export/v1` stdout receipt includes the exact byte
 count, record count, BLAKE2b-512 digest and `authenticated: false`; it contains

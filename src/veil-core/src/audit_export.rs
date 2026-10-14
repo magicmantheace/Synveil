@@ -2,15 +2,54 @@
 //! Owner-controlled offline copies. Checksums do not authenticate event origin.
 use blake2::{Blake2b512, Digest};
 use serde_json::{Value, json};
+use std::ffi::{CString, c_char};
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::Path;
 
 const NOFOLLOW_NONBLOCK: i32 = 0o400000 | 0o4000;
 
 unsafe extern "C" {
     fn geteuid() -> u32;
+    fn openat(directory: i32, name: *const c_char, flags: i32, ...) -> i32;
+    fn unlinkat(directory: i32, name: *const c_char, flags: i32) -> i32;
+}
+
+fn output_name(output: &Path) -> io::Result<CString> {
+    let name = output.file_name().ok_or_else(unsafe_output)?;
+    CString::new(name.as_bytes()).map_err(|_| unsafe_output())
+}
+
+fn create_output(directory: &fs::File, name: &CString) -> io::Result<fs::File> {
+    // Linux O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, plus final no-follow.
+    let flags = 2 | 0o100 | 0o200 | 0o2000000 | NOFOLLOW_NONBLOCK;
+    let fd = unsafe { openat(directory.as_raw_fd(), name.as_ptr(), flags, 0o600_u32) };
+    if fd < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    // Ownership of this newly allocated descriptor transfers to File once.
+    Ok(unsafe { fs::File::from_raw_fd(fd) })
+}
+
+fn remove_created(directory: &fs::File, name: &CString, created: &fs::Metadata) {
+    // Linux O_PATH allows inode inspection without read permission or FIFO I/O.
+    let flags = 0o10000000 | 0o2000000 | 0o400000;
+    let fd = unsafe { openat(directory.as_raw_fd(), name.as_ptr(), flags) };
+    if fd < 0 {
+        return;
+    }
+    let current = unsafe { fs::File::from_raw_fd(fd) };
+    if current
+        .metadata()
+        .is_ok_and(|now| (now.dev(), now.ino()) == (created.dev(), created.ino()))
+    {
+        // Work relative to the original directory, even if its path moved.
+        let _ = unsafe { unlinkat(directory.as_raw_fd(), name.as_ptr(), 0) };
+        let _ = directory.sync_all();
+    }
 }
 
 fn checksum(bytes: &[u8]) -> String {
@@ -50,13 +89,8 @@ pub fn export(source: &Path, output: &Path) -> io::Result<Value> {
         {
             return Err(unsafe_output());
         }
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .custom_flags(NOFOLLOW_NONBLOCK)
-            .open(output)?;
+        let name = output_name(output)?;
+        let mut file = create_output(&directory, &name)?;
         let created = file.metadata()?;
         let saved = (|| {
             if !created.is_file()
@@ -90,12 +124,8 @@ pub fn export(source: &Path, output: &Path) -> io::Result<Value> {
             }
             Ok(receipt(bytes, &inspected, "synveil.audit-export/v1"))
         })();
-        if saved.is_err()
-            && fs::symlink_metadata(output)
-                .is_ok_and(|now| (now.dev(), now.ino()) == (created.dev(), created.ino()))
-        {
-            // Never remove a replacement object after a failed copy.
-            let _ = fs::remove_file(output);
+        if saved.is_err() {
+            remove_created(&directory, &name, &created);
         }
         saved
     })
@@ -260,6 +290,48 @@ mod tests {
         assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
         drop(held);
         export(&source, &output).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn creation_stays_in_open_directory_after_path_substitution() {
+        let (root, _source, output) = fixture();
+        let parent = output.parent().unwrap();
+        let directory = fs::File::open(parent).unwrap();
+        let moved = root.join("moved");
+        let unrelated = root.join("unrelated");
+        fs::DirBuilder::new().mode(0o700).create(&unrelated).unwrap();
+        fs::rename(parent, &moved).unwrap();
+        std::os::unix::fs::symlink(&unrelated, parent).unwrap();
+        let name = output_name(&output).unwrap();
+        let mut copy = create_output(&directory, &name).unwrap();
+        copy.write_all(b"private snapshot").unwrap();
+        let created = copy.metadata().unwrap();
+        assert_eq!(fs::read(moved.join("snapshot")).unwrap(), b"private snapshot");
+        assert!(!unrelated.join("snapshot").exists());
+        remove_created(&directory, &name, &created);
+        assert!(!moved.join("snapshot").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn cleanup_preserves_replacement_and_target_symlink() {
+        let (root, _source, output) = fixture();
+        let directory = fs::File::open(output.parent().unwrap()).unwrap();
+        let name = output_name(&output).unwrap();
+        let copy = create_output(&directory, &name).unwrap();
+        let created = copy.metadata().unwrap();
+        fs::rename(&output, output.with_extension("preserved")).unwrap();
+        fs::write(&output, b"replacement").unwrap();
+        remove_created(&directory, &name, &created);
+        assert_eq!(fs::read(&output).unwrap(), b"replacement");
+        fs::remove_file(&output).unwrap();
+        let target = root.join("target");
+        fs::write(&target, b"unrelated").unwrap();
+        std::os::unix::fs::symlink(&target, &output).unwrap();
+        remove_created(&directory, &name, &created);
+        assert!(fs::symlink_metadata(&output).unwrap().file_type().is_symlink());
+        assert_eq!(fs::read(target).unwrap(), b"unrelated");
         fs::remove_dir_all(root).unwrap();
     }
 }
