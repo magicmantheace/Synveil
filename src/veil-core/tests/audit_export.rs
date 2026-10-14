@@ -13,26 +13,58 @@ fn offline_cli_exports_verifies_and_refuses_replacement_or_bad_arguments() {
     fs::DirBuilder::new().mode(0o700).create(&copies).unwrap();
     let source = root.join("journal");
     let copy = copies.join("snapshot");
-    let mut file = OpenOptions::new().write(true).create_new(true).mode(0o600).open(&source).unwrap();
-    writeln!(file, "{}", veil_core::audit::record("request", json!({"private": "secret"}))).unwrap();
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&source)
+        .unwrap();
+    writeln!(
+        file,
+        "{}",
+        veil_core::audit::record("request", json!({"private": "secret"}))
+    )
+    .unwrap();
     drop(file);
     let tool = env!("CARGO_BIN_EXE_veil-audit");
-    let exported = Command::new(tool).arg("export").arg("--path").arg(&source)
-        .arg("--output").arg(&copy).output().unwrap();
+    let exported = Command::new(tool)
+        .arg("export")
+        .arg("--path")
+        .arg(&source)
+        .arg("--output")
+        .arg(&copy)
+        .output()
+        .unwrap();
     assert!(exported.status.success());
     let receipt: Value = serde_json::from_slice(&exported.stdout).unwrap();
     assert!(!String::from_utf8_lossy(&exported.stdout).contains("secret"));
     let digest = receipt["digest"].as_str().unwrap();
-    let verified = Command::new(tool).arg("verify").arg("--path").arg(&copy)
-        .arg("--digest").arg(digest).output().unwrap();
+    let verified = Command::new(tool)
+        .arg("verify")
+        .arg("--path")
+        .arg(&copy)
+        .arg("--digest")
+        .arg(digest)
+        .output()
+        .unwrap();
     assert!(verified.status.success());
     let saved = fs::read(&copy).unwrap();
-    let refused = Command::new(tool).arg("export").arg("--path").arg(&source)
-        .arg("--output").arg(&copy).output().unwrap();
+    let refused = Command::new(tool)
+        .arg("export")
+        .arg("--path")
+        .arg(&source)
+        .arg("--output")
+        .arg(&copy)
+        .output()
+        .unwrap();
     assert!(!refused.status.success());
     assert_eq!(fs::read(&copy).unwrap(), saved);
-    for arguments in [vec!["export"], vec!["verify", "--digest", "private-input"],
-        vec!["check", "--output", "private-input"], vec!["check", "--path", "a", "--path", "b"]] {
+    for arguments in [
+        vec!["export"],
+        vec!["verify", "--digest", "private-input"],
+        vec!["check", "--output", "private-input"],
+        vec!["check", "--path", "a", "--path", "b"],
+    ] {
         let result = Command::new(tool).args(arguments).output().unwrap();
         assert!(!result.status.success());
         assert!(!String::from_utf8_lossy(&result.stderr).contains("private-input"));

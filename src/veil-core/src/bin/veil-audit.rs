@@ -25,18 +25,19 @@ fn run() -> io::Result<Value> {
         }
     }
     match command.to_str() {
-        Some("check") if output.is_none() && digest.is_none() => {
-            veil_core::audit_check::inspect(&path.unwrap_or_else(|| {
-                PathBuf::from("/var/log/synveil/core-audit.jsonl")
-            }))
-        }
+        Some("check") if output.is_none() && digest.is_none() => veil_core::audit_check::inspect(
+            &path.unwrap_or_else(|| PathBuf::from("/var/log/synveil/core-audit.jsonl")),
+        ),
         Some("export") if digest.is_none() => veil_core::audit_export::export(
             &path.ok_or_else(invalid_args)?,
             &output.ok_or_else(invalid_args)?,
         ),
         Some("verify") if output.is_none() => veil_core::audit_export::verify(
             &path.ok_or_else(invalid_args)?,
-            digest.as_ref().and_then(|value| value.to_str()).ok_or_else(invalid_args)?,
+            digest
+                .as_ref()
+                .and_then(|value| value.to_str())
+                .ok_or_else(invalid_args)?,
         ),
         _ => Err(invalid_args()),
     }

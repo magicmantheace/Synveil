@@ -3,7 +3,7 @@
 use blake2::{Blake2b512, Digest};
 use serde_json::{Value, json};
 use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::Path;
 
@@ -68,20 +68,29 @@ pub fn export(source: &Path, output: &Path) -> io::Result<Value> {
             }
             file.write_all(bytes)?;
             file.sync_all()?;
+            file.seek(SeekFrom::Start(0))?;
+            let mut copied = Vec::new();
+            (&file).take(bytes.len() as u64 + 1).read_to_end(&mut copied)?;
+            if copied.as_slice() != bytes {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "copy mismatch"));
+            }
             directory.sync_all()?;
             let now = fs::symlink_metadata(output)?;
             let parent_now = fs::symlink_metadata(parent)?;
             if (now.dev(), now.ino()) != (created.dev(), created.ino())
                 || (parent_now.dev(), parent_now.ino()) != (meta.dev(), meta.ino())
+                || now.nlink() != 1
+                || now.mode() & 0o777 != 0o600
+                || now.len() != bytes.len() as u64
+                || parent_now.mode() & 0o777 != 0o700
             {
                 return Err(unsafe_output());
             }
             Ok(receipt(bytes, &inspected, "synveil.audit-export/v1"))
         })();
         if saved.is_err()
-            && fs::symlink_metadata(output).is_ok_and(|now| {
-                (now.dev(), now.ino()) == (created.dev(), created.ino())
-            })
+            && fs::symlink_metadata(output)
+                .is_ok_and(|now| (now.dev(), now.ino()) == (created.dev(), created.ino()))
         {
             // Never remove a replacement object after a failed copy.
             let _ = fs::remove_file(output);
@@ -91,20 +100,31 @@ pub fn export(source: &Path, output: &Path) -> io::Result<Value> {
 }
 
 fn unsafe_output() -> io::Error {
-    io::Error::new(io::ErrorKind::PermissionDenied, "unsafe audit export output")
+    io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        "unsafe audit export output",
+    )
 }
 
 /// Verify exact bytes against a separately retained owner-supplied digest.
 pub fn verify(path: &Path, expected: &str) -> io::Result<Value> {
     if expected.len() != 128
-        || !expected.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        || !expected
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
     {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid digest"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid digest",
+        ));
     }
     super::audit_check::with_snapshot(path, |bytes, inspected| {
         let report = receipt(bytes, &inspected, "synveil.audit-verification/v1");
         if report["digest"] != expected {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "digest mismatch"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "digest mismatch",
+            ));
         }
         Ok(report)
     })
@@ -120,14 +140,26 @@ mod tests {
 
     fn fixture() -> (std::path::PathBuf, std::path::PathBuf, std::path::PathBuf) {
         let root = std::env::temp_dir().join(format!(
-            "synveil-export-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)
+            "synveil-export-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
         let dest = root.join("copies");
         fs::DirBuilder::new().mode(0o700).create(&dest).unwrap();
         let source = root.join("journal");
-        let mut file = OpenOptions::new().write(true).create_new(true).mode(0o600).open(&source).unwrap();
-        writeln!(file, "{}", super::super::audit::record("request", json!({"private": "secret"}))).unwrap();
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&source)
+            .unwrap();
+        writeln!(
+            file,
+            "{}",
+            super::super::audit::record("request", json!({"private": "secret"}))
+        )
+        .unwrap();
         (root, source, dest.join("snapshot"))
     }
 
@@ -149,10 +181,17 @@ mod tests {
     fn well_formed_tampering_is_detected() {
         let (root, source, output) = fixture();
         let report = export(&source, &output).unwrap();
-        let text = fs::read_to_string(&output).unwrap().replace("secret", "edited");
+        let text = fs::read_to_string(&output)
+            .unwrap()
+            .replace("secret", "edited");
         fs::write(&output, text).unwrap();
         assert!(super::super::audit_check::inspect(&output).is_ok());
-        assert_eq!(verify(&output, report["digest"].as_str().unwrap()).unwrap_err().kind(), io::ErrorKind::InvalidData);
+        assert_eq!(
+            verify(&output, report["digest"].as_str().unwrap())
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::InvalidData
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -182,17 +221,23 @@ mod tests {
         assert!(!output.exists());
         assert_eq!(fs::read(&source).unwrap(), b"incomplete");
         for digest in ["", "../bad", &"A".repeat(128)] {
-            assert_eq!(verify(&source, digest).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+            assert_eq!(
+                verify(&source, digest).unwrap_err().kind(),
+                io::ErrorKind::InvalidInput
+            );
         }
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn blake2b_digest_matches_published_vector() {
-        assert_eq!(checksum(b"hello world"), concat!(
-            "021ced8799296ceca557832ab941a50b4a11f83478cf141f51f933f653ab9fbc",
-            "c05a037cddbed06e309bf334942c4e58cdf1a46e237911ccd7fcf9787cbc7fd0"
-        ));
+        assert_eq!(
+            checksum(b"hello world"),
+            concat!(
+                "021ced8799296ceca557832ab941a50b4a11f83478cf141f51f933f653ab9fbc",
+                "c05a037cddbed06e309bf334942c4e58cdf1a46e237911ccd7fcf9787cbc7fd0"
+            )
+        );
     }
 
     #[test]
@@ -202,8 +247,13 @@ mod tests {
             fn flock(fd: i32, operation: i32) -> i32;
         }
         let (root, source, output) = fixture();
-        let held = super::super::audit::directory_lock(&source, true).unwrap().unwrap();
-        assert_eq!(export(&source, &output).unwrap_err().kind(), io::ErrorKind::WouldBlock);
+        let held = super::super::audit::directory_lock(&source, true)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            export(&source, &output).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
         assert!(!output.exists());
         assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
         drop(held);
