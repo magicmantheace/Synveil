@@ -112,11 +112,7 @@ pub(crate) fn directory_lock(path: &Path, write: bool) -> io::Result<Option<fs::
     {
         return Err(unsafe_journal());
     }
-    let operation = if write {
-        LINUX_LOCK_EX_NONBLOCK
-    } else {
-        1 | 4
-    };
+    let operation = if write { LINUX_LOCK_EX_NONBLOCK } else { 1 | 4 };
     if unsafe { flock(lock.as_raw_fd(), operation) } != 0 {
         return Err(io::Error::last_os_error());
     }
@@ -420,8 +416,13 @@ mod tests {
     }
 
     fn seed_full_journal(path: &Path) -> Vec<u8> {
-        let line = format!("{}\n", record("padding", json!({"padding": "x".repeat(4096)})));
-        let bytes = line.repeat(MAX_AUDIT_BYTES as usize / line.len()).into_bytes();
+        let line = format!(
+            "{}\n",
+            record("padding", json!({"padding": "x".repeat(4096)}))
+        );
+        let bytes = line
+            .repeat(MAX_AUDIT_BYTES as usize / line.len())
+            .into_bytes();
         fs::write(path, &bytes).unwrap();
         fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
         bytes
@@ -440,7 +441,10 @@ mod tests {
         assert_eq!(fs::metadata(&archive).unwrap().mode() & 0o777, 0o600);
         assert!(super::super::audit_check::inspect(&archive).is_ok());
         append_record(&journal, &record("restart", json!({})).to_string()).unwrap();
-        assert_eq!(super::super::audit_check::inspect(&journal).unwrap()["records"], 2);
+        assert_eq!(
+            super::super::audit_check::inspect(&journal).unwrap()["records"],
+            2
+        );
         assert_eq!(fs::read(&archive).unwrap(), previous);
         fs::remove_dir_all(dir).unwrap();
     }
@@ -484,10 +488,15 @@ mod tests {
             io::ErrorKind::WouldBlock
         );
         assert_eq!(
-            super::super::audit_check::inspect(&journal).unwrap_err().kind(),
+            super::super::audit_check::inspect(&journal)
+                .unwrap_err()
+                .kind(),
             io::ErrorKind::WouldBlock
         );
-        assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{original}\n"));
+        assert_eq!(
+            fs::read_to_string(&journal).unwrap(),
+            format!("{original}\n")
+        );
         drop(held);
         assert!(super::super::audit_check::inspect(&journal).is_ok());
         let reader = directory_lock(&journal, false).unwrap();
@@ -502,7 +511,10 @@ mod tests {
             append_record(&journal, "blocked").unwrap_err().kind(),
             io::ErrorKind::PermissionDenied
         );
-        assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{original}\n"));
+        assert_eq!(
+            fs::read_to_string(&journal).unwrap(),
+            format!("{original}\n")
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 
