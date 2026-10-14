@@ -401,6 +401,13 @@ guest claims above for that revision only. Later audit inspection and archive
 publication changes require their own exact-revision build/guest evidence.
 Physical installation and production recovery/security remain open.
 
+The read-only-storage native run at `ffd0b0a` (38634696072) passed its audit
+gates but failed the graphical settings write/reboot gate: the retained write
+log contains no settings-save marker and the settings file never appeared.
+It must not be reported as a complete successful pipeline. QMP key injection
+now holds each press briefly before release so USB polling can observe it;
+fresh native validation is required to confirm the settings failure is resolved.
+
 ## Offline audit export validation contract
 
 Snapshot export must preserve the source, hold cooperative inspection locks,
@@ -448,5 +455,7 @@ successful unmount. Native guest execution passed at
 [ebc9f4e](validation/native-ebc9f4e/README.md). The subsequent read-only/read-write
 remount extension requires byte preservation and healthy console/IPC under
 EROFS, followed by valid resumed appends. Host fixtures cover control flow;
-native evidence for that extension remains pending. Ext4-specific failure and
+the isolated extension passed in the partial
+[ffd0b0a run](validation/native-ffd0b0a/README.md); full settings revalidation
+remains pending. Ext4-specific failure and
 power-loss guarantees remain open.

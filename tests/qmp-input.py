@@ -7,14 +7,35 @@ import socket
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys, type_test_secret, logout_user_desktop, switch_to_login_vt, open_user_terminal, exit_user_terminal
+import qmp_input
 
 
 class QMPTests(unittest.TestCase):
+    def test_key_press_survives_guest_usb_poll(self):
+        state = {"down": False, "key": None}
+        observed = []
+
+        def acknowledge(sock, reader, command):
+            event = command["arguments"]["events"][0]["data"]
+            state.update(down=event["down"], key=event["key"]["data"])
+            return {"return": {}}
+
+        def guest_poll(delay):
+            if delay >= 0.008 and state["down"]:
+                observed.append(state["key"])
+
+        with patch.object(qmp_input, "emit_command", side_effect=acknowledge), \
+             patch.object(qmp_input.time, "sleep", side_effect=guest_poll):
+            press(None, None, "right")
+        self.assertEqual(observed, ["right"])
+        self.assertFalse(state["down"])
+
     def serve(self, listener, commands, bad=False):
         connection, _ = listener.accept()
         with connection, connection.makefile("rb") as reader:

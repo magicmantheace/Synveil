@@ -235,5 +235,7 @@ IPC and console request/shutdown events; offline inspection must still work.
 After an explicit read-write remount, a fresh core must append structurally
 valid records without sink warnings. Host fixtures reject mutation while
 read-only, missing warnings, failed remounts, and failed resumed writes.
-Native evidence for this read-only extension remains pending; it does not
+The read-only extension passed in the
+[partial ffd0b0a run](validation/native-ffd0b0a/README.md), whose unrelated
+graphical settings gate failed. It does not
 simulate an ext4 error-triggered remount or establish power-loss durability.
