@@ -355,8 +355,12 @@ guest validation of each revision is still required.
 ## Isolated guest kernel build-object reuse
 
 The native target pipeline builds its base pinned Linux kernel once, then
-isolated guest fixtures reuse a **copy** of that checkout's compiled kernel
-objects. Each fixture still stages its own modified rootfs, assembles a
+isolated guest fixtures seed a separate, **shared guest-only build directory**
+with a copy of the baseline's compiled objects. A fingerprint of the baseline
+kernel configuration and image prevents reuse when the baseline changes.
+The guest build path stays stable across sequential fixtures, avoiding Kbuild
+recompilation from changed output paths. Each fixture still stages its own
+modified rootfs, assembles a
 new initramfs, runs the kernel configuration/relink with that initramfs,
 generates a separate GPT/UEFI boot image, and boots it in QEMU. The sole
 build acceleration is avoiding recompilation of unrelated Linux source
@@ -365,8 +369,10 @@ authentication, recovery, or image hash gates.
 
 Only the test fixture builder sets `SYNVEIL_KERNEL_SEED_WORK`, and it
 must point to a complete baseline source and kernel build from the same
-pipeline. The kernel script fails closed if the seed is missing or invalid
-and refuses to overwrite the base output. The real kernel build without a
-seed remains a clean source build. Host fixture tests check isolation
+pipeline. The kernel script fails closed if the seed is missing or invalid,
+rejects a symlinked guest build cache, and refuses to overwrite the base
+output. Guest builds execute sequentially under the checkout build lock;
+they must not be run concurrently against the shared cache. The real kernel
+build without a seed remains a clean source build. Host fixture tests check isolation
 and seed wiring; native CI must prove the optimized path works before
 calling the full guest pipeline validated.

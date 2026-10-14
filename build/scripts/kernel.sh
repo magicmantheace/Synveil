@@ -25,13 +25,31 @@ if [[ -n "$SEED_WORK" ]]; then
        -f "$SEED_KERNEL/include/config/auto.conf" &&
        -s "$SEED_KERNEL/arch/x86/boot/bzImage" ]] ||
         die "complete base kernel build required before isolated guest fixture"
+    # Keep O= stable across fixtures. A different O path changes Kbuild's
+    # recorded compiler commands and recompiles most objects unnecessarily.
+    # This guest-only cache never shares writable objects with the base build.
+    KERNEL_BUILD="$SEED_WORK/guest-fixtures/shared-kernel-build"
     [[ "$(realpath -m "$KERNEL_BUILD")" != "$(realpath -e "$SEED_KERNEL")" ]] ||
         die "guest kernel output must not overwrite base kernel objects"
-    rm -rf "$KERNEL_BUILD"
-    mkdir -p "$(dirname "$KERNEL_BUILD")"
-    # Never hardlink: Kbuild must not modify the baseline's objects in place.
-    cp -a --reflink=auto -- "$SEED_KERNEL" "$KERNEL_BUILD"
-    log "copied baseline kernel objects for isolated guest rebuild"
+    # A seed from another revision/config must not contaminate this checkout.
+    seed_identity="$(sha256sum "$SEED_KERNEL/.config" "$SEED_KERNEL/arch/x86/boot/bzImage" | sha256sum | cut -d' ' -f1)"
+    stamp="$KERNEL_BUILD/.synveil-base-identity"
+    if [[ ! -f "$stamp" || "$(cat "$stamp")" != "$seed_identity" ]]; then
+        [[ ! -L "$KERNEL_BUILD" ]] || die "refusing symlinked kernel cache"
+        rm -rf "$KERNEL_BUILD"
+        mkdir -p "$(dirname "$KERNEL_BUILD")"
+        # Never hardlink: Kbuild may mutate these objects. Reflinks/copies
+        # leave the source-built baseline intact.
+        cp -a --reflink=auto -- "$SEED_KERNEL" "$KERNEL_BUILD"
+        printf '%s\n' "$seed_identity" > "$stamp"
+        log "initialized guest-only shared kernel object cache"
+    else
+        [[ -d "$KERNEL_BUILD" && ! -L "$KERNEL_BUILD" &&
+           -f "$KERNEL_BUILD/.config" &&
+           -s "$KERNEL_BUILD/arch/x86/boot/bzImage" ]] ||
+            die "invalid shared kernel cache"
+        log "reusing guest-only kernel objects for next isolated image"
+    fi
 else
     python3 "$ROOT_DIR/tools/source_lock.py" fetch linux
     # Header installation mutates its source tree; keep it separate.
