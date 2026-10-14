@@ -2,6 +2,22 @@
 
 This roadmap is ordered by dependency. Phase numbers describe architectural maturity, not release versions.
 
+## Resident intelligence direction
+
+AthenZ is Synveil's sole resident intelligence, with specializations it can
+load or consult when needed. Its evolution will use the owner's developmental
+AI project. Synveil owns deterministic system authority, explicit system
+policy, observations, transactions, audit and recovery; AthenZ owns reasoning,
+cognitive memory, planning and specialization selection. Evolution never
+grants additional system permissions. See
+[ADR 0012](docs/adr/0012-athenz-resident-intelligence.md).
+
+Inspect the current AthenZ implementation and identify the developmental AI
+repository before defining executable integration schemas. This decision
+does not claim existing interoperability or change the dependency order:
+audit, observation, policy/actions and evaluation precede autonomous control.
+The first basic desktop test remains independent of AthenZ integration.
+
 ## First user test install — basic desktop milestone
 
 The project owner wants the first hands-on test install to include a basic
@@ -195,28 +211,33 @@ implemented; their own native execution and power-loss evidence remain open.
 
 **Exit:** Synveil can run a deterministic optimization experiment and report evidence for its result.
 
-## Phase 6 — Local intelligence
+## Phase 6 — AthenZ resident intelligence
 
-**Goal:** introduce AI only after the safe control path exists.
+**Goal:** integrate AthenZ as the sole intelligence after the safe control path exists.
 
-- [ ] Define inference service interface
-- [ ] Select first local inference runtime
-- [ ] Support lightweight resident intelligence
-- [ ] Support larger on-demand reasoning model
-- [ ] Implement structured planner output
+- [ ] Inspect AthenZ and developmental AI interfaces; record exact repository revisions and compatibility requirements
+- [ ] Define versioned local AthenZ observation, plan, result and lifecycle interfaces
+- [ ] Integrate the AthenZ-managed inference/runtime path without a separate Synveil intelligence
+- [ ] Support AthenZ resident service lifecycle, resource budgets and AI-disabled operation
+- [ ] Support on-demand specializations under AthenZ identity and existing permissions
+- [ ] Implement structured AthenZ planner output
 - [ ] Reject invalid/unavailable actions safely
 - [ ] Add planner simulation/dry-run mode
 - [ ] Add model provenance/versioning to decisions
+- [ ] Validate developmental AI candidate updates before activation; preserve a recoverable last-known-good version
+- [ ] Test version mismatch, unavailable specializations, failed updates and AthenZ restart without loss of OS recovery
 
-**Exit:** a local model can propose a valid plan but remains incapable of bypassing policy.
+**Exit:** AthenZ can propose a valid local plan through the versioned interface,
+while specializations and evolved versions remain unable to bypass policy.
+Boot, desktop and recovery work with AthenZ stopped or incompatible.
 
 ## Phase 7 — First autonomous loop
 
-**Goal:** demonstrate the defining Synveil behavior end to end.
+**Goal:** demonstrate Synveil's control loop with AthenZ end to end.
 
 - [ ] Detect synthetic workload
 - [ ] create optimization goal
-- [ ] generate plan
+- [ ] generate an AthenZ plan with intelligence/specialization version provenance
 - [ ] authorize
 - [ ] checkpoint/baseline
 - [ ] apply
@@ -231,6 +252,11 @@ implemented; their own native execution and power-loss evidence remain open.
 
 **Goal:** adapt to a person rather than merely react to metrics.
 
+AthenZ owns cognitive memory and learned personalization. Synveil retains
+explicit system policy and authoritative configuration/transaction evidence.
+The integration must define access, retention, export and deletion boundaries
+without duplicating AthenZ's general memory system.
+
 - [ ] explicit preference store
 - [ ] learned-hypothesis store
 - [ ] provenance/confidence/expiry
@@ -240,6 +266,8 @@ implemented; their own native execution and power-loss evidence remain open.
 - [ ] forget/reset controls
 - [ ] portable/exportable user policy
 - [ ] learned-behavior review UI/API
+- [ ] Define AthenZ memory access and developmental learning data boundaries with explicit consent and provenance
+- [ ] Preserve user policy across AthenZ evolution, specialization changes and intelligence rollback
 
 **Exit:** repeat workloads are tuned differently according to explicit and learned user preferences without converting observations into unrestricted authority.
 

@@ -69,6 +69,21 @@ Phase 1 is complete only when one committed Synveil revision demonstrates the fo
 
 Only after this evidence exists should the corresponding Phase 1 roadmap items be checked complete.
 
+## AthenZ integration and evolution validation contract
+
+[ADR 0012](adr/0012-athenz-resident-intelligence.md) selects AthenZ as the sole
+resident intelligence. Integration evidence must identify exact Synveil,
+AthenZ and developmental AI revisions, plus specialization/update provenance.
+Before Phase 6 can close, tests must demonstrate version-compatible local
+observations and typed plans, deterministic rejection of forbidden/malformed
+requests, bounded resources, and boot/desktop/recovery with AthenZ unavailable.
+Specialization changes and evolved candidates must not expand permissions.
+Failed or incompatible activation must allow last-known-good intelligence
+recovery while preserving human policy and system evidence. Memory/learning
+data access, consent and deletion boundaries require explicit tests once the
+cross-project contract is defined. Documentation of this direction is not
+runtime integration evidence.
+
 The complete native target QEMU run
 [8c4290f](validation/native-8c4290f/README.md) passed, including
 absent/non-ext4 state devices, graphical crash recovery, actual QMP

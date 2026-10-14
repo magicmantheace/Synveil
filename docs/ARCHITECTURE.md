@@ -18,6 +18,13 @@ Responsible for observation interpretation, preference modeling, prediction, pla
 
 Its output is treated as untrusted structured input by the deterministic plane.
 
+AthenZ is the sole intended resident intelligence, selected by the owner in
+[ADR 0012](adr/0012-athenz-resident-intelligence.md). It owns reasoning,
+cognitive memory, planning and selection of on-demand specializations. Its
+evolution uses the owner's developmental AI project. Specializations belong
+to the AthenZ intelligence path; they do not establish independent system
+authority. These are accepted responsibilities, not implemented interfaces.
+
 ```text
 +-------------------------------------------------------------+
 |                       Human / UI / CLI                      |
@@ -91,7 +98,9 @@ Later inputs may include GPU telemetry, battery, compositor activity, applicatio
 
 ### veil-memory
 
-Stores durable structured knowledge:
+Provisional OS-facing storage/interface responsibility, not a second cognitive
+memory system. AthenZ owns its cognitive memory and learned hypotheses.
+Synveil retains authoritative system policy and structured system evidence:
 
 - explicit user preferences,
 - machine capabilities,
@@ -102,10 +111,15 @@ Stores durable structured knowledge:
 - confidence and expiration.
 
 Explicit preferences and learned hypotheses must be distinguishable.
+The AthenZ integration contract must define permitted access to this evidence;
+learned data cannot replace authoritative system configuration or user policy.
 
 ### veil-planner
 
 Consumes user goals, relevant memory, and structured observations. Produces a typed plan.
+
+This is the provisional AthenZ planning integration boundary. Synveil will not
+implement a competing resident planner intelligence.
 
 The planner cannot execute the plan directly.
 
@@ -131,9 +145,16 @@ Measures whether an applied change achieved its stated goal within the allowed t
 
 ### veil-infer
 
-Owns local model lifecycle and inference routing. This allows the rest of the OS to request reasoning without coupling core services to a specific model/runtime.
+Provisional adapter for AthenZ lifecycle and its managed inference path.
+AthenZ selects specializations; Synveil enforces service resource and access
+limits through deterministic controls. Runtime details require inspection of
+the AthenZ and developmental AI projects before the contract is defined.
 
-The always-resident path should be lightweight. Larger models should be loaded or scheduled when their reasoning ability is worth the resource cost.
+The resident service should respect configured resource budgets. On-demand
+specializations may use larger resources within those budgets and existing
+permissions. Intelligence updates require version provenance, compatibility
+validation and recovery to a last-known-good version without rolling back
+human system policy or unrelated user files.
 
 ### synctl
 
@@ -323,7 +344,8 @@ The following are intentionally not locked yet:
 - final filesystem/snapshot strategy,
 - permanent PID 1/service supervisor design,
 - desktop environment/compositor strategy,
-- local inference runtime and model families,
+- AthenZ integration schemas, managed runtime requirements and specialization format,
+- developmental AI repository/interface and candidate-update validation criteria,
 - long-term IPC encoding,
 - secure boot/signing architecture,
 - update channel and repository design.

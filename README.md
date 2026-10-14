@@ -6,6 +6,12 @@ Synveil is an AI-native Linux operating system designed around a continuously ac
 
 The long-term goal is a system that learns how its user works, continuously observes system health and workload behavior, proposes or applies safe optimizations, measures the result, and keeps or rolls back changes according to explicit user policy.
 
+AthenZ is the intended sole resident intelligence. It will draw on
+specializations as needed and evolve through the owner's developmental AI
+project. Synveil provides its operating-system home and deterministic authority
+boundary. Integration is planned, not implemented; see
+[ADR 0012](docs/adr/0012-athenz-resident-intelligence.md).
+
 ## Core idea
 
 Synveil separates intelligence from authority.

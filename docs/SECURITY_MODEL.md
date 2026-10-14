@@ -18,6 +18,15 @@ Synveil assumes that a model can:
 
 Security therefore cannot depend on the planner "being careful."
 
+AthenZ is the sole intended resident intelligence. Its specializations and
+developmental evolution remain outside the deterministic trust base. Learned
+capabilities, new weights, memory changes and self-reported confidence cannot
+grant permissions or alter authorization requirements. Every specialization
+request passes through the same authenticated, typed, policy-checked boundary.
+An intelligence update must identify its provenance and pass compatibility and
+regression checks before activation, with a recoverable last-known-good version.
+AI rollback must preserve human policy and authoritative system audit evidence.
+
 ## Trust boundaries
 
 ### Trusted computing/control base
