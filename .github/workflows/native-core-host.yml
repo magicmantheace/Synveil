@@ -6,6 +6,7 @@ on:
       - phase2/native-core-bootstrap
       - development/audit-durability
       - development/audit-rotation
+      - development/audit-failure-gates
       - development/archive-stream-integrity
     paths:
       - Cargo.toml

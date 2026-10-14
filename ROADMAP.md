@@ -115,11 +115,14 @@ Absent-core recovery, supervision and structured logging passed in
 Persistent journal appends now enforce a prototype 4 MiB per-file limit
 with nonblocking stable-directory/per-file locks. One no-overwrite archive
 slot is implemented; later capacity failures retain console events without
-deleting history. Guest rollover, archive retention, disk-full policy and
-tamper evidence remain open. Offline read-only `veil-audit check` structural
+deleting history. Guest rollover passed at
+[f973531](docs/validation/native-f973531/README.md). Extended archive retention,
+disk-full policy and tamper evidence remain open. Offline read-only `veil-audit check` structural
 inspection is implemented with a bounded schema/count report; it does not
 authenticate records or prove completeness. Its exact-revision native guest
-validation remains pending.
+validation passed at [262d275](docs/validation/native-262d275/README.md).
+Expanded guest gates for exhausted archive capacity and incomplete tails are
+implemented; their own native execution and power-loss evidence remain open.
 
 ## Phase 3 — Observer
 

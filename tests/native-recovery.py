@@ -184,6 +184,67 @@ elif mode == 'timeout':
                                 text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_audit_failure_gate_executes_and_rejects_lost_evidence(self):
+        spec = importlib.util.spec_from_file_location("audit_failure_smoke", ROOT / "tests/smoke-recovery.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        # Execute the normalized guest shell with stand-ins for target binaries.
+        # This proves gate control flow, not native durability or QEMU behavior.
+        for mode in ("pass", "capacity-corrupt", "tail-repair", "capacity-silent",
+                     "tail-silent", "accept-tail", "helper-failed"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                core = root / "core"
+                core.write_text('''#!/usr/bin/env python3
+import json, os, pathlib, sys
+journal = pathlib.Path(os.environ['SYNVEIL_AUDIT_PATH'])
+mode = os.environ['AUDIT_FIXTURE_MODE']
+archive = journal.with_name(journal.name + '.1')
+if not archive.exists():
+    journal.rename(archive)
+    journal.write_text(archive.read_text().splitlines()[0] + '\\n')
+    journal.chmod(0o600)
+elif journal.stat().st_size == 4194304:
+    if mode == 'capacity-corrupt': journal.write_text('lost history')
+    if mode != 'capacity-silent':
+        print('audit archive exists; retention capacity reached')
+else:
+    if mode == 'tail-repair':
+        with journal.open('a') as stream: stream.write('\\n')
+    if mode != 'tail-silent':
+        print('persistent audit journal has an incomplete final record')
+print(json.dumps({'event': 'request'}, separators=(',', ':')))
+print(json.dumps({'event': 'shutdown'}, separators=(',', ':')))
+sys.exit(1 if mode == 'helper-failed' else 0)
+''')
+                inspector = root / "inspector"
+                inspector.write_text('''#!/usr/bin/env python3
+import json, os, pathlib, sys
+data = pathlib.Path(sys.argv[-1]).read_bytes()
+if not data.endswith(b'\\n'):
+    sys.exit(0 if os.environ['AUDIT_FIXTURE_MODE'] == 'accept-tail' else 1)
+try:
+    for line in data.splitlines(): json.loads(line)
+except ValueError: sys.exit(1)
+print(json.dumps({'records': len(data.splitlines())}, separators=(',', ':')))
+''')
+                client = root / "client"
+                client.write_text("#!/bin/sh\nexit 0\n")
+                for executable in (core, inspector, client):
+                    executable.chmod(0o700)
+                command = module.AUDIT_ROTATION[3].replace(
+                    "/var/log/synveil-audit-rotation-test", str(root / "journal-test")
+                ).replace("/usr/sbin/veil-core", str(core)).replace(
+                    "/usr/sbin/veil-audit", str(inspector)
+                ).replace("/usr/bin/synctl", str(client)).replace(
+                    "600:0:1", f"600:{os.getuid()}:1"
+                ).replace("; ", ";\n")
+                result = subprocess.run(["sh"], input=command, text=True,
+                                        capture_output=True, timeout=15,
+                                        env={**os.environ, "AUDIT_FIXTURE_MODE": mode})
+                marker = "SYNVEIL_AUDIT_ROTATION_OK"
+                self.assertEqual(marker in result.stdout, mode == "pass", result.stderr)
+
     def test_observe_ipc_passes(self):
         self.assertEqual(self.fixture("pass", "observe")[0], 0)
 
