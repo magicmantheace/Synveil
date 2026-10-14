@@ -81,7 +81,7 @@ Missing, inaccessible, busy or malformed journals produce a failure exit code.
 An empty existing journal is structurally valid and reports zero records.
 
 The checker opens read-only with Linux no-follow/nonblocking flags, refuses
-symlinks, hardlinks, non-regular files and modes other than 0600, and holds a
+final-component symlinks, hardlinks, non-regular files and modes other than 0600, and holds a
 nonblocking shared advisory lock during inspection. Cooperative writers refuse
 to append while inspection holds the lock. Input is capped at 4 MiB and each
 record, including its mandatory newline, at 64 KiB. Invalid UTF-8/JSON, blank
@@ -101,3 +101,7 @@ core, CLI, enrollment and seat binaries. Rootfs packaging requires its hash-boun
 artifact and installs it as `/usr/sbin/veil-audit`. Host inspection and packaging
 checks precede an exact-revision native build/guest recovery check; the checker
 is not yet guest-validated.
+
+The two-independent-boot persistence smoke now requires the packaged checker
+to accept the journal on both boots before emitting its success markers.
+Passing host tests is not evidence that this stronger guest gate has passed.

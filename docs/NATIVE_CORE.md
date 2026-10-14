@@ -60,7 +60,8 @@ toolchain, sysroot, and fresh native build directory. The builder controls Rust
 flags and clears inherited compiler/library search overrides. Build work paths
 must not contain whitespace or commas.
 
-Successful audited outputs are `out/native/veil-core`, `out/native/synctl`, and
+Successful audited outputs are `out/native/veil-core`, `out/native/synctl`,
+`out/native/veil-enroll`, `out/native/veil-seat`, `out/native/veil-audit`, and
 `out/native/build.json`. The manifest records source verification, Git identity,
 Cargo lock and libgcc hashes, binary hashes, and link-map identities and inputs.
 Cargo logs and link maps remain under the fresh work directory. A failed build
@@ -99,7 +100,7 @@ bash build.sh native-smoke
 ```
 
 The rootfs builder validates the bundle before building BusyBox and again
-before installation. It requires both binaries to match their audited hashes,
+before installation. It requires all five binaries to match their audited hashes,
 the current clean Git revision, the current Cargo lock, and the pinned Rust
 source verification. It installs `veil-core` in `/usr/sbin`, `synctl` in
 `/usr/bin`, and the native build identity at `/usr/share/synveil/native-build.json`.
@@ -461,8 +462,10 @@ interactive smokes print their console tail for diagnosis.
 All core and supervisor events now use the [audit v1 format](AUDIT.md), with
 schema, emitting PID, process-local sequence, wall-clock availability, build
 identity, event, and fields. Startup/fatal messages use the same emitter as
-service and supervisor events. The current sink remains stderr; this does
-not provide a persistent journal or complete the durable-audit roadmap item.
+service and supervisor events. The current sink remains console plus an opt-in private persistent journal; this does not complete the
+durable-audit roadmap item. The standalone `veil-audit check` performs bounded
+read-only structural inspection without requiring core IPC. See AUDIT.md for
+its schema, failure behavior and integrity limitations.
 
 The [fc78195 guest result](validation/supervision-fc78195/README.md) records
 passing crash recovery but a supervision timeout. Supervision tests now treat
