@@ -60,7 +60,7 @@ class QemuOptionTests(unittest.TestCase):
 
     def test_serial_stdin_is_preserved_for_background_emulator(self):
         qemu = self.bin / "qemu-system-x86_64"
-        qemu.write_text('#!/bin/sh\\nread -r line || exit 9\\n[ "$line" = hello ] || exit 10\\n')
+        qemu.write_text('#!/bin/sh\nread -r line || exit 9\n[ "$line" = hello ] || exit 10\n')
         env = {
             **os.environ,
             "PATH": str(self.bin) + os.pathsep + os.environ.get("PATH", ""),
@@ -71,7 +71,7 @@ class QemuOptionTests(unittest.TestCase):
         }
         result = subprocess.run(
             ["bash", str(ROOT / "build/scripts/qemu.sh")],
-            env=env, input="hello\\n", capture_output=True, text=True, timeout=5,
+            env=env, input="hello\n", capture_output=True, text=True, timeout=5,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
