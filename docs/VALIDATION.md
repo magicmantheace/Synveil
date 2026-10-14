@@ -397,3 +397,11 @@ state identity, deterministic archive bytes and failure cleanup. Native runtime
 validation of the audit inspector and archive/upload path passed at
 [262d275](validation/native-262d275/README.md). Later bounded rotation remains
 pending its own exact-revision native and guest validation.
+
+The archive host suite also checks a state disk modified during copying and
+restored before final validation, and refuses hardlinked source members. Each
+copied member's streaming digest must match its expected digest; the state disk
+uses the blank-state digest recorded at package creation. Open descriptors are
+checked before and after copying for regular-file identity, size, owner, mode
+and single-link count. These additional checks have host evidence only until
+their own exact-revision native archive/upload run succeeds.

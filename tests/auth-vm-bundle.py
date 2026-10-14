@@ -356,6 +356,43 @@ class AuthenticatedBundleTests(unittest.TestCase):
         self.assertFalse(output.exists())
         self.assertTrue((self.destination / "synveil-state.ext4").exists())
 
+    def test_archive_rejects_state_changed_during_copy_even_if_restored(self):
+        self.create()
+        disk = self.destination / "synveil-state.ext4"
+        before = sha(disk)
+        prefix = b"changed-during-copy"
+        with disk.open("rb") as source:
+            original = source.read(len(prefix))
+        addfile = tarfile.TarFile.addfile
+
+        def mutate_then_restore(archive, member, source=None):
+            if member.name != "auth-vm/synveil-state.ext4":
+                return addfile(archive, member, source)
+            with disk.open("r+b") as target:
+                target.write(prefix)
+            try:
+                return addfile(archive, member, source)
+            finally:
+                with disk.open("r+b") as target:
+                    target.write(original)
+
+        output = self.root / "preview.tar.gz"
+        with patch("archive_auth_vm.tarfile.TarFile.addfile", new=mutate_then_restore):
+            with self.assertRaisesRegex(ValueError, "changed while copying"):
+                archive_bundle(self.destination, self.fixture, output, REV)
+        self.assertFalse(output.exists())
+        self.assertEqual(sha(disk), before)
+
+    def test_archive_rejects_hardlinked_member_before_copy(self):
+        self.create()
+        fs_link = self.root / "shared-image"
+        os.link(self.destination / "synveil-x86_64.img", fs_link)
+        output = self.root / "preview.tar.gz"
+        with self.assertRaisesRegex(ValueError, "inode or permissions changed"):
+            archive_bundle(self.destination, self.fixture, output, REV)
+        self.assertFalse(output.exists())
+        self.assertEqual(fs_link.read_bytes(), b"synthetic EFI boot image")
+
 
 if __name__ == "__main__":
     unittest.main()
