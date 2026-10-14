@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - phase2/native-core-bootstrap
+      - development/audit-durability
     paths:
       - Cargo.toml
       - Cargo.lock

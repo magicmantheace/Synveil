@@ -22,10 +22,26 @@ impl Drop for Core {
 
 #[test]
 fn running_core_emits_versioned_status_lifecycle_records() {
-    let directory = std::env::temp_dir().join(format!("veil-audit-test-{}", std::process::id()));
+    exercise_core_journal(false);
+}
+
+#[test]
+fn incomplete_journal_keeps_core_status_and_console_audit_available() {
+    exercise_core_journal(true);
+}
+
+fn exercise_core_journal(incomplete: bool) {
+    let directory = std::env::temp_dir().join(format!(
+        "veil-audit-test-{}-{incomplete}",
+        std::process::id()
+    ));
     std::fs::create_dir(&directory).unwrap();
     let socket = directory.join("core.sock");
     let journal = directory.join("core-audit.jsonl");
+    if incomplete {
+        std::fs::write(&journal, b"preserved-partial-record").unwrap();
+        std::fs::set_permissions(&journal, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
     let mut core = Core(Some(
         Command::new(env!("CARGO_BIN_EXE_veil-core"))
             .arg("--once")
@@ -61,9 +77,14 @@ fn running_core_emits_versioned_status_lifecycle_records() {
     drop(stream);
     let output = core.0.take().unwrap().wait_with_output().unwrap();
     assert!(output.status.success());
-    let records: Vec<Value> = String::from_utf8(output.stderr)
-        .unwrap()
+    let console = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(
+        console.contains("[synveil-audit] persistent write failed:"),
+        incomplete
+    );
+    let records: Vec<Value> = console
         .lines()
+        .filter(|line| !line.starts_with("[synveil-audit]"))
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
     assert!(records.len() >= 4);
@@ -85,15 +106,19 @@ fn running_core_emits_versioned_status_lifecycle_records() {
         .unwrap();
     assert_eq!(request["fields"]["id"], "audit-test");
     assert_eq!(request["fields"]["method"], "status");
-    let persisted: Vec<Value> = std::fs::read_to_string(&journal)
-        .unwrap()
-        .lines()
-        .map(|line| serde_json::from_str(line).unwrap())
-        .collect();
-    assert_eq!(
-        persisted, records,
-        "journal must match console event stream"
-    );
+    if incomplete {
+        assert_eq!(std::fs::read(&journal).unwrap(), b"preserved-partial-record");
+    } else {
+        let persisted: Vec<Value> = std::fs::read_to_string(&journal)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(
+            persisted, records,
+            "journal must match console event stream"
+        );
+    }
     assert_eq!(
         std::fs::metadata(&journal).unwrap().permissions().mode() & 0o777,
         0o600,
