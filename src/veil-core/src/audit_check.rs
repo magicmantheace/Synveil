@@ -26,6 +26,13 @@ fn invalid() -> io::Error {
 /// Inspect a stable, bounded snapshot without printing event contents or
 /// requiring veil-core, the seat broker, a model, or network access.
 pub fn inspect(path: &Path) -> io::Result<Value> {
+    with_snapshot(path, |_, report| Ok(report))
+}
+
+pub(crate) fn with_snapshot<T>(
+    path: &Path,
+    operation: impl FnOnce(&[u8], Value) -> io::Result<T>,
+) -> io::Result<T> {
     let _lock = super::audit::directory_lock(path, false)?;
     let file = OpenOptions::new()
         .read(true)
@@ -47,7 +54,9 @@ pub fn inspect(path: &Path) -> io::Result<Value> {
     // Keep the descriptor (and its lock) alive until inspection completes.
     let mut bytes = Vec::new();
     (&file).take(MAX_BYTES + 1).read_to_end(&mut bytes)?;
-    inspect_bytes(&bytes)
+    let report = inspect_bytes(&bytes)?;
+    // Keep both shared locks until the consumer finishes copying/hashing.
+    operation(&bytes, report)
 }
 
 fn inspect_bytes(bytes: &[u8]) -> io::Result<Value> {

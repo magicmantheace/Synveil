@@ -60,6 +60,9 @@ def press(sock, reader, key, allowed=ALLOWED_KEYS):
     }
     emit_command(sock, reader, {"execute": "input-send-event",
                                 "arguments": {"events": [event]}})
+    # A QMP acknowledgement does not mean the guest USB keyboard has polled
+    # its report. Immediate down/up can coalesce into an unpressed report.
+    time.sleep(0.075)
     event["data"]["down"] = False
     emit_command(sock, reader, {"execute": "input-send-event",
                                 "arguments": {"events": [event]}})

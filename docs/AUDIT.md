@@ -116,6 +116,42 @@ include key names; the CLI emits only the failure category. Regression tests
 cover repeated envelope keys, Unicode-escaped aliases, nested objects inside
 arrays, and the preservation of ambiguous input files.
 
+## Owner-controlled snapshot export (native validation pending)
+
+`veil-audit export --path JOURNAL --output /absolute/private-dir/SNAPSHOT`
+validates and copies at most 4 MiB while holding the inspector's shared journal
+and stable-directory locks. The destination must be a new mode-0600 file in
+a separate mode-0700 directory owned by the effective caller. Existing files,
+final symlinks, unsafe output directories and the source journal directory
+are refused. Successful output and its parent are synchronized. Failed copies
+remove only a destination still matching the created inode.
+
+The compact `synveil.audit-export/v1` stdout receipt includes the exact byte
+count, record count, BLAKE2b-512 digest and `authenticated: false`; it contains
+no supplied paths or event contents. Store the receipt separately from the
+snapshot. `veil-audit verify --path SNAPSHOT --digest DIGEST` performs bounded
+read-only structural inspection and requires an exact checksum match against
+that independently retained lowercase hexadecimal digest. The snapshot itself
+contains private audit data and must remain local unless explicitly exported
+by its owner.
+
+This detects changed snapshot bytes relative to a trusted retained digest.
+It does not authenticate origin, prove completeness, prevent root from changing
+both snapshot and receipt, or establish an integrity chain. Export neither
+deletes archives nor releases retention capacity; authorized retention-slot
+release remains a later dependency. No network or core IPC is involved.
+
+The RustCrypto `blake2` crate is now a direct pinned dependency, reusing the
+existing version 0.10.6 already locked for Argon2; no new package is introduced.
+Host regressions cover exact private copies, a published digest vector,
+well-formed tampering, busy-source refusal, unsafe/occupied outputs, invalid
+input preservation and actual CLI argument/error privacy. The native rollover
+gate now requires exporting its synthetic archive, verifying an exact private
+copy, refusing replacement, and detecting an edited copy that remains valid
+JSON/audit structure. Host shell fixtures refuse failed export, overwrite and
+acceptance of the edited digest. Native export/verify execution and target
+linkage validation remain pending.
+
 ## Bounded journal rollover
 
 Before an append would exceed 4 MiB, the writer synchronizes the complete
@@ -199,5 +235,7 @@ IPC and console request/shutdown events; offline inspection must still work.
 After an explicit read-write remount, a fresh core must append structurally
 valid records without sink warnings. Host fixtures reject mutation while
 read-only, missing warnings, failed remounts, and failed resumed writes.
-Native evidence for this read-only extension remains pending; it does not
+The read-only extension passed in the
+[partial ffd0b0a run](validation/native-ffd0b0a/README.md), whose unrelated
+graphical settings gate failed. It does not
 simulate an ext4 error-triggered remount or establish power-loss durability.

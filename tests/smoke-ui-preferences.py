@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: MPL-2.0
 """Prove the framebuffer menu loads saved preferences after an independent QEMU boot.
 
-The first boot uses the serial recovery shell to stage a byte-exact, owner-only
-settings record on the opt-in /var state volume. The second boot proves that
-the actual graphical launcher accepts and loads it, not just that ext4 stores it.
-The C host unit tests independently exercise the launcher's atomic writer.
+The first boot seeds only a home file through serial recovery. Real QMP input
+must change and save settings in the framebuffer menu. The second boot proves
+that the graphical launcher accepts and loads those settings as well as the
+home file; the C host tests separately exercise the atomic settings writer.
 """
 import argparse
 import os

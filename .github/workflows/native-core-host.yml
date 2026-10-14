@@ -9,6 +9,7 @@ on:
       - development/audit-failure-gates
       - development/audit-enospc
       - development/audit-lock-fixture
+      - development/audit-export
       - development/archive-stream-integrity
     paths:
       - Cargo.toml
@@ -48,6 +49,10 @@ on:
       - tests/smoke-recovery.py
       - tests/smoke-boot.sh
       - tests/qemu-lock.py
+      - tools/qmp_input.py
+      - tests/qmp-input.py
+      - tests/smoke-ui-preferences.py
+      - tests/ui-preferences-smoke-fixture.py
       - tests/kernel-seed.py
       - build/rootfs/**
       - build/scripts/rootfs.sh
@@ -82,6 +87,8 @@ jobs:
           python3 tests/system-generation.py
           python3 tests/recovery-status.py
           python3 tests/qemu-lock.py
+          python3 tests/qmp-input.py
+          python3 tests/ui-preferences-smoke-fixture.py
           python3 tests/kernel-seed.py
           python3 tests/native-protocol-probe.py
           python3 tests/native-guest-fixture.py

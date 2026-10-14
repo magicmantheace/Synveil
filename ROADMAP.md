@@ -141,8 +141,14 @@ Expanded guest gates for exhausted archive capacity and incomplete tails are
 validated at [3fb0158](docs/validation/native-3fb0158/README.md).
 The isolated tmpfs ENOSPC/recovered-space gate passed native guest validation at
 [ebc9f4e](docs/validation/native-ebc9f4e/README.md). A read-only/read-write
-remount recovery extension is implemented but awaits its own guest run.
+remount recovery extension passed in the
+[partial ffd0b0a run](docs/validation/native-ffd0b0a/README.md), whose graphical
+settings gate failed; full revalidation remains open.
 Ext4 disk-full policy, power-loss and tamper evidence remain open.
+Owner-controlled offline snapshot export and verification against a separately
+retained digest are implemented, pending host/native validation. They preserve
+source history and do not release the archive slot. Explicit retention release,
+independent integrity anchoring and power-loss testing remain open.
 
 ## Phase 3 — Observer
 
