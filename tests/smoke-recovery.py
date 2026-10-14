@@ -200,7 +200,45 @@ AUDIT_ROTATION = (
     "printf '\\n%s%s\\n' SYNVEIL_ AUDIT_ROTATION_OK; fi; fi; fi; fi\n"
 )
 
+AUDIT_ENOSPC_SEED_AWK = AUDIT_SEED_AWK.replace("8192", "4096").replace("512", "1")
+AUDIT_ENOSPC = (
+    {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
+    b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_AUDIT_ENOSPC_OK",
+    'd=/run/synveil-audit-enospc-test; store="$d/store"; passed=;\n'
+    'if mkdir -m 700 "$d" && mkdir -m 700 "$store" &&\n'
+    'mount -t tmpfs -o size=1048576,mode=0700,nosuid,nodev tmpfs "$store"; then\n'
+    'journal="$store/journal";\n'
+    'audit_probe() {\n'
+    'log="$d/$1.log"; socket="$d/$1.sock";\n'
+    'SYNVEIL_AUDIT_PATH="$journal" timeout -s KILL 10 /usr/sbin/veil-core --once --socket "$socket" >"$log" 2>&1 & helper=$!; ok=;\n'
+    'for retry in $(seq 1 40); do\n'
+    'if timeout -s KILL 2 /usr/bin/synctl --socket "$socket" --json status >/dev/null 2>&1; then ok=1; break; fi; sleep 0.1; done;\n'
+    '[ "$ok" = 1 ] && wait "$helper" &&\n'
+    'grep -Fq \'"event":"request"\' "$log" &&\n'
+    'grep -Fq \'"event":"shutdown"\' "$log";\n'
+    '};\n'
+    "if awk '" + AUDIT_ENOSPC_SEED_AWK + "' > \"$journal\" &&\n"
+    'chmod 600 "$journal" && : > "$store/.audit-lock" && chmod 600 "$store/.audit-lock" &&\n'
+    '[ "$(stat -c %s "$journal")" = 4096 ] &&\n'
+    '/usr/sbin/veil-audit check --path "$journal" >/dev/null; then\n'
+    'old=$(sha256sum "$journal" | cut -d " " -f1);\n'
+    'if ! dd if=/dev/zero of="$store/filler" bs=1024 count=2048 2>"$d/fill.log" &&\n'
+    'audit_probe full &&\n'
+    'grep -Fq "No space left on device" "$d/full.log" &&\n'
+    '[ "$(sha256sum "$journal" | cut -d " " -f1)" = "$old" ] &&\n'
+    '/usr/sbin/veil-audit check --path "$journal" >"$d/full-report.json" &&\n'
+    'grep -Fq \'"records":1,\' "$d/full-report.json" &&\n'
+    'rm "$store/filler" && audit_probe resumed &&\n'
+    '! grep -Fq "persistent write failed" "$d/resumed.log" &&\n'
+    '[ "$(stat -c %s "$journal")" -gt 4096 ] &&\n'
+    '/usr/sbin/veil-audit check --path "$journal" >/dev/null &&\n'
+    'timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then passed=1; fi; fi;\n'
+    'if umount "$store" && [ "$passed" = 1 ]; then\n'
+    "printf '\\n%s%s\\n' SYNVEIL_ AUDIT_ENOSPC_OK; fi; fi\n"
+)
+
 SCENARIOS = {
+    "audit-enospc": AUDIT_ENOSPC,
     "audit-rotation": AUDIT_ROTATION,
     "seat-crash": SEAT_CRASH,
     "seat-locked": SEAT_LOCKED,

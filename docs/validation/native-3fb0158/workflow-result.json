@@ -1,0 +1,206 @@
+{
+  "schema": "synveil.workflow-evidence/v1",
+  "git_commit": "3fb0158bf19cad640e59e48c1b9b4720596e0866",
+  "run_id": 38607950928,
+  "url": "https://github.com/magicmantheace/Synveil/actions/runs/38607950928",
+  "conclusion": "success",
+  "completed_at": "2026-10-14T18:25:55Z",
+  "job": {
+    "id": 116004009146,
+    "conclusion": "success",
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success"
+      },
+      {
+        "name": "Check out Synveil",
+        "conclusion": "success"
+      },
+      {
+        "name": "Install bootstrap host dependencies",
+        "conclusion": "success"
+      },
+      {
+        "name": "Validate build tooling",
+        "conclusion": "success"
+      },
+      {
+        "name": "Install and authenticate pinned Rust sources",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build isolated Synveil toolchain",
+        "conclusion": "success"
+      },
+      {
+        "name": "Compile and audit native binaries",
+        "conclusion": "success"
+      },
+      {
+        "name": "Show native artifact identity",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build native rootfs and boot image",
+        "conclusion": "success"
+      },
+      {
+        "name": "Require native core status in QEMU",
+        "conclusion": "success"
+      },
+      {
+        "name": "Verify structured read-only observer in guest",
+        "conclusion": "success"
+      },
+      {
+        "name": "Require recovery shell after core crash",
+        "conclusion": "success"
+      },
+      {
+        "name": "Restart core and retain recovery after restart exhaustion",
+        "conclusion": "success"
+      },
+      {
+        "name": "Reject malformed IPC and retain healthy status in guest",
+        "conclusion": "success"
+      },
+      {
+        "name": "Recover in guest with core binary absent",
+        "conclusion": "success"
+      },
+      {
+        "name": "Prove isolated read-only recovery with core seat and desktop missing",
+        "conclusion": "success"
+      },
+      {
+        "name": "Recover from absent or invalid QEMU state disk",
+        "conclusion": "success"
+      },
+      {
+        "name": "Require locked seat and no default password on ephemeral VM",
+        "conclusion": "success"
+      },
+      {
+        "name": "Validate virtual framebuffer in headless QEMU",
+        "conclusion": "success"
+      },
+      {
+        "name": "Recover graphical menu after one crash with serial shell alive",
+        "conclusion": "success"
+      },
+      {
+        "name": "Terminate the demo shell when the graphical launcher crashes",
+        "conclusion": "success"
+      },
+      {
+        "name": "Verify non-root VT demo terminal identity in guest",
+        "conclusion": "success"
+      },
+      {
+        "name": "Validate opt-in QEMU DHCP configuration",
+        "conclusion": "success"
+      },
+      {
+        "name": "Verify state survives two separate QEMU boots",
+        "conclusion": "success"
+      },
+      {
+        "name": "Preserve audit history through rollover capacity and incomplete tails",
+        "conclusion": "success"
+      },
+      {
+        "name": "One-time root-owned credential enrollment in QEMU state",
+        "conclusion": "success"
+      },
+      {
+        "name": "Verify graphical settings load across separate QEMU boots",
+        "conclusion": "success"
+      },
+      {
+        "name": "Revoke authenticated nonroot terminal on seat broker crash",
+        "conclusion": "success"
+      },
+      {
+        "name": "Prove authenticated preview refuses unauthenticated root serial",
+        "conclusion": "success"
+      },
+      {
+        "name": "Authenticate via real framebuffer and revoke on GUI crash",
+        "conclusion": "success"
+      },
+      {
+        "name": "Enroll first owner graphically with locked serial and reboot",
+        "conclusion": "success"
+      },
+      {
+        "name": "Package validated authenticated VM without copying test credentials",
+        "conclusion": "success"
+      },
+      {
+        "name": "Independently enroll and log in using packaged VM artifacts",
+        "conclusion": "success"
+      },
+      {
+        "name": "Archive only guest-tested authenticated VM with pristine state",
+        "conclusion": "success"
+      },
+      {
+        "name": "Retain authenticated QEMU preview download",
+        "conclusion": "success"
+      },
+      {
+        "name": "Preserve native build evidence",
+        "conclusion": "success"
+      },
+      {
+        "name": "Post Check out Synveil",
+        "conclusion": "success"
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "id": 11920450083,
+      "name": "authenticated-qemu-preview-3fb0158bf19cad640e59e48c1b9b4720596e0866",
+      "size_in_bytes": 23886185,
+      "url": "https://api.github.com/repos/magicmantheace/Synveil/actions/artifacts/11920450083",
+      "archive_download_url": "https://api.github.com/repos/magicmantheace/Synveil/actions/artifacts/11920450083/zip",
+      "expired": false,
+      "created_at": "2026-10-14T18:25:50Z",
+      "expires_at": "2026-10-21T18:25:48Z",
+      "updated_at": "2026-10-14T18:25:50Z",
+      "digest": "sha256:6796a33d3f111898f7ae4596cf8ab81c47bab53f3b3224f8999635d5b932bf5d",
+      "workflow_run": {
+        "id": 38607950928,
+        "repository_id": 1407712173,
+        "head_repository_id": 1407712173,
+        "head_branch": "phase2/native-core-bootstrap",
+        "head_sha": "3fb0158bf19cad640e59e48c1b9b4720596e0866"
+      }
+    },
+    {
+      "id": 11918844953,
+      "name": "native-target-3fb0158bf19cad640e59e48c1b9b4720596e0866",
+      "size_in_bytes": 15269135,
+      "url": "https://api.github.com/repos/magicmantheace/Synveil/actions/artifacts/11918844953",
+      "archive_download_url": "https://api.github.com/repos/magicmantheace/Synveil/actions/artifacts/11918844953/zip",
+      "expired": false,
+      "created_at": "2026-10-14T18:25:53Z",
+      "expires_at": "2026-10-21T18:25:50Z",
+      "updated_at": "2026-10-14T18:25:53Z",
+      "digest": "sha256:98e42618940cc4dfcf6f98b8cec6170534cf8a538a33840781f0cdf3ab8f32f2",
+      "workflow_run": {
+        "id": 38607950928,
+        "repository_id": 1407712173,
+        "head_repository_id": 1407712173,
+        "head_branch": "phase2/native-core-bootstrap",
+        "head_sha": "3fb0158bf19cad640e59e48c1b9b4720596e0866"
+      }
+    }
+  ]
+}
