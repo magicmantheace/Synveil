@@ -70,7 +70,9 @@ pub fn export(source: &Path, output: &Path) -> io::Result<Value> {
             file.sync_all()?;
             file.seek(SeekFrom::Start(0))?;
             let mut copied = Vec::new();
-            (&file).take(bytes.len() as u64 + 1).read_to_end(&mut copied)?;
+            (&file)
+                .take(bytes.len() as u64 + 1)
+                .read_to_end(&mut copied)?;
             if copied.as_slice() != bytes {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "copy mismatch"));
             }
