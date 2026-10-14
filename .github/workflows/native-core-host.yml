@@ -19,6 +19,9 @@ on:
       - tests/native-preflight.py
       - tests/native-build.py
       - tools/package_native.py
+      - tools/auth_vm_bundle.py
+      - tools/archive_auth_vm.py
+      - tools/initramfs_profile.py
       - tests/native-rootfs.py
       - tests/native-startup.py
       - tests/seat-supervisor.py

@@ -100,10 +100,12 @@ revocation also passed at [5cf3fb5](https://github.com/magicmantheace/Synveil/ac
 Graphical first-user password creation, rejection of mismatched confirmation,
 and authentication across two independent QEMU boots passed at
 [d4604f7](https://github.com/magicmantheace/Synveil/actions/runs/38319031076).
-A private authenticated QEMU bundle is implemented and its host checks passed
-at e3e44cd. Independent boots of the *packaged* image are an additional,
-separately tracked guest gate. An intermittent graphical terminal-return
-failure is also under investigation; a host pass is not a guest regression pass.
+The full native build, graphical recovery/authentication, and independent
+boots of the packaged authenticated image passed together at
+[e8f371a](docs/validation/native-e8f371a/README.md). This includes graphical
+first-user setup, persistent login, locked serial, nonroot session revocation
+and preservation of the package's blank state disk. Later audit changes still
+require their own guest validation.
 This remains an experimental VM, **not** a production desktop, signed release,
 owner-recovery system, or physical installer. The first hands-on test contract
 is in [ROADMAP.md](ROADMAP.md) and [docs/FIRST_INSTALL.md](docs/FIRST_INSTALL.md).

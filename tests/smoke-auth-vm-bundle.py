@@ -7,67 +7,17 @@ The bundle's pristine disk is never enrolled, changed, or published by CI.
 The production launcher remains offline/GTK with no QMP monitor.
 """
 import argparse
-import json
 import os
 from pathlib import Path
 import shutil
-import stat
 import subprocess
 import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from auth_vm_bundle import sha256, verify_authenticated_fixture  # noqa: E402
+from auth_vm_bundle import sha256, validate_bundle  # noqa: E402
 
-
-def check_private_regular(path: Path, mode: int) -> None:
-    if path.is_symlink() or not path.is_file():
-        raise ValueError(f"missing or symlinked packaged file: {path.name}")
-    if path.stat().st_uid != os.getuid() or stat.S_IMODE(path.stat().st_mode) != mode:
-        raise ValueError(f"unsafe owner/permissions for {path.name}")
-
-
-def validate_bundle(bundle: Path, fixture: Path, revision: str) -> Path:
-    if (bundle.is_symlink() or not bundle.is_dir() or
-            bundle.stat().st_uid != os.getuid() or
-            stat.S_IMODE(bundle.stat().st_mode) != 0o700):
-        raise ValueError("bundle must be an owner-owned private directory")
-    source = verify_authenticated_fixture(fixture, revision)
-    for name in ("synveil-x86_64.img", "fixture.json", "validation.json",
-                 "VM-BUNDLE.json", "SHA256SUMS"):
-        check_private_regular(bundle / name, 0o400)
-    check_private_regular(bundle / "synveil-state.ext4", 0o600)
-    image = bundle / "synveil-x86_64.img"
-    if sha256(image) != source["artifacts"]["synveil-x86_64.img"]["sha256"]:
-        raise ValueError("packaged VM image differs from validated guest image")
-    if (bundle / "fixture.json").read_bytes() != (
-            fixture / "manifests/fixture.json").read_bytes():
-        raise ValueError("packaged fixture manifest differs from guest proof")
-    if (bundle / "validation.json").read_bytes() != (
-            fixture / "manifests/validation.json").read_bytes():
-        raise ValueError("packaged validation receipt differs from guest proof")
-    metadata = json.loads((bundle / "VM-BUNDLE.json").read_text())
-    if (metadata.get("git_revision") != revision or
-            metadata.get("physical_install_allowed") is not False or
-            metadata.get("signed_release") is not False):
-        raise ValueError("unexpected authenticated VM package metadata")
-    entries = (bundle / "SHA256SUMS").read_text().splitlines()
-    expected_names = {"synveil-x86_64.img", "fixture.json",
-                      "validation.json", "VM-BUNDLE.json"}
-    checked = set()
-    for line in entries:
-        if "  " not in line:
-            raise ValueError("invalid bundle checksum format")
-        digest, name = line.split("  ", 1)
-        if name not in expected_names or name in checked:
-            raise ValueError("unexpected or duplicate immutable checksum")
-        if len(digest) != 64 or digest != sha256(bundle / name):
-            raise ValueError(f"immutable checksum mismatch: {name}")
-        checked.add(name)
-    if checked != expected_names:
-        raise ValueError("incomplete immutable checksum manifest")
-    return image
 
 
 def main() -> int:

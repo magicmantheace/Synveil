@@ -376,3 +376,22 @@ they must not be run concurrently against the shared cache. The real kernel
 build without a seed remains a clean source build. Host fixture tests check isolation
 and seed wiring; native CI must prove the optimized path works before
 calling the full guest pipeline validated.
+
+## Full authenticated prototype baseline: October 14, 2026
+
+At [e8f371a](validation/native-e8f371a/README.md), every native build and
+guest step in run 38556585136 passed, including independent two-boot testing
+of the actual packaged authenticated VM. This supersedes the pending baseline
+guest claims above for that revision only. Later audit inspection and archive
+publication changes require their own exact-revision build/guest evidence.
+Physical installation and production recovery/security remain open.
+
+## Downloadable authenticated preview gate
+
+Archive creation/upload is conditional on independent packaged-image guest
+success. The archive tool reuses the same bundle validator as that smoke test,
+requires the generated blank-state digest and exact file inventory, and refuses
+modified launchers, symlinks, permissions/owner mismatches and output replacement.
+Host tests inspect and extract the generated tar to verify private modes,
+state identity, deterministic archive bytes and failure cleanup. Native runtime
+validation of this archive/upload path is pending on the combined revision.

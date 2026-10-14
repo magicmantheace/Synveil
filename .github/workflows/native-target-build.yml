@@ -24,6 +24,9 @@ on:
       - build/config/**
       - tests/**
       - tools/package_native.py
+      - tools/auth_vm_bundle.py
+      - tools/archive_auth_vm.py
+      - tools/initramfs_profile.py
       - tools/build_manifest.py
       - tools/native_preflight.py
       - tools/native_build.py
@@ -260,6 +263,7 @@ jobs:
           sh -n out/auth-vm/run-vm.sh
 
       - name: Independently enroll and log in using packaged VM artifacts
+        id: packaged_guest
         if: ${{ !cancelled() && steps.authenticated_package.outcome == 'success' }}
         env:
           SYNVEIL_QEMU_NETWORK: "0"
@@ -269,6 +273,25 @@ jobs:
           # Exercise the packaged boot image with a throwaway copy of its
           # blank state, preserving a credential-free distributable bundle.
           python3 tests/smoke-auth-vm-bundle.py --bundle "$PWD/out/auth-vm" --timeout 105
+
+      - name: Archive only guest-tested authenticated VM with pristine state
+        id: authenticated_archive
+        if: ${{ !cancelled() && steps.packaged_guest.outcome == 'success' }}
+        run: |
+          mkdir -p out/downloads
+          python3 tools/archive_auth_vm.py --bundle "$PWD/out/auth-vm" \
+            --output "$PWD/out/downloads/synveil-auth-vm-${{ github.sha }}.tar.gz"
+          cd out/downloads
+          sha256sum "synveil-auth-vm-${{ github.sha }}.tar.gz" > SHA256SUMS
+
+      - name: Retain authenticated QEMU preview download
+        if: ${{ !cancelled() && steps.authenticated_archive.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-qemu-preview-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: error
+          path: out/downloads/
 
       - name: Preserve native build evidence
         if: always()

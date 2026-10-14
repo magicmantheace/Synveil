@@ -8,6 +8,8 @@ or reuse the synthetic credential state disk from the QEMU integration test.
 import argparse
 import hashlib
 import json
+import os
+import stat
 from pathlib import Path
 import shutil
 import subprocess
@@ -69,6 +71,57 @@ def verify_authenticated_fixture(fixture: Path, revision: str) -> dict:
     # root-owned image without an unauthenticated developer serial override.
     inspect_authenticated_archive(fixture / "synveil-initramfs.cpio")
     return manifest
+
+
+def check_private_regular(path: Path, mode: int) -> None:
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"missing or symlinked packaged file: {path.name}")
+    if path.stat().st_uid != os.getuid() or stat.S_IMODE(path.stat().st_mode) != mode:
+        raise ValueError(f"unsafe owner/permissions for {path.name}")
+
+
+def validate_bundle(bundle: Path, fixture: Path, revision: str) -> Path:
+    if (bundle.is_symlink() or not bundle.is_dir() or
+            bundle.stat().st_uid != os.getuid() or
+            stat.S_IMODE(bundle.stat().st_mode) != 0o700):
+        raise ValueError("bundle must be an owner-owned private directory")
+    source = verify_authenticated_fixture(fixture, revision)
+    for name in ("synveil-x86_64.img", "fixture.json", "validation.json",
+                 "VM-BUNDLE.json", "SHA256SUMS"):
+        check_private_regular(bundle / name, 0o400)
+    check_private_regular(bundle / "synveil-state.ext4", 0o600)
+    image = bundle / "synveil-x86_64.img"
+    if sha256(image) != source["artifacts"]["synveil-x86_64.img"]["sha256"]:
+        raise ValueError("packaged VM image differs from validated guest image")
+    if (bundle / "fixture.json").read_bytes() != (
+            fixture / "manifests/fixture.json").read_bytes():
+        raise ValueError("packaged fixture manifest differs from guest proof")
+    if (bundle / "validation.json").read_bytes() != (
+            fixture / "manifests/validation.json").read_bytes():
+        raise ValueError("packaged validation receipt differs from guest proof")
+    metadata = json.loads((bundle / "VM-BUNDLE.json").read_text())
+    if (metadata.get("git_revision") != revision or
+            metadata.get("physical_install_allowed") is not False or
+            metadata.get("signed_release") is not False):
+        raise ValueError("unexpected authenticated VM package metadata")
+    if metadata.get("blank_state_sha256") != sha256(bundle / "synveil-state.ext4"):
+        raise ValueError("distributable state disk is no longer blank")
+    entries = (bundle / "SHA256SUMS").read_text().splitlines()
+    expected_names = {"synveil-x86_64.img", "fixture.json",
+                      "validation.json", "VM-BUNDLE.json"}
+    checked = set()
+    for line in entries:
+        if "  " not in line:
+            raise ValueError("invalid bundle checksum format")
+        digest, name = line.split("  ", 1)
+        if name not in expected_names or name in checked:
+            raise ValueError("unexpected or duplicate immutable checksum")
+        if len(digest) != 64 or digest != sha256(bundle / name):
+            raise ValueError(f"immutable checksum mismatch: {name}")
+        checked.add(name)
+    if checked != expected_names:
+        raise ValueError("incomplete immutable checksum manifest")
+    return image
 
 
 LAUNCHER = """#!/bin/sh
@@ -163,6 +216,7 @@ def create_authenticated_bundle(fixture: Path, dest: Path,
             "target": "x86_64-qemu-uefi",
             "desktop": "experimental-authenticated-framebuffer",
             "state_disk_mib": size_mib,
+            "blank_state_sha256": sha256(dest / "synveil-state.ext4"),
             "independent_qemu_boots_validated": 2,
             "physical_install_allowed": False,
             "human_test_validated": False,
@@ -196,6 +250,7 @@ def create_authenticated_bundle(fixture: Path, dest: Path,
             "There is no tested owner password reset/recovery mechanism yet.\n"
             "Deleting the state disk destroys saved credentials and user files.\n"
         )
+        (dest / "README.md").chmod(0o644)
     except BaseException:
         shutil.rmtree(dest)
         raise

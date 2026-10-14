@@ -8,12 +8,14 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import tarfile
 import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from auth_vm_bundle import create_authenticated_bundle, verify_authenticated_fixture  # noqa: E402
+from archive_auth_vm import archive_bundle  # noqa: E402
 
 REV = "a" * 40
 REQUIRED = ("init", "usr/bin/synveil-display", "usr/bin/synveil-vt",
@@ -288,6 +290,71 @@ class AuthenticatedBundleTests(unittest.TestCase):
                 create_authenticated_bundle(self.fixture, self.destination, REV, 64)
         self.assertFalse(self.destination.exists())
         self.assertTrue((self.fixture / "synveil-x86_64.img").exists())
+
+    def test_archive_preserves_private_modes_and_exact_inventory(self):
+        self.create()
+        output = self.root / "preview.tar.gz"
+        archive_bundle(self.destination, self.fixture, output, REV)
+        self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+        with tarfile.open(output) as archive:
+            members = archive.getmembers()
+            self.assertEqual(len(members), 9)
+            self.assertEqual(archive.getmember("auth-vm").mode, 0o700)
+            self.assertEqual(archive.getmember("auth-vm/run-vm.sh").mode, 0o700)
+            self.assertEqual(archive.getmember("auth-vm/synveil-state.ext4").mode, 0o600)
+            self.assertEqual(archive.getmember("auth-vm/synveil-x86_64.img").mode, 0o400)
+            self.assertTrue(all(member.isdir() or member.isfile() for member in members))
+        target = self.root / "extracted"
+        target.mkdir(mode=0o700)
+        subprocess.run(["tar", "--extract", "--gzip", "--file", str(output),
+                        "--same-permissions", "--no-same-owner", "--directory", str(target)],
+                       check=True)
+        self.assertEqual((target / "auth-vm").stat().st_mode & 0o777, 0o700)
+        self.assertEqual((target / "auth-vm/run-vm.sh").stat().st_mode & 0o777, 0o700)
+        self.assertEqual(sha(target / "auth-vm/synveil-state.ext4"),
+                         sha(self.destination / "synveil-state.ext4"))
+        second = self.root / "second.tar.gz"
+        archive_bundle(self.destination, self.fixture, second, REV)
+        self.assertEqual(sha(output), sha(second))
+
+    def test_archive_refuses_changed_blank_state(self):
+        self.create()
+        disk = self.destination / "synveil-state.ext4"
+        with disk.open("r+b") as stream:
+            stream.write(b"enrolled-or-modified-state")
+        output = self.root / "preview.tar.gz"
+        with self.assertRaisesRegex(ValueError, "no longer blank"):
+            archive_bundle(self.destination, self.fixture, output, REV)
+        self.assertFalse(output.exists())
+
+    def test_archive_refuses_extras_modified_launcher_and_replacement(self):
+        self.create()
+        output = self.root / "preview.tar.gz"
+        extra = self.destination / "private-user-data"
+        extra.write_bytes(b"do not distribute")
+        with self.assertRaisesRegex(ValueError, "inventory"):
+            archive_bundle(self.destination, self.fixture, output, REV)
+        self.assertFalse(output.exists())
+        extra.unlink()
+        launcher = self.destination / "run-vm.sh"
+        original = launcher.read_text()
+        launcher.write_text("#!/bin/sh\nexit 0\n")
+        with self.assertRaisesRegex(ValueError, "launcher differs"):
+            archive_bundle(self.destination, self.fixture, output, REV)
+        launcher.write_text(original)
+        output.write_bytes(b"existing-user-file")
+        with self.assertRaises(FileExistsError):
+            archive_bundle(self.destination, self.fixture, output, REV)
+        self.assertEqual(output.read_bytes(), b"existing-user-file")
+
+    def test_archive_failure_removes_partial_output_only(self):
+        self.create()
+        output = self.root / "preview.tar.gz"
+        with patch("archive_auth_vm.tarfile.TarFile.addfile", side_effect=OSError("disk full")):
+            with self.assertRaisesRegex(OSError, "disk full"):
+                archive_bundle(self.destination, self.fixture, output, REV)
+        self.assertFalse(output.exists())
+        self.assertTrue((self.destination / "synveil-state.ext4").exists())
 
 
 if __name__ == "__main__":
