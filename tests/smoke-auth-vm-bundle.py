@@ -3,7 +3,8 @@
 """Boot the actual packaged authenticated VM image with a private copy of its blank state.
 
 This separate QEMU pass tests the packaged image, not the guest build fixture.
-The bundle's pristine disk is never enrolled, changed, or published by CI.
+The bundle's pristine disk is never enrolled or changed by CI. A verified blank
+disk is eligible for the preview download only after this guest test succeeds.
 The production launcher remains offline/GTK with no QMP monitor.
 """
 import argparse
