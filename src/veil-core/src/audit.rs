@@ -398,7 +398,10 @@ mod tests {
     fn writer_lock_contention_refuses_without_mutation_and_recovers() {
         let dir = test_dir("locked");
         let journal = dir.join("journal");
-        append_record(&journal, "original").unwrap();
+        // Seed without a transient append lock: another parallel test may fork
+        // while that descriptor is open, inheriting its flock until exec.
+        fs::write(&journal, b"original\n").unwrap();
+        fs::set_permissions(&journal, fs::Permissions::from_mode(0o600)).unwrap();
         let held = OpenOptions::new().append(true).open(&journal).unwrap();
         assert_eq!(
             unsafe { flock(held.as_raw_fd(), LINUX_LOCK_EX_NONBLOCK) },
@@ -409,6 +412,9 @@ mod tests {
             io::ErrorKind::WouldBlock
         );
         assert_eq!(fs::read(&journal).unwrap(), b"original\n");
+        // Release the shared open-file-description lock even if a concurrent
+        // fork briefly inherited this descriptor before its close-on-exec.
+        assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
         drop(held);
         append_record(&journal, "recovered").unwrap();
         assert_eq!(fs::read(&journal).unwrap(), b"original\nrecovered\n");
