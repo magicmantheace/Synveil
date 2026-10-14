@@ -401,6 +401,17 @@ guest claims above for that revision only. Later audit inspection and archive
 publication changes require their own exact-revision build/guest evidence.
 Physical installation and production recovery/security remain open.
 
+## Offline audit export validation contract
+
+Snapshot export must preserve the source, hold cooperative inspection locks,
+copy exactly the bounded validated bytes, enforce private separate output
+storage, refuse replacement and report only counts/digest metadata. Tests must
+exercise the actual CLI, lock refusal, malformed source and unsafe destinations,
+and detect edits that remain structurally valid using an independently retained
+digest. Target build/link audits and guest export/verify execution are required
+before runtime completion. A digest match is not origin authentication or an
+independent retention/integrity system; archive deletion remains unavailable.
+
 ## Downloadable authenticated preview gate
 
 Archive creation/upload is conditional on independent packaged-image guest
