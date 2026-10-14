@@ -107,7 +107,10 @@ fn exercise_core_journal(incomplete: bool) {
     assert_eq!(request["fields"]["id"], "audit-test");
     assert_eq!(request["fields"]["method"], "status");
     if incomplete {
-        assert_eq!(std::fs::read(&journal).unwrap(), b"preserved-partial-record");
+        assert_eq!(
+            std::fs::read(&journal).unwrap(),
+            b"preserved-partial-record"
+        );
     } else {
         let persisted: Vec<Value> = std::fs::read_to_string(&journal)
             .unwrap()

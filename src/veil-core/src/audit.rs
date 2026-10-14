@@ -283,7 +283,12 @@ mod tests {
         let dir = test_dir("invalid-event");
         let journal = dir.join("journal");
         append_record(&journal, "original").unwrap();
-        for line in ["", "one\ntwo", "one\rtwo", &"x".repeat(MAX_AUDIT_RECORD_BYTES)] {
+        for line in [
+            "",
+            "one\ntwo",
+            "one\rtwo",
+            &"x".repeat(MAX_AUDIT_RECORD_BYTES),
+        ] {
             assert_eq!(
                 append_record(&journal, line).unwrap_err().kind(),
                 io::ErrorKind::InvalidInput
@@ -299,7 +304,10 @@ mod tests {
         let journal = dir.join("journal");
         append_record(&journal, "original").unwrap();
         let held = OpenOptions::new().append(true).open(&journal).unwrap();
-        assert_eq!(unsafe { flock(held.as_raw_fd(), LINUX_LOCK_EX_NONBLOCK) }, 0);
+        assert_eq!(
+            unsafe { flock(held.as_raw_fd(), LINUX_LOCK_EX_NONBLOCK) },
+            0
+        );
         assert_eq!(
             append_record(&journal, "blocked").unwrap_err().kind(),
             io::ErrorKind::WouldBlock
