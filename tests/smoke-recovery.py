@@ -144,7 +144,37 @@ SEAT_CRASH = (
     "printf '\\n%s%s\\n' SYNVEIL_ SEAT_CRASH_OK; fi; break; fi; "
     "sleep 0.1; done; fi; fi\n"
 )
+AUDIT_SEED_AWK = 'BEGIN {\n    prefix = "{\\"schema\\":\\"synveil.audit/v1\\",\\"component\\":\\"veil-core\\",\\"pid\\":1,\\"sequence\\":1,\\"unix_time_ms\\":null,\\"version\\":\\"fixture\\",\\"git_revision\\":null,\\"event\\":\\"guest_fixture\\",\\"fields\\":{\\"padding\\":\\""\n    suffix = "\\"}}\\n"\n    padding = ""\n    for (i = length(prefix) + length(suffix); i < 8192; i++) padding = padding "x"\n    line = prefix padding suffix\n    for (i = 0; i < 512; i++) printf "%s", line\n}'
+AUDIT_ROTATION = (
+    {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY"},
+    b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_AUDIT_ROTATION_OK",
+    'd=/var/log/synveil-audit-rotation-test; journal="$d/journal";\n'
+    'if mkdir -m 700 "$d" && awk \'BEGIN {\n'
+    '    prefix = "{\\"schema\\":\\"synveil.audit/v1\\",\\"component\\":\\"veil-core\\",\\"pid\\":1,\\"sequence\\":1,\\"unix_time_ms\\":null,\\"version\\":\\"fixture\\",\\"git_revision\\":null,\\"event\\":\\"guest_fixture\\",\\"fields\\":{\\"padding\\":\\""\n'
+    '    suffix = "\\"}}\\n"\n'
+    '    padding = ""\n'
+    '    for (i = length(prefix) + length(suffix); i < 8192; i++) padding = padding "x"\n'
+    '    line = prefix padding suffix\n'
+    '    for (i = 0; i < 512; i++) printf "%s", line\n'
+    '}\' > "$journal" &&\n'
+    'chmod 600 "$journal" && [ "$(stat -c %s "$journal")" = 4194304 ] &&\n'
+    '/usr/sbin/veil-audit check --path "$journal" >/dev/null; then\n'
+    'old=$(sha256sum "$journal" | cut -d " " -f1);\n'
+    'SYNVEIL_AUDIT_PATH="$journal" timeout -s KILL 10 /usr/sbin/veil-core --once --socket "$d/core.sock" >"$d/core.log" 2>&1 & helper=$!; ok=;\n'
+    'for retry in $(seq 1 40); do\n'
+    'if timeout -s KILL 2 /usr/bin/synctl --socket "$d/core.sock" --json status >/dev/null 2>&1; then ok=1; break; fi; sleep 0.1; done;\n'
+    'if [ "$ok" = 1 ] && wait "$helper" &&\n'
+    '[ "$(sha256sum "$journal.1" | cut -d " " -f1)" = "$old" ] &&\n'
+    '[ "$(stat -c "%a:%u:%h" "$journal.1")" = 600:0:1 ] &&\n'
+    '/usr/sbin/veil-audit check --path "$journal.1" >"$d/archive-report.json" &&\n'
+    'grep -Fq \'"records":512\' "$d/archive-report.json" &&\n'
+    '/usr/sbin/veil-audit check --path "$journal" >/dev/null &&\n'
+    'timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then\n'
+    "printf '\\n%s%s\\n' SYNVEIL_ AUDIT_ROTATION_OK; fi; fi\n"
+)
+
 SCENARIOS = {
+    "audit-rotation": AUDIT_ROTATION,
     "seat-crash": SEAT_CRASH,
     "seat-locked": SEAT_LOCKED,
     "enrolled-reboot": ENROLL_REBOOT,

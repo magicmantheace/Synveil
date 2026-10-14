@@ -143,3 +143,15 @@ Host regressions cover archive byte preservation and structural inspection,
 continued appends/restart, an occupied archive, incomplete tails, writer/reader
 lock contention, unsafe lock content and reopening after a rename with no
 active file. Real guest rollover and crash/power-loss evidence remain pending.
+
+The native workflow's pending `recovery-smoke --case audit-rotation` guest gate
+uses a separate, exclusively created directory on the disposable QEMU state
+volume. It generates exactly 512 valid 8192-byte fixture records (4 MiB), checks
+them with the target inspector, and starts a bounded one-connection native core
+using that test journal and a separate socket. A real status request triggers
+the rollover. The gate requires unchanged archive SHA256, root/private/single-
+link archive metadata, 512 archived records, a valid new journal and healthy
+status from the independent main core. The existing journal and user state
+are not overwritten. Host tests validate the exact normalized AWK/shell
+command and reject command echo or missing boot readiness; they do not prove
+that this scenario has passed QEMU.

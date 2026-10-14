@@ -209,6 +209,12 @@ jobs:
           bash build.sh state-disk --size-mib 128
           bash build.sh persistence-smoke --timeout 60
 
+      - name: Preserve full audit journal and retain healthy native services
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: |
+          SYNVEIL_QEMU_STATE_DISK="$PWD/out/synveil-state.ext4" \
+            bash build.sh recovery-smoke --case audit-rotation --timeout 60
+
       - name: One-time root-owned credential enrollment in QEMU state
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |

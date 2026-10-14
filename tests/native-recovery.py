@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MPL-2.0
 """Console fixtures test recovery harness gating, timeout, and echo rejection."""
 import os
+import importlib.util
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -36,7 +38,7 @@ ready = 'SYNVEIL_CORE_UNAVAILABLE' if case == 'absent' else 'SYNVEIL_CORE_READY'
 print(ready + '\\r\\nSYNVEIL_BOOT_OK', flush=True)
 if case in ('state-missing', 'state-corrupt'):
     print('SYNVEIL_STATE_UNAVAILABLE', flush=True)
-if case in ('enroll', 'enrolled-reboot', 'seat-crash'):
+if case in ('enroll', 'enrolled-reboot', 'seat-crash', 'audit-rotation'):
     print('SYNVEIL_STATE_READY', flush=True)
 if case in ('enroll', 'seat-locked', 'seat-crash'):
     print('SYNVEIL_SEAT_READY', flush=True)
@@ -89,6 +91,11 @@ if mode == 'pass':
     elif case in ('state-missing', 'state-corrupt'):
         assert 'synctl --json status' in command
         assert '/tmp/state-recovery-probe' in command
+    elif case == 'audit-rotation':
+        assert 'SYNVEIL_AUDIT_PATH' in command and 'veil-core --once' in command
+        assert 'veil-audit check --path' in command and 'sha256sum' in command
+        assert '4194304' in command and 'records' in command
+        assert max(map(len, command.splitlines())) < 1024
     elif case == 'observe':
         assert 'synctl --json observe' in command
         assert 'synveil.observe/v1' in command
@@ -100,7 +107,7 @@ if mode == 'pass':
         assert 'for round in 1 2 3' in command and 'shell-alive' in command
         assert max(map(len, command.splitlines())) < 1024
     marker = {'crash': 'RECOVERY', 'absent': 'ABSENT', 'protocol': 'PROTOCOL',
-              'observe': 'OBSERVE', 'demo': 'DEMO',
+              'audit-rotation': 'AUDIT_ROTATION', 'observe': 'OBSERVE', 'demo': 'DEMO',
               'desktop': 'DESKTOP_RECOVERY', 'desktop-terminal': 'TERMINAL_LIFETIME',
               'enroll': 'ENROLL_SMOKE', 'enrolled-reboot': 'ENROLL_REBOOT',
               'seat-locked': 'SEAT_LOCKED', 'seat-crash': 'SEAT_CRASH',
@@ -152,6 +159,30 @@ elif mode == 'timeout':
 
     def test_protocol_echo_cannot_pass(self):
         self.assertNotEqual(self.fixture("echo", "protocol")[0], 0)
+
+    def test_audit_rotation_requires_real_marker_and_ready_state(self):
+        self.assertEqual(self.fixture("pass", "audit-rotation")[0], 0)
+        self.assertNotEqual(self.fixture("echo", "audit-rotation")[0], 0)
+        self.assertNotEqual(self.fixture("no-ready", "audit-rotation")[0], 0)
+
+    def test_audit_rotation_seed_and_shell_command_are_valid(self):
+        spec = importlib.util.spec_from_file_location("audit_rotation_smoke", ROOT / "tests/smoke-recovery.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        seed = subprocess.check_output(["awk", module.AUDIT_SEED_AWK.replace("; ", ";\n")])
+        self.assertEqual(len(seed), 4 * 1024 * 1024)
+        lines = seed.splitlines(keepends=True)
+        self.assertEqual(len(lines), 512)
+        self.assertTrue(all(len(line) == 8192 for line in lines))
+        value = json.loads(lines[0])
+        self.assertEqual(value["schema"], "synveil.audit/v1")
+        self.assertEqual(value["component"], "veil-core")
+        self.assertEqual(len(value), 9)
+        command = module.AUDIT_ROTATION[3]
+        self.assertIn(module.AUDIT_SEED_AWK, command)
+        result = subprocess.run(["sh", "-n"], input=command.replace("; ", ";\n"),
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_observe_ipc_passes(self):
         self.assertEqual(self.fixture("pass", "observe")[0], 0)
