@@ -117,7 +117,7 @@ fn append_record(path: &Path, line: &str) -> io::Result<()> {
         file.seek(SeekFrom::End(-1))?;
         let mut last = [0];
         file.read_exact(&mut last)?;
-        if last != [b'\n'] {
+        if last[0] != b'\n' {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "persistent audit journal has an incomplete final record",
