@@ -104,8 +104,10 @@ The full native build, graphical recovery/authentication, and independent
 boots of the packaged authenticated image passed together at
 [e8f371a](docs/validation/native-e8f371a/README.md). This includes graphical
 first-user setup, persistent login, locked serial, nonroot session revocation
-and preservation of the package's blank state disk. Later audit changes still
-require their own guest validation.
+and preservation of the package's blank state disk. Audit inspection, persistent
+journal checks and the downloadable authenticated preview also passed at
+[262d275](docs/validation/native-262d275/README.md). Later bounded rotation
+still requires its own guest validation.
 This remains an experimental VM, **not** a production desktop, signed release,
 owner-recovery system, or physical installer. The first hands-on test contract
 is in [ROADMAP.md](ROADMAP.md) and [docs/FIRST_INSTALL.md](docs/FIRST_INSTALL.md).

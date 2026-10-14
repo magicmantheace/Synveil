@@ -394,4 +394,6 @@ requires the generated blank-state digest and exact file inventory, and refuses
 modified launchers, symlinks, permissions/owner mismatches and output replacement.
 Host tests inspect and extract the generated tar to verify private modes,
 state identity, deterministic archive bytes and failure cleanup. Native runtime
-validation of this archive/upload path is pending on the combined revision.
+validation of the audit inspector and archive/upload path passed at
+[262d275](validation/native-262d275/README.md). Later bounded rotation remains
+pending its own exact-revision native and guest validation.
