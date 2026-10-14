@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
 """QEMU CLI selection tests using a fake emulator and firmware files."""
+import fcntl
 import os
 from pathlib import Path
+import selectors
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -54,6 +57,88 @@ class QemuOptionTests(unittest.TestCase):
         )
         args = self.args_file.read_text().splitlines() if self.args_file.exists() else []
         return result, args
+
+    def test_serial_stdin_is_preserved_for_background_emulator(self):
+        qemu = self.bin / "qemu-system-x86_64"
+        qemu.write_text('#!/bin/sh\\nread -r line || exit 9\\n[ "$line" = hello ] || exit 10\\n')
+        env = {
+            **os.environ,
+            "PATH": str(self.bin) + os.pathsep + os.environ.get("PATH", ""),
+            "SYNVEIL_OUT_DIR": str(self.out),
+            "SYNVEIL_OVMF_CODE": str(self.firmware),
+            "SYNVEIL_OVMF_VARS": str(self.variables),
+            "SYNVEIL_QEMU_TCG": "1",
+        }
+        result = subprocess.run(
+            ["bash", str(ROOT / "build/scripts/qemu.sh")],
+            env=env, input="hello\\n", capture_output=True, text=True, timeout=5,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_shutdown_waits_for_emulator_to_release_writable_disk(self):
+        qemu = self.bin / "qemu-system-x86_64"
+        qemu.write_text("""#!/usr/bin/env python3
+import fcntl
+import os
+import signal
+import sys
+import time
+
+with open(os.environ["SYNVEIL_TEST_DISK"], "w") as disk:
+    fcntl.flock(disk, fcntl.LOCK_EX)
+    def terminate(_signum, _frame):
+        time.sleep(0.5)
+        sys.exit(0)
+    signal.signal(signal.SIGTERM, terminate)
+    print("READY", flush=True)
+    while True:
+        time.sleep(0.05)
+""")
+        disk_path = self.work / "state-disk"
+        qemu.chmod(0o755)
+        env = {
+            **os.environ,
+            "PATH": str(self.bin) + os.pathsep + os.environ.get("PATH", ""),
+            "SYNVEIL_OUT_DIR": str(self.out),
+            "SYNVEIL_OVMF_CODE": str(self.firmware),
+            "SYNVEIL_OVMF_VARS": str(self.variables),
+            "SYNVEIL_QEMU_TCG": "1",
+            "SYNVEIL_TEST_DISK": str(disk_path),
+        }
+        # Exercise both termination of the launcher alone and the full
+        # smoke-test process group.  Neither may release its parent before
+        # the emulator finishes its delayed, cooperative exit.
+        for kill_group in (False, True):
+            with self.subTest(kill_group=kill_group):
+                process = subprocess.Popen(
+                    ["bash", str(ROOT / "build/scripts/qemu.sh")],
+                    env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT, start_new_session=True,
+                )
+                try:
+                    with selectors.DefaultSelector() as selector:
+                        selector.register(process.stdout, selectors.EVENT_READ)
+                        self.assertTrue(selector.select(timeout=5), "emulator did not start")
+                        self.assertEqual(process.stdout.readline().strip(), b"READY")
+                    if kill_group:
+                        os.killpg(process.pid, signal.SIGTERM)
+                    else:
+                        process.terminate()
+                    self.assertEqual(process.wait(timeout=5), 143)
+                    # flock is a distinct process-safe lock.  The fake guest
+                    # still holds it for 500 ms after receiving SIGTERM.
+                    with disk_path.open("r+") as disk:
+                        fcntl.flock(disk, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        fcntl.flock(disk, fcntl.LOCK_UN)
+                finally:
+                    # Clean up a hypothetical faulty wrapper's orphan too.
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    process.wait(timeout=5)
+                    process.stdin.close()
+                    process.stdout.close()
 
     def test_default_remains_headless_and_offline(self):
         result, args = self.invoke()

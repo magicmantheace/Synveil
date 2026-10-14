@@ -128,8 +128,27 @@ else
     die "OVMF firmware not found; set SYNVEIL_OVMF_CODE and SYNVEIL_OVMF_VARS"
 fi
 
+# Keep the wrapper alive until the emulator exits.  A caller that waits on
+# this script must be able to reuse its writable state disk immediately;
+# exiting while a QEMU child still owns its image lock breaks two-boot tests.
+qemu_pid=""
+stop_qemu() {
+    trap - TERM INT
+    if [[ -n "$qemu_pid" ]]; then
+        kill -TERM "$qemu_pid" 2>/dev/null || true
+        wait "$qemu_pid" 2>/dev/null || true
+    fi
+}
+trap 'stop_qemu; exit 143' TERM
+trap 'stop_qemu; exit 130' INT
+
 set +e
-qemu-system-x86_64 "${QEMU_ARGS[@]}" 9>&-
+# Bash redirects a background command's stdin from /dev/null unless the
+# redirection is explicit.  Preserve serial stdio for QEMU guest automation.
+qemu-system-x86_64 "${QEMU_ARGS[@]}" <&0 9>&- &
+qemu_pid=$!
+wait "$qemu_pid"
 status=$?
 set -e
+trap - TERM INT
 exit "$status"
