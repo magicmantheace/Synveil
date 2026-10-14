@@ -68,3 +68,36 @@ incomplete tails, lock contention and recovery after lock release. A real-core
 integration test requires healthy status and console lifecycle events with a
 preexisting incomplete journal, while checking that the damaged bytes remain
 unchanged. These checks do not close the durable-audit roadmap item.
+
+## Offline structural inspection
+
+`veil-audit check` reads `/var/log/synveil/core-audit.jsonl` directly without
+connecting to core IPC. `veil-audit check --path /absolute/journal` selects a
+specific file for authorized offline diagnosis. The tool never creates,
+repairs, truncates or appends to the journal. It returns a compact JSON
+`synveil.audit-inspection/v1` report with byte and record counts and
+`authenticated: false`; event contents and supplied paths are not printed.
+Missing, inaccessible, busy or malformed journals produce a failure exit code.
+An empty existing journal is structurally valid and reports zero records.
+
+The checker opens read-only with Linux no-follow/nonblocking flags, refuses
+symlinks, hardlinks, non-regular files and modes other than 0600, and holds a
+nonblocking shared advisory lock during inspection. Cooperative writers refuse
+to append while inspection holds the lock. Input is capped at 4 MiB and each
+record, including its mandatory newline, at 64 KiB. Invalid UTF-8/JSON, blank
+records, raw carriage returns, unknown schemas, missing/extra top-level fields
+and invalid field types or bounds are refused. Fields use the v1 envelope;
+process IDs and sequences must be positive and event/build labels bounded.
+
+This is structural inspection, not proof of origin or completeness: it cannot
+identify fabricated well-formed events, edits, removed records, duplicated JSON
+keys collapsed by the JSON parser, reordered events or lost console-only
+records. It does not impose global PID/sequence ordering across restarts.
+An attacker with write access can still create a structurally valid file.
+Cryptographic integrity, retention/rotation and power-loss testing remain open.
+
+The native builder audits the new `veil-audit` ELF and link inputs alongside
+core, CLI, enrollment and seat binaries. Rootfs packaging requires its hash-bound
+artifact and installs it as `/usr/sbin/veil-audit`. Host inspection and packaging
+checks precede an exact-revision native build/guest recovery check; the checker
+is not yet guest-validated.

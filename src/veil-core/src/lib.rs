@@ -14,6 +14,7 @@ use veil_protocol::{
 
 pub const DEFAULT_SOCKET_PATH: &str = "/run/synveil/veil-core.sock";
 pub mod audit;
+pub mod audit_check;
 pub mod credential;
 pub mod observer;
 pub mod seat;
