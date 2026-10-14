@@ -61,6 +61,10 @@ class GuestFixtureTests(unittest.TestCase):
                 elif command[-1].endswith("kernel.sh"):
                     self.assertEqual(kwargs["env"].get("SYNVEIL_KERNEL_TEST_RECOVERY_STATUS"),
                                      "1" if case == "recovery-status" else None)
+                    self.assertEqual(kwargs["env"]["SYNVEIL_KERNEL_SEED_WORK"],
+                                     str(root / "work"))
+                    self.assertNotEqual(kwargs["env"]["SYNVEIL_WORK_DIR"],
+                                        kwargs["env"]["SYNVEIL_KERNEL_SEED_WORK"])
                     output = Path(kwargs["env"]["SYNVEIL_OUT_DIR"])
                     (output / "manifests").mkdir()
                     (output / "synveil-x86_64.efi").write_bytes(b"fixture kernel")

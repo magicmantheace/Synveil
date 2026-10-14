@@ -67,8 +67,12 @@ def main():
         subprocess.run(["bash", "-o", "pipefail", "-c",
                         "find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0"],
                        cwd=tree, stdout=packed, check=True)
+    # The baseline kernel and source were built for this exact checkout
+    # earlier in the same pipeline. Copy its objects into each fixture's
+    # separate output tree; never replace the base kernel or skip boot tests.
     env = {**os.environ, "SYNVEIL_OUT_DIR": str(fixture_out),
-           "SYNVEIL_WORK_DIR": str(staging / "build")}
+           "SYNVEIL_WORK_DIR": str(staging / "build"),
+           "SYNVEIL_KERNEL_SEED_WORK": str(work)}
     if args.case == "recovery-status":
         env["SYNVEIL_KERNEL_TEST_RECOVERY_STATUS"] = "1"
     for name in ("kernel", "image"):

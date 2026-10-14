@@ -8,16 +8,39 @@ ensure_dirs
 INITRAMFS="$OUT_DIR/synveil-initramfs.cpio"
 [[ -f "$INITRAMFS" ]] || die "initramfs missing; run 'bash build.sh rootfs' first"
 
-python3 "$ROOT_DIR/tools/source_lock.py" fetch linux
-# Header installation mutates its source tree; keep the kernel source separate.
-LINUX_SRC="$(prepare_source linux linux-kernel)"
+# Guest-only build acceleration: reuse the base kernel's compiled objects,
+# not its initramfs or its boot image. All fixture initramfs changes still
+# trigger a real kernel relink and a fresh UEFI disk build. An explicit seed
+# must be complete; never silently fall back to a slower or unproven image.
+SEED_WORK="${SYNVEIL_KERNEL_SEED_WORK:-}"
 KERNEL_BUILD="$WORK_DIR/kernel-build"
-
-rm -rf "$KERNEL_BUILD"
-mkdir -p "$KERNEL_BUILD"
-
-log "configuring Linux $(source_version linux)"
-make -C "$LINUX_SRC"     O="$KERNEL_BUILD"     ARCH=x86     CROSS_COMPILE="$TARGET-"     x86_64_defconfig
+if [[ -n "$SEED_WORK" ]]; then
+    [[ "$SEED_WORK" == /* && ! -L "$SEED_WORK" ]] ||
+        die "kernel build seed must be an absolute non-symlink work directory"
+    SEED_KERNEL="$SEED_WORK/kernel-build"
+    LINUX_SRC="$SEED_WORK/src/linux-kernel"
+    [[ -d "$LINUX_SRC" && ! -L "$LINUX_SRC" &&
+       -d "$SEED_KERNEL" && ! -L "$SEED_KERNEL" &&
+       -f "$SEED_KERNEL/.config" &&
+       -f "$SEED_KERNEL/include/config/auto.conf" &&
+       -s "$SEED_KERNEL/arch/x86/boot/bzImage" ]] ||
+        die "complete base kernel build required before isolated guest fixture"
+    [[ "$(realpath -m "$KERNEL_BUILD")" != "$(realpath -e "$SEED_KERNEL")" ]] ||
+        die "guest kernel output must not overwrite base kernel objects"
+    rm -rf "$KERNEL_BUILD"
+    mkdir -p "$(dirname "$KERNEL_BUILD")"
+    # Never hardlink: Kbuild must not modify the baseline's objects in place.
+    cp -a --reflink=auto -- "$SEED_KERNEL" "$KERNEL_BUILD"
+    log "copied baseline kernel objects for isolated guest rebuild"
+else
+    python3 "$ROOT_DIR/tools/source_lock.py" fetch linux
+    # Header installation mutates its source tree; keep it separate.
+    LINUX_SRC="$(prepare_source linux linux-kernel)"
+    rm -rf "$KERNEL_BUILD"
+    mkdir -p "$KERNEL_BUILD"
+    log "configuring Linux $(source_version linux)"
+    make -C "$LINUX_SRC" O="$KERNEL_BUILD" ARCH=x86 CROSS_COMPILE="$TARGET-" x86_64_defconfig
+fi
 
 "$LINUX_SRC/scripts/kconfig/merge_config.sh"     -m     -O "$KERNEL_BUILD"     "$KERNEL_BUILD/.config"     "$ROOT_DIR/build/config/kernel.fragment"
 
