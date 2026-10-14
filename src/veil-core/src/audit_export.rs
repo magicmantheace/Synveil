@@ -295,20 +295,28 @@ mod tests {
 
     #[test]
     fn creation_stays_in_open_directory_after_path_substitution() {
+        use std::os::unix::fs::PermissionsExt;
         let (root, _source, output) = fixture();
         let parent = output.parent().unwrap();
         let directory = fs::File::open(parent).unwrap();
         let moved = root.join("moved");
         let unrelated = root.join("unrelated");
-        fs::DirBuilder::new().mode(0o700).create(&unrelated).unwrap();
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&unrelated)
+            .unwrap();
         fs::rename(parent, &moved).unwrap();
         std::os::unix::fs::symlink(&unrelated, parent).unwrap();
         let name = output_name(&output).unwrap();
         let mut copy = create_output(&directory, &name).unwrap();
         copy.write_all(b"private snapshot").unwrap();
         let created = copy.metadata().unwrap();
-        assert_eq!(fs::read(moved.join("snapshot")).unwrap(), b"private snapshot");
+        assert_eq!(
+            fs::read(moved.join("snapshot")).unwrap(),
+            b"private snapshot"
+        );
         assert!(!unrelated.join("snapshot").exists());
+        fs::set_permissions(moved.join("snapshot"), fs::Permissions::from_mode(0o000)).unwrap();
         remove_created(&directory, &name, &created);
         assert!(!moved.join("snapshot").exists());
         fs::remove_dir_all(root).unwrap();
@@ -330,7 +338,12 @@ mod tests {
         fs::write(&target, b"unrelated").unwrap();
         std::os::unix::fs::symlink(&target, &output).unwrap();
         remove_created(&directory, &name, &created);
-        assert!(fs::symlink_metadata(&output).unwrap().file_type().is_symlink());
+        assert!(
+            fs::symlink_metadata(&output)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
         assert_eq!(fs::read(target).unwrap(), b"unrelated");
         fs::remove_dir_all(root).unwrap();
     }
