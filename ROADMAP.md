@@ -116,7 +116,10 @@ Persistent journal appends now enforce a prototype 4 MiB per-file limit
 with a nonblocking advisory write lock, reporting capacity failures to the
 console rather than consuming unlimited state space. This is not durable
 rotation or an integrity chain; archive retention, disk-full policy and
-tamper evidence remain open.
+tamper evidence remain open. Offline read-only `veil-audit check` structural
+inspection is implemented with a bounded schema/count report; it does not
+authenticate records or prove completeness. Its exact-revision native guest
+validation remains pending.
 
 ## Phase 3 — Observer
 

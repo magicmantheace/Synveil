@@ -337,3 +337,44 @@ bad kernel records, overlong lines and symlinks and reports unavailable
 instead of inventing zero values. Host parser/build tests precede guest
 display validation; this does not turn the framebuffer menu into a full
 compositor or authorize AI-driven resource management.
+
+The complete authenticated QEMU prototype, including independent boots of the
+packaged image, passed at [e8f371a](validation/native-e8f371a/README.md).
+This validates the VM demonstration path at that revision; it does not close
+the physical first-install contract or validate later audit/archive changes.
+
+## Guest-tested authenticated VM download gate
+
+The native workflow now prepares an `authenticated-qemu-preview-<commit>`
+artifact only after the actual packaged image passes its independent two-boot
+enrollment/login test. It contains a `.tar.gz` and an external `SHA256SUMS`.
+The tar stores private directory, launcher, image and state permissions;
+uploading the directory directly would lose these permissions in the artifact
+ZIP. This new publication path still requires its first successful native run.
+
+The archive verifier requires the exact guest-tested image/receipts, an
+unchanged generated launcher, an exact file inventory and a state disk matching
+the blank-state SHA256 recorded at package creation. Modified or enrolled state,
+extra files and existing output archives are refused. The workflow never
+archives the disposable enrolled disk used by its guest test.
+
+After a successful run, download that run's authenticated-preview artifact.
+Use a Linux checkout of the exact revision in `VM-BUNDLE.json`, with QEMU/OVMF
+and the documented VM host dependencies installed. In the download directory,
+verify and extract as your ordinary user:
+
+```sh
+sha256sum --check SHA256SUMS
+mkdir -m 700 preview
+tar --extract --gzip --file synveil-auth-vm-COMMIT.tar.gz \
+    --same-permissions --no-same-owner --directory preview
+SYNVEIL_REPO_ROOT=/absolute/path/to/Synveil ./preview/auth-vm/run-vm.sh
+```
+
+Replace `COMMIT` with the archive's revision. The launcher checks matching
+clean source, immutable checksums, private file modes and ownership. Create your
+password on the VM graphics screen. The launcher runs offline by default.
+After first use, the state disk contains private credentials and user files;
+the archive tool deliberately refuses to distribute it. This is a VM-only
+preview with limited artifact retention; physical installation and owner
+password recovery remain open.

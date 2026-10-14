@@ -2,7 +2,7 @@
 
 use serde_json::{Value, json};
 use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::os::unix::io::AsRawFd;
 use std::path::Path;
@@ -13,6 +13,7 @@ pub const AUDIT_SCHEMA_V1: &str = "synveil.audit/v1";
 // Prototype protection against unbounded persistent journal growth. A
 // production release still requires rotation with independent integrity.
 const MAX_AUDIT_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_AUDIT_RECORD_BYTES: usize = 64 * 1024;
 const LINUX_LOCK_EX_NONBLOCK: i32 = 2 | 4;
 
 unsafe extern "C" {
@@ -64,6 +65,13 @@ fn unsafe_journal() -> io::Error {
 }
 
 fn append_record(path: &Path, line: &str) -> io::Result<()> {
+    // A record must remain one bounded line even if an internal caller errs.
+    if line.is_empty() || line.contains(['\n', '\r']) || line.len() >= MAX_AUDIT_RECORD_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "audit event must be one bounded nonempty line",
+        ));
+    }
     let parent = path.parent().ok_or_else(unsafe_journal)?;
     let directory = fs::symlink_metadata(parent)?;
     if !directory.file_type().is_dir() || directory.mode() & 0o022 != 0 {
@@ -78,6 +86,7 @@ fn append_record(path: &Path, line: &str) -> io::Result<()> {
     }
     let mut file = OpenOptions::new()
         .create(true)
+        .read(true)
         .append(true)
         .mode(0o600)
         .custom_flags(LINUX_O_NOFOLLOW | LINUX_O_NONBLOCK)
@@ -102,6 +111,19 @@ fn append_record(path: &Path, line: &str) -> io::Result<()> {
         return Err(io::Error::last_os_error());
     }
     let current = file.metadata()?.len();
+    if current != 0 {
+        // A crash or failed write may leave an incomplete final record. Never
+        // concatenate the next event onto it or silently discard evidence.
+        file.seek(SeekFrom::End(-1))?;
+        let mut last = [0];
+        file.read_exact(&mut last)?;
+        if last[0] != b'\n' {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "persistent audit journal has an incomplete final record",
+            ));
+        }
+    }
     if current
         .checked_add(bytes.len() as u64)
         .is_none_or(|next| next > MAX_AUDIT_BYTES)
@@ -111,7 +133,21 @@ fn append_record(path: &Path, line: &str) -> io::Result<()> {
         ));
     }
     file.write_all(&bytes)?;
-    file.sync_data()
+    file.sync_all()?;
+    // File synchronization alone does not persist a newly created directory
+    // entry. Repeat this after every append, including retries after failure.
+    let directory_file = OpenOptions::new()
+        .read(true)
+        .custom_flags(LINUX_O_NOFOLLOW | LINUX_O_NONBLOCK)
+        .open(parent)?;
+    let opened_directory = directory_file.metadata()?;
+    if !opened_directory.is_dir()
+        || opened_directory.dev() != directory.dev()
+        || opened_directory.ino() != directory.ino()
+    {
+        return Err(unsafe_journal());
+    }
+    directory_file.sync_all()
 }
 
 #[cfg(test)]
@@ -215,12 +251,71 @@ mod tests {
         let journal = dir.join("journal");
         let initial = vec![b'x'; (MAX_AUDIT_BYTES - 3) as usize];
         fs::write(&journal, &initial).unwrap();
+        // The capacity fixture represents a complete existing record.
+        let mut file = OpenOptions::new().append(true).open(&journal).unwrap();
+        file.write_all(b"\n").unwrap();
         fs::set_permissions(&journal, fs::Permissions::from_mode(0o600)).unwrap();
         append_record(&journal, "x").unwrap();
-        assert_eq!(fs::metadata(&journal).unwrap().len(), MAX_AUDIT_BYTES - 1);
+        assert_eq!(fs::metadata(&journal).unwrap().len(), MAX_AUDIT_BYTES);
         assert!(append_record(&journal, "more").is_err());
-        assert_eq!(fs::metadata(&journal).unwrap().len(), MAX_AUDIT_BYTES - 1);
+        assert_eq!(fs::metadata(&journal).unwrap().len(), MAX_AUDIT_BYTES);
         assert_eq!(fs::read(&journal).unwrap().last(), Some(&b'\n'));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn incomplete_tail_is_preserved_and_refuses_future_appends() {
+        let dir = test_dir("torn-tail");
+        let journal = dir.join("journal");
+        append_record(&journal, "complete").unwrap();
+        let mut file = OpenOptions::new().append(true).open(&journal).unwrap();
+        file.write_all(b"partial").unwrap();
+        assert_eq!(
+            append_record(&journal, "next").unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+        assert_eq!(fs::read(&journal).unwrap(), b"complete\npartial");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn malformed_or_oversized_events_leave_journal_unchanged() {
+        let dir = test_dir("invalid-event");
+        let journal = dir.join("journal");
+        append_record(&journal, "original").unwrap();
+        for line in [
+            "",
+            "one\ntwo",
+            "one\rtwo",
+            &"x".repeat(MAX_AUDIT_RECORD_BYTES),
+        ] {
+            assert_eq!(
+                append_record(&journal, line).unwrap_err().kind(),
+                io::ErrorKind::InvalidInput
+            );
+        }
+        assert_eq!(fs::read(&journal).unwrap(), b"original\n");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn writer_lock_contention_refuses_without_mutation_and_recovers() {
+        let dir = test_dir("locked");
+        let journal = dir.join("journal");
+        append_record(&journal, "original").unwrap();
+        let held = OpenOptions::new().append(true).open(&journal).unwrap();
+        assert_eq!(
+            unsafe { flock(held.as_raw_fd(), LINUX_LOCK_EX_NONBLOCK) },
+            0
+        );
+        assert_eq!(
+            append_record(&journal, "blocked").unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+        assert_eq!(fs::read(&journal).unwrap(), b"original\n");
+        drop(held);
+        append_record(&journal, "recovered").unwrap();
+        assert_eq!(fs::read(&journal).unwrap(), b"original\nrecovered\n");
         fs::remove_dir_all(dir).unwrap();
     }
 
