@@ -113,9 +113,9 @@ Core-crash recovery passed at `248775a` in the
 Absent-core recovery, supervision and structured logging passed in
 [guest validation at 810f66d](docs/validation/native-810f66d/README.md).
 Persistent journal appends now enforce a prototype 4 MiB per-file limit
-with a nonblocking advisory write lock, reporting capacity failures to the
-console rather than consuming unlimited state space. This is not durable
-rotation or an integrity chain; archive retention, disk-full policy and
+with nonblocking stable-directory/per-file locks. One no-overwrite archive
+slot is implemented; later capacity failures retain console events without
+deleting history. Guest rollover, archive retention, disk-full policy and
 tamper evidence remain open. Offline read-only `veil-audit check` structural
 inspection is implemented with a bounded schema/count report; it does not
 authenticate records or prove completeness. Its exact-revision native guest

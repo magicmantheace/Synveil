@@ -350,7 +350,8 @@ artifact only after the actual packaged image passes its independent two-boot
 enrollment/login test. It contains a `.tar.gz` and an external `SHA256SUMS`.
 The tar stores private directory, launcher, image and state permissions;
 uploading the directory directly would lose these permissions in the artifact
-ZIP. This new publication path still requires its first successful native run.
+ZIP. This publication path passed at
+[262d275](validation/native-262d275/README.md), including archive upload.
 
 The archive verifier requires the exact guest-tested image/receipts, an
 unchanged generated launcher, an exact file inventory and a state disk matching

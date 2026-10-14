@@ -26,6 +26,7 @@ fn invalid() -> io::Error {
 /// Inspect a stable, bounded snapshot without printing event contents or
 /// requiring veil-core, the seat broker, a model, or network access.
 pub fn inspect(path: &Path) -> io::Result<Value> {
+    let _lock = super::audit::directory_lock(path, false)?;
     let file = OpenOptions::new()
         .read(true)
         .custom_flags(NOFOLLOW_NONBLOCK)

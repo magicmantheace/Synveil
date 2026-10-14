@@ -42,14 +42,14 @@ Appends take a nonblocking advisory exclusive lock before reading the journal
 size or final byte. An existing nonempty journal must end with a newline;
 an incomplete tail is preserved verbatim and further disk appends are refused.
 There is no automatic truncation or repair. Events must be nonempty single
-lines of at most 65,536 bytes including the newline. The journal remains capped
+lines of at most 65,536 bytes including the newline. Each active/archive file remains capped
 at 4 MiB; capacity, contention and incomplete-tail failures retain console
 events and core status availability. Flush failures do not prove persistence;
 power-loss durability still requires filesystem/guest failure-injection evidence.
 
 This is a developer-grade persistent event log, not a complete durable-audit
-subsystem. It lacks rotation, tamper evidence, integrity checks, a history API,
-and disk-full policy. The durable-audit roadmap item remains open. Future
+subsystem. It lacks full archive retention policy, tamper evidence, integrity
+chains and a history API. The durable-audit roadmap item remains open. Future
 privileged actions also require typed cause, parameters, result, authorization,
 and rollback evidence.
 
@@ -112,3 +112,46 @@ parser recursion limit and rejects trailing input. Duplicate-key errors do not
 include key names; the CLI emits only the failure category. Regression tests
 cover repeated envelope keys, Unicode-escaped aliases, nested objects inside
 arrays, and the preservation of ambiguous input files.
+
+## Bounded journal rollover (guest validation pending)
+
+Before an append would exceed 4 MiB, the writer synchronizes the complete
+active journal and preserves it as `core-audit.jsonl.1`. Linux atomic
+`renameat2(RENAME_NOREPLACE)` refuses every existing archive destination,
+including symlinks and directories. The archive rename is synchronized before
+a new mode-0600 journal is created. The next event remains a normal v1 record.
+A console notice reports the preserved archive; no event content is printed.
+
+This is one archival slot, with at most 8 MiB of generated journal data. No
+archive is overwritten, deleted or silently pruned. After both slots fill,
+disk appends are refused with a retention-capacity error and console events
+continue. Damaged/incomplete or oversized active journals are preserved and
+refused, rather than rotated to conceal the problem. Automatic retention,
+owner-authorized archival/export, disk-full policy and power-loss testing remain
+open; this prototype does not complete durable audit.
+
+Writers use a private, zero-length, singly linked mode-0600 `.audit-lock`
+in the journal directory, held across open, append and rename. Inspectors
+take a nonblocking shared lock on this stable inode before opening a journal
+or archive. Per-file locks remain too, allowing read-only inspection of older
+journals without a lock file and protecting the transition to the new writer.
+Inspection never creates a lock file. Unsafe locks or lock contention refuse
+access without changing event data. The stable lock is never renamed/deleted
+by audit code.
+
+Host regressions cover archive byte preservation and structural inspection,
+continued appends/restart, an occupied archive, incomplete tails, writer/reader
+lock contention, unsafe lock content and reopening after a rename with no
+active file. Real guest rollover and crash/power-loss evidence remain pending.
+
+The native workflow's pending `recovery-smoke --case audit-rotation` guest gate
+uses a separate, exclusively created directory on the disposable QEMU state
+volume. It generates exactly 512 valid 8192-byte fixture records (4 MiB), checks
+them with the target inspector, and starts a bounded one-connection native core
+using that test journal and a separate socket. A real status request triggers
+the rollover. The gate requires unchanged archive SHA256, root/private/single-
+link archive metadata, 512 archived records, a valid new journal and healthy
+status from the independent main core. The existing journal and user state
+are not overwritten. Host tests validate the exact normalized AWK/shell
+command and reject command echo or missing boot readiness; they do not prove
+that this scenario has passed QEMU.
