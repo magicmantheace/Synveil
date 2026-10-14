@@ -45,6 +45,7 @@ python3 tests/vm-bundle.py
 python3 tests/auth-vm-bundle.py
 python3 tests/network-config.py
 python3 tests/qemu-options.py
+python3 tests/kernel-seed.py
 python3 tests/desktop-supervisor.py
 python3 tests/serial-console-policy.py
 python3 tests/serial-lock-smoke-fixture.py
