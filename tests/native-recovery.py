@@ -91,6 +91,11 @@ if mode == 'pass':
     elif case in ('state-missing', 'state-corrupt'):
         assert 'synctl --json status' in command
         assert '/tmp/state-recovery-probe' in command
+    elif case == 'audit-enospc':
+        assert 'size=1048576' in command and 'count=2048' in command
+        assert 'No space left on device' in command and 'audit_probe resumed' in command
+        assert 'umount' in command and 'sha256sum' in command
+        assert max(map(len, command.splitlines())) < 1024
     elif case == 'audit-rotation':
         assert 'SYNVEIL_AUDIT_PATH' in command and 'veil-core --once' in command
         assert 'veil-audit check --path' in command and 'sha256sum' in command
@@ -107,7 +112,7 @@ if mode == 'pass':
         assert 'for round in 1 2 3' in command and 'shell-alive' in command
         assert max(map(len, command.splitlines())) < 1024
     marker = {'crash': 'RECOVERY', 'absent': 'ABSENT', 'protocol': 'PROTOCOL',
-              'audit-rotation': 'AUDIT_ROTATION', 'observe': 'OBSERVE', 'demo': 'DEMO',
+              'audit-enospc': 'AUDIT_ENOSPC', 'audit-rotation': 'AUDIT_ROTATION', 'observe': 'OBSERVE', 'demo': 'DEMO',
               'desktop': 'DESKTOP_RECOVERY', 'desktop-terminal': 'TERMINAL_LIFETIME',
               'enroll': 'ENROLL_SMOKE', 'enrolled-reboot': 'ENROLL_REBOOT',
               'seat-locked': 'SEAT_LOCKED', 'seat-crash': 'SEAT_CRASH',
@@ -165,6 +170,23 @@ elif mode == 'timeout':
         self.assertNotEqual(self.fixture("echo", "audit-rotation")[0], 0)
         self.assertNotEqual(self.fixture("no-ready", "audit-rotation")[0], 0)
 
+    def test_audit_enospc_requires_real_marker_and_healthy_boot(self):
+        self.assertEqual(self.fixture("pass", "audit-enospc")[0], 0)
+        self.assertNotEqual(self.fixture("echo", "audit-enospc")[0], 0)
+        self.assertNotEqual(self.fixture("no-ready", "audit-enospc")[0], 0)
+
+    def test_audit_enospc_seed_is_page_aligned_and_shell_valid(self):
+        spec = importlib.util.spec_from_file_location("audit_enospc_smoke", ROOT / "tests/smoke-recovery.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        seed = subprocess.check_output(["awk", module.AUDIT_ENOSPC_SEED_AWK.replace("; ", ";\n")])
+        self.assertEqual(len(seed), 4096)
+        self.assertEqual(len(seed.splitlines()), 1)
+        self.assertEqual(json.loads(seed)["schema"], "synveil.audit/v1")
+        result = subprocess.run(["sh", "-n"], input=module.AUDIT_ENOSPC[3].replace("; ", ";\n"),
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_audit_rotation_seed_and_shell_command_are_valid(self):
         spec = importlib.util.spec_from_file_location("audit_rotation_smoke", ROOT / "tests/smoke-recovery.py")
         module = importlib.util.module_from_spec(spec)
@@ -183,6 +205,67 @@ elif mode == 'timeout':
         result = subprocess.run(["sh", "-n"], input=command.replace("; ", ";\n"),
                                 text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_enospc_gate_rejects_false_exhaustion_and_failed_recovery(self):
+        spec = importlib.util.spec_from_file_location("audit_enospc_execution", ROOT / "tests/smoke-recovery.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for mode in ("pass", "no-exhaustion", "full-write", "no-warning",
+                     "resume-failed", "unmount-failed"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                scripts = {
+                    "mount": "#!/bin/sh\nexit 0\n",
+                    "umount": '#!/bin/sh\n[ "$ENOSPC_MODE" != unmount-failed ]\n',
+                    "client": "#!/bin/sh\nexit 0\n",
+                    "dd": '''#!/usr/bin/env python3
+import os, pathlib, sys
+path = next(arg[3:] for arg in sys.argv if arg.startswith('of='))
+pathlib.Path(path).write_bytes(b'fixture filler')
+sys.exit(0 if os.environ['ENOSPC_MODE'] == 'no-exhaustion' else 1)
+''',
+                    "core": '''#!/usr/bin/env python3
+import json, os, pathlib
+journal = pathlib.Path(os.environ['SYNVEIL_AUDIT_PATH'])
+mode = os.environ['ENOSPC_MODE']
+if journal.with_name('filler').exists():
+    if mode == 'full-write': journal.write_text('lost evidence')
+    if mode != 'no-warning':
+        print('[synveil-audit] persistent write failed: No space left on device')
+else:
+    if mode == 'resume-failed': print('[synveil-audit] persistent write failed')
+    else:
+        original = journal.read_bytes()
+        with journal.open('ab') as stream: stream.write(original)
+for event in ('request', 'shutdown'):
+    print(json.dumps({'event': event}, separators=(',', ':')))
+''',
+                    "inspector": '''#!/usr/bin/env python3
+import json, pathlib, sys
+data = pathlib.Path(sys.argv[-1]).read_bytes()
+try:
+    for line in data.splitlines(): json.loads(line)
+except ValueError: sys.exit(1)
+print(json.dumps({'records': len(data.splitlines()), 'schema': 'fixture'}, separators=(',', ':')))
+''',
+                }
+                for name, content in scripts.items():
+                    (root / name).write_text(content)
+                    (root / name).chmod(0o700)
+                command = module.AUDIT_ENOSPC[3].replace(
+                    "/run/synveil-audit-enospc-test", str(root / "test")
+                ).replace("mount -t tmpfs", str(root / "mount") + " -t tmpfs").replace(
+                    'umount "$store"', str(root / "umount") + ' "$store"'
+                ).replace("dd if=", str(root / "dd") + " if=").replace(
+                    "/usr/sbin/veil-core", str(root / "core")
+                ).replace("/usr/sbin/veil-audit", str(root / "inspector")).replace(
+                    "/usr/bin/synctl", str(root / "client")
+                ).replace("; ", ";\n")
+                result = subprocess.run(["sh"], input=command, text=True,
+                                        capture_output=True, timeout=15,
+                                        env={**os.environ, "ENOSPC_MODE": mode})
+                self.assertEqual("SYNVEIL_AUDIT_ENOSPC_OK" in result.stdout,
+                                 mode == "pass", result.stderr)
 
     def test_audit_failure_gate_executes_and_rejects_lost_evidence(self):
         spec = importlib.util.spec_from_file_location("audit_failure_smoke", ROOT / "tests/smoke-recovery.py")

@@ -419,12 +419,19 @@ an incomplete synthetic active journal. Success requires healthy native IPC,
 console request/shutdown events and the specific sink-failure notice, byte
 preservation of active and archived evidence, and inspector refusal of the
 incomplete file. Host shell fixtures cover pass/failure control flow, including
-silent sink failures and automatic repair. These gates are pending their own
-exact-revision QEMU run and do not establish power-loss durability.
+silent sink failures and automatic repair. These gates passed at
+[3fb0158](validation/native-3fb0158/README.md); they do not establish power-loss durability.
+
 The archive host suite also checks a state disk modified during copying and
 restored before final validation, and refuses hardlinked source members. Each
 copied member's streaming digest must match its expected digest; the state disk
 uses the blank-state digest recorded at package creation. Open descriptors are
 checked before and after copying for regular-file identity, size, owner, mode
-and single-link count. These additional checks have host evidence only until
-their own exact-revision native archive/upload run succeeds.
+and single-link count. Native archive/upload validation passed at
+[3fb0158](validation/native-3fb0158/README.md).
+
+The later `audit-enospc` gate tests a separate 1 MiB tmpfs, not the main ext4
+state disk. It requires real ENOSPC, byte-preserved valid history, core status
+and console events, resumed appends after freeing synthetic storage, and
+successful unmount. Host fixtures test gate control flow; native guest execution
+remains pending. Ext4-specific failure and power-loss guarantees remain open.

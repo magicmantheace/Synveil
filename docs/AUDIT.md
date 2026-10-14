@@ -169,4 +169,24 @@ events and status, report the incomplete-tail refusal, preserve both hashes,
 and leave the damaged file rejected by the inspector. Host fixtures execute
 the normalized shell and reject altered history, automatic tail repair,
 missing failure notices, failed helper exits and an inspector that accepts
-the incomplete tail. Native guest evidence for these additions remains pending.
+the incomplete tail. These expanded guest gates passed at
+[3fb0158](validation/native-3fb0158/README.md).
+
+## Isolated storage exhaustion (guest validation pending)
+
+The `audit-enospc` guest scenario mounts an exclusively created 1 MiB tmpfs
+under `/run`, seeds one valid page-aligned 4096-byte record and a private
+zero-length lock, and fills only this synthetic filesystem. Page alignment
+forces the next append to allocate a new page rather than consume spare bytes
+in an existing page. The bounded native core must retain status and console
+request/shutdown events, report ENOSPC, and preserve the seeded journal hash.
+The offline checker must still accept exactly one record. After removing only
+the synthetic filler, a fresh core must append successfully without sink
+warnings, produce a larger structurally valid journal and retain main-core
+status. Success also requires unmounting the temporary filesystem.
+
+Host fixtures check shell syntax, page alignment, echo/readiness rejection and
+control flow for false exhaustion, overwritten evidence, missing warnings,
+failed resumed logging and failed unmount. They do not exercise the native
+kernel/filesystem path. This bounded tmpfs scenario neither fills the main
+state disk nor establishes ext4 disk-full or power-loss durability.
