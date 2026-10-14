@@ -145,8 +145,12 @@ The RustCrypto `blake2` crate is now a direct pinned dependency, reusing the
 existing version 0.10.6 already locked for Argon2; no new package is introduced.
 Host regressions cover exact private copies, a published digest vector,
 well-formed tampering, busy-source refusal, unsafe/occupied outputs, invalid
-input preservation and actual CLI argument/error privacy. Native export/verify
-execution and target linkage validation remain pending.
+input preservation and actual CLI argument/error privacy. The native rollover
+gate now requires exporting its synthetic archive, verifying an exact private
+copy, refusing replacement, and detecting an edited copy that remains valid
+JSON/audit structure. Host shell fixtures refuse failed export, overwrite and
+acceptance of the edited digest. Native export/verify execution and target
+linkage validation remain pending.
 
 ## Bounded journal rollover
 

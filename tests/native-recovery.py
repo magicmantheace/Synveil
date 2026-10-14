@@ -101,6 +101,7 @@ if mode == 'pass':
     elif case == 'audit-rotation':
         assert 'SYNVEIL_AUDIT_PATH' in command and 'veil-core --once' in command
         assert 'veil-audit check --path' in command and 'sha256sum' in command
+        assert 'veil-audit export --path' in command and 'veil-audit verify --path' in command
         assert '4194304' in command and 'records' in command
         assert max(map(len, command.splitlines())) < 1024
     elif case == 'observe':
@@ -295,7 +296,8 @@ print(json.dumps({'records': len(data.splitlines()), 'schema': 'fixture'}, separ
         # Execute the normalized guest shell with stand-ins for target binaries.
         # This proves gate control flow, not native durability or QEMU behavior.
         for mode in ("pass", "capacity-corrupt", "tail-repair", "capacity-silent",
-                     "tail-silent", "accept-tail", "helper-failed"):
+                     "tail-silent", "accept-tail", "helper-failed", "export-failed",
+                     "verify-accepts-tamper", "export-overwrites"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 core = root / "core"
@@ -323,14 +325,29 @@ sys.exit(1 if mode == 'helper-failed' else 0)
 ''')
                 inspector = root / "inspector"
                 inspector.write_text('''#!/usr/bin/env python3
-import json, os, pathlib, sys
-data = pathlib.Path(sys.argv[-1]).read_bytes()
+import hashlib, json, os, pathlib, sys
+mode = os.environ['AUDIT_FIXTURE_MODE']
+arguments = sys.argv[2:]
+path = pathlib.Path(arguments[arguments.index('--path') + 1])
+data = path.read_bytes()
 if not data.endswith(b'\\n'):
-    sys.exit(0 if os.environ['AUDIT_FIXTURE_MODE'] == 'accept-tail' else 1)
+    sys.exit(0 if mode == 'accept-tail' else 1)
 try:
     for line in data.splitlines(): json.loads(line)
 except ValueError: sys.exit(1)
-print(json.dumps({'records': len(data.splitlines())}, separators=(',', ':')))
+report = {'records': len(data.splitlines())}
+if sys.argv[1] == 'export':
+    if mode == 'export-failed': sys.exit(1)
+    output = pathlib.Path(arguments[arguments.index('--output') + 1])
+    if output.exists() and mode != 'export-overwrites': sys.exit(1)
+    output.write_bytes(data)
+    output.chmod(0o600)
+    report['digest'] = hashlib.blake2b(data).hexdigest()
+elif sys.argv[1] == 'verify':
+    expected = arguments[arguments.index('--digest') + 1]
+    if hashlib.blake2b(data).hexdigest() != expected and mode != 'verify-accepts-tamper':
+        sys.exit(1)
+print(json.dumps(report, separators=(',', ':')))
 ''')
                 client = root / "client"
                 client.write_text("#!/bin/sh\nexit 0\n")
