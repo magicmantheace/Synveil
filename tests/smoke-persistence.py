@@ -90,10 +90,12 @@ def main() -> int:
          "sync && test -s /var/log/synveil/core-audit.jsonl && "
          "[ \"$(stat -c '%a:%u:%h' /var/log/synveil/core-audit.jsonl)\" = 600:0:1 ] && "
          "grep -Fq '\"schema\":\"synveil.audit/v1\"' /var/log/synveil/core-audit.jsonl && "
+         "/usr/sbin/veil-audit check && "
          "printf '\\n%s%s\\n' SYNVEIL_ PERSIST_WRITE_OK\n",
          logs / "qemu-persistence-write.log"),
         (b"SYNVEIL_PERSIST_READ_OK",
-         "if [ \"$(cat /var/lib/synveil/roundtrip)\" = synveil-persistence-v1 ]; then "
+         "if [ \"$(cat /var/lib/synveil/roundtrip)\" = synveil-persistence-v1 ] && "
+         "/usr/sbin/veil-audit check; then "
          "printf '\\n%s%s\\n' SYNVEIL_ PERSIST_READ_OK; fi\n",
          logs / "qemu-persistence-read.log"),
     )

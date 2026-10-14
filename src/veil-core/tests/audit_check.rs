@@ -74,7 +74,11 @@ fn damaged_journal_is_not_repaired_or_disclosed() {
     let output = fixture.invoke("journal");
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
-    assert!(!String::from_utf8(output.stderr).unwrap().contains("private"));
+    assert!(
+        !String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("private")
+    );
     assert_eq!(fs::read(&path).unwrap(), bytes);
     let missing = fixture.invoke("missing");
     assert!(!missing.status.success());
@@ -106,7 +110,11 @@ fn inspection_refuses_busy_writer_and_recovers_after_release() {
     let output = fixture.invoke("journal");
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
-    assert!(String::from_utf8(output.stderr).unwrap().contains("WouldBlock"));
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("WouldBlock")
+    );
     drop(held);
     assert!(fixture.invoke("journal").status.success());
 }
@@ -114,10 +122,12 @@ fn inspection_refuses_busy_writer_and_recovers_after_release() {
 #[test]
 fn fifo_is_refused_without_waiting_for_a_writer() {
     let fixture = Fixture::new();
-    assert!(Command::new("mkfifo")
-        .arg(fixture.0.join("fifo"))
-        .status()
-        .unwrap()
-        .success());
+    assert!(
+        Command::new("mkfifo")
+            .arg(fixture.0.join("fifo"))
+            .status()
+            .unwrap()
+            .success()
+    );
     assert!(!fixture.invoke("fifo").status.success());
 }

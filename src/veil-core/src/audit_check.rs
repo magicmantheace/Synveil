@@ -17,7 +17,10 @@ unsafe extern "C" {
 }
 
 fn invalid() -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidData, "invalid audit journal structure")
+    io::Error::new(
+        io::ErrorKind::InvalidData,
+        "invalid audit journal structure",
+    )
 }
 
 /// Inspect a stable, bounded snapshot without printing event contents or
@@ -101,11 +104,7 @@ fn check_record(value: &Value) -> io::Result<()> {
         && (value["git_revision"].is_null() || bounded_text(&value["git_revision"]))
         && bounded_text(&value["event"])
         && value["fields"].is_object();
-    if valid {
-        Ok(())
-    } else {
-        Err(invalid())
-    }
+    if valid { Ok(()) } else { Err(invalid()) }
 }
 
 #[cfg(test)]
