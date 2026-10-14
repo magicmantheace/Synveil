@@ -172,7 +172,7 @@ missing failure notices, failed helper exits and an inspector that accepts
 the incomplete tail. These expanded guest gates passed at
 [3fb0158](validation/native-3fb0158/README.md).
 
-## Isolated storage exhaustion (guest validation pending)
+## Isolated storage exhaustion
 
 The `audit-enospc` guest scenario mounts an exclusively created 1 MiB tmpfs
 under `/run`, seeds one valid page-aligned 4096-byte record and a private
@@ -190,3 +190,14 @@ control flow for false exhaustion, overwritten evidence, missing warnings,
 failed resumed logging and failed unmount. They do not exercise the native
 kernel/filesystem path. This bounded tmpfs scenario neither fills the main
 state disk nor establishes ext4 disk-full or power-loss durability.
+The native tmpfs exhaustion/resumption gate passed at
+[ebc9f4e](validation/native-ebc9f4e/README.md).
+
+The extended gate then remounts the same synthetic filesystem read-only.
+Another bounded core must report EROFS, preserve the journal hash, and retain
+IPC and console request/shutdown events; offline inspection must still work.
+After an explicit read-write remount, a fresh core must append structurally
+valid records without sink warnings. Host fixtures reject mutation while
+read-only, missing warnings, failed remounts, and failed resumed writes.
+Native evidence for this read-only extension remains pending; it does not
+simulate an ext4 error-triggered remount or establish power-loss durability.

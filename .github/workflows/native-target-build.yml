@@ -215,7 +215,7 @@ jobs:
           SYNVEIL_QEMU_STATE_DISK="$PWD/out/synveil-state.ext4" \
             bash build.sh recovery-smoke --case audit-rotation --timeout 60
 
-      - name: Keep native audit available after isolated storage exhaustion
+      - name: Recover native audit after isolated exhaustion and read-only storage
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: bash build.sh recovery-smoke --case audit-enospc --timeout 60
 

@@ -433,5 +433,9 @@ and single-link count. Native archive/upload validation passed at
 The later `audit-enospc` gate tests a separate 1 MiB tmpfs, not the main ext4
 state disk. It requires real ENOSPC, byte-preserved valid history, core status
 and console events, resumed appends after freeing synthetic storage, and
-successful unmount. Host fixtures test gate control flow; native guest execution
-remains pending. Ext4-specific failure and power-loss guarantees remain open.
+successful unmount. Native guest execution passed at
+[ebc9f4e](validation/native-ebc9f4e/README.md). The subsequent read-only/read-write
+remount extension requires byte preservation and healthy console/IPC under
+EROFS, followed by valid resumed appends. Host fixtures cover control flow;
+native evidence for that extension remains pending. Ext4-specific failure and
+power-loss guarantees remain open.
