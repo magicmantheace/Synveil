@@ -138,8 +138,9 @@ exists. If directory synchronization or identity checking fails after
 publication, a complete copy may remain and no success receipt is returned.
 The tool never deletes that name because it may have been replaced.
 Host regressions exercise directory substitution, competing files/symlinks and
-unpublished partial-copy disposal. This later implementation requires fresh
-host/native validation.
+unpublished partial-copy disposal. Host run 38665047365 passed formatting,
+clippy and all 107 Rust tests at 594c1cb. Native validation of this later
+implementation remains pending.
 
 The isolated exhaustion/read-only guest gate now also attempts snapshot
 exports into a separate private directory on its synthetic filesystem. It
@@ -261,5 +262,6 @@ valid records without sink warnings. Host fixtures reject mutation while
 read-only, missing warnings, failed remounts, and failed resumed writes.
 The read-only extension passed in the
 [partial ffd0b0a run](validation/native-ffd0b0a/README.md), whose unrelated
-graphical settings gate failed. It does not
+graphical settings gate failed. The complete native run, including settings,
+subsequently passed at [612bd80](validation/native-612bd80/README.md). It does not
 simulate an ext4 error-triggered remount or establish power-loss durability.

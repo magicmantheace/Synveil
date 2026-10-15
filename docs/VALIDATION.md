@@ -473,6 +473,6 @@ successful unmount. Native guest execution passed at
 remount extension requires byte preservation and healthy console/IPC under
 EROFS, followed by valid resumed appends. Host fixtures cover control flow;
 the isolated extension passed in the partial
-[ffd0b0a run](validation/native-ffd0b0a/README.md); full settings revalidation
-remains pending. Ext4-specific failure and
+[ffd0b0a run](validation/native-ffd0b0a/README.md). Full settings revalidation
+passed at [612bd80](validation/native-612bd80/README.md). Ext4-specific failure and
 power-loss guarantees remain open.
