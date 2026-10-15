@@ -535,3 +535,18 @@ machine property before spending time building the toolchain/image. Both failed
 graphical scenarios and all existing guest gates must pass before claiming the
 failures resolved. Physical multiple-keyboard handling is outside this QEMU
 hardware target.
+
+## Observable QMP VT-switch chord
+
+The later QMP helper sends fixed Ctrl+Alt+F2 key-down events together, holds
+them for the same bounded interval as a single key, then sends reverse-order
+release events in a separate command. The previous combined down/up command
+could expose only an unpressed USB report to a guest poll. Key release is
+attempted in a finally block even if acknowledgement or holding fails. Existing
+key allowlists and the single fixed VT target remain unchanged.
+
+Host regressions observe the full held chord during a simulated USB poll,
+require release after interrupted holds and uncertain key-down delivery, and
+validate both QMP commands over a mock socket. Native VT-switch and graphical
+session-revocation gates require exact-revision execution after integration;
+this change alone does not establish native graphical recovery.

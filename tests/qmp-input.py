@@ -36,6 +36,51 @@ class QMPTests(unittest.TestCase):
         self.assertEqual(observed, ["right"])
         self.assertFalse(state["down"])
 
+    def test_chord_is_observable_and_releases_after_interrupted_hold(self):
+        for interrupted in (False, True):
+            with self.subTest(interrupted=interrupted):
+                held = set()
+                observed = []
+
+                def acknowledge(sock, reader, command):
+                    for event in command["arguments"]["events"]:
+                        data = event["data"]
+                        key = data["key"]["data"]
+                        if data["down"]:
+                            held.add(key)
+                        else:
+                            held.discard(key)
+
+                def guest_poll(delay):
+                    if delay >= 0.008:
+                        observed.append(set(held))
+                    if interrupted:
+                        raise RuntimeError("interrupted hold")
+
+                with patch.object(qmp_input, "emit_command", side_effect=acknowledge), \
+                     patch.object(qmp_input.time, "sleep", side_effect=guest_poll):
+                    if interrupted:
+                        with self.assertRaisesRegex(RuntimeError, "interrupted hold"):
+                            qmp_input._hold_keys(None, None, ("ctrl", "alt", "f2"))
+                    else:
+                        qmp_input._hold_keys(None, None, ("ctrl", "alt", "f2"))
+                self.assertEqual(observed, [{"ctrl", "alt", "f2"}])
+                self.assertFalse(held)
+
+    def test_failed_key_down_acknowledgement_still_attempts_release(self):
+        commands = []
+
+        def acknowledge(sock, reader, command):
+            commands.append(command)
+            if command["arguments"]["events"][0]["data"]["down"]:
+                raise QMPError("unknown delivery")
+
+        with patch.object(qmp_input, "emit_command", side_effect=acknowledge):
+            with self.assertRaisesRegex(QMPError, "unknown delivery"):
+                press(None, None, "ret")
+        self.assertEqual(len(commands), 2)
+        self.assertFalse(commands[-1]["arguments"]["events"][0]["data"]["down"])
+
     def serve(self, listener, commands, bad=False):
         connection, _ = listener.accept()
         with connection, connection.makefile("rb") as reader:
@@ -170,9 +215,12 @@ class QMPTests(unittest.TestCase):
                 worker.join(timeout=3)
                 self.assertFalse(worker.is_alive())
             self.assertEqual(commands[0]["execute"], "qmp_capabilities")
-            self.assertEqual(len(commands), 2)
+            self.assertEqual(len(commands), 3)
             self.assertEqual(commands[1]["execute"], "input-send-event")
-            events = commands[1]["arguments"]["events"]
+            self.assertEqual(commands[2]["execute"], "input-send-event")
+            self.assertTrue(all(event["data"]["down"] for event in commands[1]["arguments"]["events"]))
+            self.assertTrue(all(not event["data"]["down"] for event in commands[2]["arguments"]["events"]))
+            events = commands[1]["arguments"]["events"] + commands[2]["arguments"]["events"]
             self.assertEqual(
                 [(event["data"]["key"]["data"], event["data"]["down"])
                  for event in events],
