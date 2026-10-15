@@ -74,6 +74,7 @@ jobs:
           python3 tests/seat-supervisor.py
           python3 tests/native-smoke.py
           python3 tests/native-recovery.py
+          python3 tests/audit-crash-smoke.py
           python3 tests/recovery-status.py
           python3 tests/qemu-lock.py
           python3 tests/native-protocol-probe.py
@@ -222,6 +223,10 @@ jobs:
       - name: Recover audit appends and export after disposable ext4 exhaustion
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: bash build.sh recovery-smoke --case audit-ext4 --timeout 90
+
+      - name: Preserve acknowledged audit and snapshot after abrupt emulator stop
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: bash build.sh audit-crash-smoke --timeout 60
 
       - name: One-time root-owned credential enrollment in QEMU state
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}

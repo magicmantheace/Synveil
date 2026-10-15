@@ -442,7 +442,8 @@ scenario requires a newly created host-side image, mounted ext4 identity,
 actual ENOSPC warnings, unchanged seeded history, healthy main-core IPC while
 full, failed export without partial output, and successful appends/export after
 space recovery. Host control-flow fixtures are not native ext4 evidence;
-exact-revision guest execution remains pending.
+exact-revision guest execution passed in the complete
+[fcba067 run](validation/native-fcba067/README.md).
 
 ## Downloadable authenticated preview gate
 
@@ -484,3 +485,16 @@ the isolated extension passed in the partial
 [ffd0b0a run](validation/native-ffd0b0a/README.md). Full settings revalidation
 passed at [612bd80](validation/native-612bd80/README.md). Ext4-specific failure and
 power-loss guarantees remain open.
+
+## Abrupt emulator stop after acknowledged audit writes
+
+The `audit-crash-smoke` gate requires a private newly generated ext4 image,
+first-boot native append/export/verification without a global guest sync,
+host-retained digest evidence, verified emulator-child SIGKILL and wrapper
+reaping, then independent reboot and exact-byte verification of both files.
+Missing/ambiguous identity, failed signal, unexpected wrapper status, digest
+echo or duplicate evidence, and failed reboot verification must fail closed.
+Host fixtures do not establish native filesystem durability. Native evidence
+for this later gate remains pending. Even a passing guest run validates only
+acknowledged writes under emulator-process loss, not interrupted writes,
+rotation crash windows, drive-cache loss or physical power failure.

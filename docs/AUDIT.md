@@ -268,7 +268,7 @@ graphical settings gate failed. The complete native run, including settings,
 subsequently passed at [612bd80](validation/native-612bd80/README.md). It does not
 simulate an ext4 error-triggered remount or establish power-loss durability.
 
-## Disposable ext4 exhaustion gate (native validation pending)
+## Disposable ext4 exhaustion gate
 
 The `audit-ext4` scenario always creates a fresh 64 MiB host-side ext4 image
 and overrides any caller-supplied state path for its own QEMU process. It
@@ -288,8 +288,40 @@ on guest failure or timeout. The caller's state image is never passed to this
 scenario. Host fixtures reject missing state readiness, wrong mount identity,
 false exhaustion, changed history, incorrect export errors, partial copies,
 failed recovery and loss of main-core IPC. The guest shell is syntax checked.
-These are harness checks; exact-revision native ext4 execution remains pending.
+These harness checks and the native ext4 gate passed in the complete
+[fcba067 run](validation/native-fcba067/README.md).
 
 This test targets clean ext4 ENOSPC and resumed writes. It does not simulate
 power loss, journal corruption, device I/O failure or an error-triggered
 read-only remount, and does not establish an installed-system disk-full policy.
+
+## Acknowledged writes after abrupt emulator stop (native validation pending)
+
+`bash build.sh audit-crash-smoke` creates a new private 64 MiB ext4 state image
+for two QEMU boots, ignoring caller-supplied state images. A bounded helper
+core writes an isolated journal, completes a status request and shuts down.
+The first boot refuses sink errors, structurally checks the nonempty journal,
+exports a synchronized snapshot, and verifies both files against the export
+digest. Its digest and acknowledgement are retained in the host serial log.
+The guest test does not run a global `sync` or clean shutdown before the cut.
+
+The host identifies the wrapper's single emulator child using parent identity,
+process group and executable name, opens a Linux pidfd, sends SIGKILL to that
+exact process, and requires the wrapper to reap it with status 137. A missing
+or ambiguous child, unsupported process inspection/pidfd, failed signal or
+unexpected exit status fails the test. Normal cleanup remains available after
+any failure. The second boot uses the exact same disk and the single strictly
+parsed host-retained digest to verify both original journal and exported copy,
+then requires healthy main-core IPC. The disposable image is removed only
+after both wrappers have been waited on.
+
+Host control-flow fixtures reject missing state readiness, command echo,
+missing/malformed/duplicate digest evidence, failed second-boot verification,
+wrong emulator identity and unexpected exit status. Real signal/process identity
+fixtures run on CI; local process proxies cannot provide that evidence.
+Exact-revision native execution of this gate remains pending.
+
+This tests already acknowledged writes after an emulator process crash. It
+never interrupts an in-flight append or rotation and does not model a host
+power failure, volatile drive cache loss, arbitrary block loss or physical
+hardware durability. Those scenarios and authenticated integrity remain open.

@@ -27,6 +27,7 @@ Usage:
   bash build.sh guest-fixture --case absent|protocol|graphical-login|graphical-locked|graphical-onboard|recovery-status
   bash build.sh state-disk [--path PATH] [--size-mib N]
   bash build.sh persistence-smoke [--timeout SECONDS]
+  bash build.sh audit-crash-smoke [--timeout SECONDS]
   bash build.sh ui-preferences-smoke [--timeout SECONDS]
   bash build.sh vm-bundle [--dest PATH] [--size-mib N]
   bash build.sh auth-vm-bundle [--fixture PATH] [--dest PATH] [--size-mib N]
@@ -38,7 +39,7 @@ EOF
 
 command="${1:-help}"
 case "$command" in
-    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|recovery-smoke|guest-fixture|state-disk|persistence-smoke|ui-preferences-smoke|vm-bundle|auth-vm-bundle|clean|distclean)
+    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|recovery-smoke|guest-fixture|state-disk|persistence-smoke|audit-crash-smoke|ui-preferences-smoke|vm-bundle|auth-vm-bundle|clean|distclean)
         exec 9>"$ROOT_DIR/.synveil-build.lock"
         flock -n 9 || {
             printf '[synveil] another build command owns this checkout; wait for it to finish\n' >&2
@@ -113,6 +114,9 @@ case "$command" in
         ;;
     persistence-smoke)
         python3 "$ROOT_DIR/tests/smoke-persistence.py" "${@:2}"
+        ;;
+    audit-crash-smoke)
+        python3 "$ROOT_DIR/tests/smoke-audit-crash.py" "${@:2}"
         ;;
     ui-preferences-smoke)
         python3 "$ROOT_DIR/tests/smoke-ui-preferences.py" "${@:2}"

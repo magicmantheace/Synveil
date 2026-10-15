@@ -41,6 +41,7 @@ python3 tests/validate-source-lock.py
 bash tests/source-extraction.sh
 python3 tests/build-lock.py
 python3 tests/state-disk.py
+python3 tests/audit-crash-smoke.py
 python3 tests/vm-bundle.py
 python3 tests/auth-vm-bundle.py
 python3 tests/network-config.py

@@ -12,6 +12,7 @@ on:
       - development/audit-export
       - development/audit-export-dirfd
       - development/audit-ext4-exhaustion
+      - development/audit-abrupt-reboot
       - development/archive-stream-integrity
     paths:
       - Cargo.toml
@@ -35,6 +36,9 @@ on:
       - tests/seat-supervisor.py
       - tests/native-smoke.py
       - tests/native-recovery.py
+      - tests/smoke-persistence.py
+      - tests/smoke-audit-crash.py
+      - tests/audit-crash-smoke.py
       - tests/system-generation.py
       - tools/system_generation.py
       - tests/native-protocol-probe.py
@@ -86,6 +90,7 @@ jobs:
           python3 tests/seat-supervisor.py
           python3 tests/native-smoke.py
           python3 tests/native-recovery.py
+          python3 tests/audit-crash-smoke.py
           python3 tests/system-generation.py
           python3 tests/recovery-status.py
           python3 tests/qemu-lock.py
