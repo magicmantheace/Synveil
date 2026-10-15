@@ -116,15 +116,40 @@ include key names; the CLI emits only the failure category. Regression tests
 cover repeated envelope keys, Unicode-escaped aliases, nested objects inside
 arrays, and the preservation of ambiguous input files.
 
-## Owner-controlled snapshot export (native validation pending)
+## Owner-controlled snapshot export
 
 `veil-audit export --path JOURNAL --output /absolute/private-dir/SNAPSHOT`
 validates and copies at most 4 MiB while holding the inspector's shared journal
 and stable-directory locks. The destination must be a new mode-0600 file in
 a separate mode-0700 directory owned by the effective caller. Existing files,
 final symlinks, unsafe output directories and the source journal directory
-are refused. Successful output and its parent are synchronized. Failed copies
-remove only a destination still matching the created inode.
+are refused. Basic export, digest verification, replacement refusal and
+well-formed edit detection passed at
+[612bd80](validation/native-612bd80/README.md).
+
+A later hardening change creates an unnamed Linux `O_TMPFILE` inode relative
+to the opened private destination directory. The copy is written, synchronized
+and read back before `linkat` atomically publishes its destination name without
+replacement. Closing an unpublished inode discards it without pathname-based
+cleanup; another process's replacement entry cannot be deleted. Publication
+uses `/proc/self/fd` so it requires no additional capability. Filesystems lacking
+`O_TMPFILE` support or unavailable procfs fail closed; no named-copy fallback
+exists. If directory synchronization or identity checking fails after
+publication, a complete copy may remain and no success receipt is returned.
+The tool never deletes that name because it may have been replaced.
+Host regressions exercise directory substitution, competing files/symlinks and
+unpublished partial-copy disposal. Host run 38665047365 passed formatting,
+clippy and all 107 Rust tests at 594c1cb. Native validation of this later
+implementation remains pending.
+
+The isolated exhaustion/read-only guest gate now also attempts snapshot
+exports into a separate private directory on its synthetic filesystem. It
+requires the specific storage-full/read-only failure category, no remaining
+partial copy and an unchanged source hash. After recovering write access,
+export and verification must succeed and copy/source hashes must match.
+Host fixtures reject false success, leftover partial files, wrong failure
+categories, failed recovered export and altered copy bytes. Native evidence
+for these export-failure gates remains pending.
 
 The compact `synveil.audit-export/v1` stdout receipt includes the exact byte
 count, record count, BLAKE2b-512 digest and `authenticated: false`; it contains
@@ -237,5 +262,6 @@ valid records without sink warnings. Host fixtures reject mutation while
 read-only, missing warnings, failed remounts, and failed resumed writes.
 The read-only extension passed in the
 [partial ffd0b0a run](validation/native-ffd0b0a/README.md), whose unrelated
-graphical settings gate failed. It does not
+graphical settings gate failed. The complete native run, including settings,
+subsequently passed at [612bd80](validation/native-612bd80/README.md). It does not
 simulate an ext4 error-triggered remount or establish power-loss durability.

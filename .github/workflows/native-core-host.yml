@@ -10,6 +10,7 @@ on:
       - development/audit-enospc
       - development/audit-lock-fixture
       - development/audit-export
+      - development/audit-export-dirfd
       - development/archive-stream-integrity
     paths:
       - Cargo.toml

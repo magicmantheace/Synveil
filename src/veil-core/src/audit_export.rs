@@ -2,15 +2,61 @@
 //! Owner-controlled offline copies. Checksums do not authenticate event origin.
 use blake2::{Blake2b512, Digest};
 use serde_json::{Value, json};
+use std::ffi::{CString, c_char};
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::Path;
 
 const NOFOLLOW_NONBLOCK: i32 = 0o400000 | 0o4000;
 
 unsafe extern "C" {
     fn geteuid() -> u32;
+    fn openat(directory: i32, name: *const c_char, flags: i32, ...) -> i32;
+    fn linkat(
+        source_directory: i32,
+        source: *const c_char,
+        directory: i32,
+        name: *const c_char,
+        flags: i32,
+    ) -> i32;
+}
+
+fn output_name(output: &Path) -> io::Result<CString> {
+    let name = output.file_name().ok_or_else(unsafe_output)?;
+    CString::new(name.as_bytes()).map_err(|_| unsafe_output())
+}
+
+fn create_output(directory: &fs::File) -> io::Result<fs::File> {
+    // Linux O_RDWR | O_TMPFILE | O_CLOEXEC. No pathname exists before publication.
+    let flags = 2 | 0o20200000 | 0o2000000;
+    let fd = unsafe { openat(directory.as_raw_fd(), c".".as_ptr(), flags, 0o600_u32) };
+    if fd < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    // Ownership of this newly allocated descriptor transfers to File once.
+    Ok(unsafe { fs::File::from_raw_fd(fd) })
+}
+
+fn publish_output(file: &fs::File, directory: &fs::File, name: &CString) -> io::Result<()> {
+    // The procfs descriptor link permits unprivileged publication of O_TMPFILE.
+    // linkat creates the destination atomically and refuses every existing entry.
+    let source = CString::new(format!("/proc/self/fd/{}", file.as_raw_fd())).unwrap();
+    if unsafe {
+        linkat(
+            -100,
+            source.as_ptr(),
+            directory.as_raw_fd(),
+            name.as_ptr(),
+            0x400,
+        )
+    } < 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
 }
 
 fn checksum(bytes: &[u8]) -> String {
@@ -50,54 +96,49 @@ pub fn export(source: &Path, output: &Path) -> io::Result<Value> {
         {
             return Err(unsafe_output());
         }
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .custom_flags(NOFOLLOW_NONBLOCK)
-            .open(output)?;
+        let name = output_name(output)?;
+        let mut file = create_output(&directory)?;
         let created = file.metadata()?;
-        let saved = (|| {
-            if !created.is_file()
-                || created.uid() != meta.uid()
-                || created.nlink() != 1
-                || created.mode() & 0o777 != 0o600
-            {
-                return Err(unsafe_output());
-            }
-            file.write_all(bytes)?;
-            file.sync_all()?;
-            file.seek(SeekFrom::Start(0))?;
-            let mut copied = Vec::new();
-            (&file)
-                .take(bytes.len() as u64 + 1)
-                .read_to_end(&mut copied)?;
-            if copied.as_slice() != bytes {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "copy mismatch"));
-            }
-            directory.sync_all()?;
-            let now = fs::symlink_metadata(output)?;
-            let parent_now = fs::symlink_metadata(parent)?;
-            if (now.dev(), now.ino()) != (created.dev(), created.ino())
-                || (parent_now.dev(), parent_now.ino()) != (meta.dev(), meta.ino())
-                || now.nlink() != 1
-                || now.mode() & 0o777 != 0o600
-                || now.len() != bytes.len() as u64
-                || parent_now.mode() & 0o777 != 0o700
-            {
-                return Err(unsafe_output());
-            }
-            Ok(receipt(bytes, &inspected, "synveil.audit-export/v1"))
-        })();
-        if saved.is_err()
-            && fs::symlink_metadata(output)
-                .is_ok_and(|now| (now.dev(), now.ino()) == (created.dev(), created.ino()))
+        if !created.is_file()
+            || created.uid() != meta.uid()
+            || created.nlink() != 0
+            || created.mode() & 0o777 != 0o600
         {
-            // Never remove a replacement object after a failed copy.
-            let _ = fs::remove_file(output);
+            return Err(unsafe_output());
         }
-        saved
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        file.seek(SeekFrom::Start(0))?;
+        let mut copied = Vec::new();
+        (&file)
+            .take(bytes.len() as u64 + 1)
+            .read_to_end(&mut copied)?;
+        if copied.as_slice() != bytes {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "copy mismatch"));
+        }
+        // Validate the parent before publication as well as afterward.
+        let parent_before = fs::symlink_metadata(parent)?;
+        if (parent_before.dev(), parent_before.ino()) != (meta.dev(), meta.ino())
+            || parent_before.mode() & 0o777 != 0o700
+        {
+            return Err(unsafe_output());
+        }
+        publish_output(&file, &directory, &name)?;
+        directory.sync_all()?;
+        let now = fs::symlink_metadata(output)?;
+        let parent_now = fs::symlink_metadata(parent)?;
+        if (now.dev(), now.ino()) != (created.dev(), created.ino())
+            || (parent_now.dev(), parent_now.ino()) != (meta.dev(), meta.ino())
+            || now.nlink() != 1
+            || now.mode() & 0o777 != 0o600
+            || now.len() != bytes.len() as u64
+            || parent_now.mode() & 0o777 != 0o700
+        {
+            return Err(unsafe_output());
+        }
+        // After publication, an error may leave the complete copy. Never unlink
+        // by pathname: another process could have replaced that entry.
+        Ok(receipt(bytes, &inspected, "synveil.audit-export/v1"))
     })
 }
 
@@ -260,6 +301,78 @@ mod tests {
         assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
         drop(held);
         export(&source, &output).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn publication_stays_in_open_directory_after_path_substitution() {
+        let (root, _source, output) = fixture();
+        let parent = output.parent().unwrap();
+        let directory = fs::File::open(parent).unwrap();
+        let moved = root.join("moved");
+        let unrelated = root.join("unrelated");
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&unrelated)
+            .unwrap();
+        let mut copy = create_output(&directory).unwrap();
+        copy.write_all(b"private snapshot").unwrap();
+        assert!(!output.exists());
+        assert_eq!(copy.metadata().unwrap().nlink(), 0);
+        fs::rename(parent, &moved).unwrap();
+        std::os::unix::fs::symlink(&unrelated, parent).unwrap();
+        publish_output(&copy, &directory, &output_name(&output).unwrap()).unwrap();
+        assert_eq!(
+            fs::read(moved.join("snapshot")).unwrap(),
+            b"private snapshot"
+        );
+        assert!(!unrelated.join("snapshot").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn failed_publication_and_drop_preserve_replacement_and_symlink() {
+        let (root, _source, output) = fixture();
+        let directory = fs::File::open(output.parent().unwrap()).unwrap();
+        let name = output_name(&output).unwrap();
+        let mut copy = create_output(&directory).unwrap();
+        copy.write_all(b"partial").unwrap();
+        fs::write(&output, b"replacement").unwrap();
+        assert_eq!(
+            publish_output(&copy, &directory, &name).unwrap_err().kind(),
+            io::ErrorKind::AlreadyExists
+        );
+        drop(copy);
+        assert_eq!(fs::read(&output).unwrap(), b"replacement");
+        fs::remove_file(&output).unwrap();
+        let target = root.join("target");
+        fs::write(&target, b"unrelated").unwrap();
+        std::os::unix::fs::symlink(&target, &output).unwrap();
+        let copy = create_output(&directory).unwrap();
+        assert_eq!(
+            publish_output(&copy, &directory, &name).unwrap_err().kind(),
+            io::ErrorKind::AlreadyExists
+        );
+        drop(copy);
+        assert!(
+            fs::symlink_metadata(&output)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(fs::read(target).unwrap(), b"unrelated");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn dropping_failed_copy_creates_no_directory_entry() {
+        let (root, _source, output) = fixture();
+        let directory = fs::File::open(output.parent().unwrap()).unwrap();
+        let mut copy = create_output(&directory).unwrap();
+        copy.write_all(b"partial").unwrap();
+        drop(copy);
+        assert!(!output.exists());
+        assert_eq!(fs::read_dir(output.parent().unwrap()).unwrap().count(), 0);
         fs::remove_dir_all(root).unwrap();
     }
 }

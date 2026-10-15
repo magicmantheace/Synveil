@@ -96,6 +96,8 @@ if mode == 'pass':
         assert 'No space left on device' in command and 'audit_probe resumed' in command
         assert 'remount,ro' in command and 'remount,rw' in command
         assert 'Read-only file system' in command and 'audit_probe writable' in command
+        assert 'StorageFull' in command and 'ReadOnlyFilesystem' in command
+        assert 'export-recovered.json' in command and 'veil-audit verify' in command
         assert 'umount' in command and 'sha256sum' in command
         assert max(map(len, command.splitlines())) < 1024
     elif case == 'audit-rotation':
@@ -215,7 +217,10 @@ elif mode == 'timeout':
         spec.loader.exec_module(module)
         for mode in ("pass", "no-exhaustion", "full-write", "no-warning",
                      "resume-failed", "unmount-failed", "ro-write", "ro-silent",
-                     "rw-failed", "ro-remount-failed", "rw-remount-failed"):
+                     "rw-failed", "ro-remount-failed", "rw-remount-failed",
+                     "full-export-succeeds", "full-export-partial", "wrong-full-error",
+                     "readonly-export-succeeds", "readonly-export-partial",
+                     "recovered-export-fails", "recovered-copy-differs"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 scripts = {
@@ -261,12 +266,38 @@ for event in ('request', 'shutdown'):
     print(json.dumps({'event': event}, separators=(',', ':')))
 ''',
                     "inspector": '''#!/usr/bin/env python3
-import json, pathlib, sys
-data = pathlib.Path(sys.argv[-1]).read_bytes()
+import hashlib, json, os, pathlib, sys
+mode = os.environ['ENOSPC_MODE']
+arguments = sys.argv[2:]
+path = pathlib.Path(arguments[arguments.index('--path') + 1])
+data = path.read_bytes()
 try:
     for line in data.splitlines(): json.loads(line)
 except ValueError: sys.exit(1)
-print(json.dumps({'records': len(data.splitlines()), 'schema': 'fixture'}, separators=(',', ':')))
+report = {'records': len(data.splitlines()), 'schema': 'fixture'}
+if sys.argv[1] == 'export':
+    output = pathlib.Path(arguments[arguments.index('--output') + 1])
+    full = path.with_name('filler').exists()
+    readonly = (path.parent.parent / 'readonly').exists()
+    if full or readonly:
+        prefix = 'full' if full else 'readonly'
+        if mode == prefix + '-export-succeeds':
+            output.write_bytes(data)
+            sys.exit(0)
+        if mode == prefix + '-export-partial': output.write_bytes(b'partial')
+        kind = 'StorageFull' if full else 'ReadOnlyFilesystem'
+        if mode == 'wrong-full-error' and full: kind = 'PermissionDenied'
+        print('operation refused (' + kind + ')', file=sys.stderr)
+        sys.exit(1)
+    if mode == 'recovered-export-fails': sys.exit(1)
+    if mode == 'recovered-copy-differs': data = data.replace(b'fixture', b'changed')
+    output.write_bytes(data)
+    output.chmod(0o600)
+    report['digest'] = hashlib.blake2b(data).hexdigest()
+elif sys.argv[1] == 'verify':
+    if hashlib.blake2b(data).hexdigest() != arguments[arguments.index('--digest') + 1]:
+        sys.exit(1)
+print(json.dumps(report, separators=(',', ':')))
 ''',
                 }
                 for name, content in scripts.items():
