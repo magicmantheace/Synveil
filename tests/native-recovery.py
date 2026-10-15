@@ -20,6 +20,7 @@ class RecoveryTests(unittest.TestCase):
             (root / "tests").mkdir()
             (root / "build/scripts").mkdir(parents=True)
             (root / "tools").mkdir()
+            shutil.copyfile(ROOT / "tools/audit_fixture.py", root / "tools/audit_fixture.py")
             (root / "tools/qmp_input.py").write_text(
                 "class QMPError(RuntimeError): pass\n"
                 "def open_demo_terminal(path, *, timeout): return None\n"

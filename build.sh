@@ -27,7 +27,7 @@ Usage:
   bash build.sh guest-fixture --case absent|protocol|graphical-login|graphical-locked|graphical-onboard|recovery-status
   bash build.sh state-disk [--path PATH] [--size-mib N]
   bash build.sh persistence-smoke [--timeout SECONDS]
-  bash build.sh audit-crash-smoke [--timeout SECONDS]
+  bash build.sh audit-crash-smoke [--rollover] [--timeout SECONDS]
   bash build.sh ui-preferences-smoke [--timeout SECONDS]
   bash build.sh vm-bundle [--dest PATH] [--size-mib N]
   bash build.sh auth-vm-bundle [--fixture PATH] [--dest PATH] [--size-mib N]

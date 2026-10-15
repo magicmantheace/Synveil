@@ -13,11 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AuditCrashTests(unittest.TestCase):
-    def fixture(self, mode, *, real_cut=False):
+    def fixture(self, mode, *, real_cut=False, rollover=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "tests").mkdir()
             (root / "tools").mkdir()
+            shutil.copyfile(ROOT / "tools/audit_fixture.py", root / "tools/audit_fixture.py")
             (root / "build/scripts").mkdir(parents=True)
             for name in ("smoke-audit-crash.py", "smoke-persistence.py"):
                 shutil.copyfile(ROOT / "tests" / name, root / "tests" / name)
@@ -46,6 +47,7 @@ exit "$status"
 ''')
             (root / "build/scripts/console.py").write_text('''import os, pathlib, sys, time
 mode = os.environ['CRASH_MODE']
+rollover = os.environ['CRASH_ROLLOVER'] == '1'
 disk = pathlib.Path(os.environ['SYNVEIL_QEMU_STATE_DISK'])
 assert 'synveil-audit-crash-' in str(disk)
 round_path = disk.with_suffix('.round')
@@ -69,6 +71,14 @@ if first:
     assert 'veil-core --once' in command and 'wait "$helper"' in command
     assert 'persistent write failed' in command and 'veil-audit export' in command
     assert 'sync &&' not in command
+    if rollover:
+        assert '4194304' in command and '"records":512,' in command
+        assert 'sha256sum "$journal.1"' in command and 'copies/archive' in command
+        if mode != 'no-archive-digest':
+            digest = 'bad' if mode == 'bad-archive-digest' else 'b' * 128
+            print('SYNVEIL_AUDIT_CRASH_ARCHIVE_DIGEST=' + digest, flush=True)
+            if mode == 'duplicate-archive-digest':
+                print('SYNVEIL_AUDIT_CRASH_ARCHIVE_DIGEST=' + digest, flush=True)
     if mode != 'no-digest':
         digest = 'bad' if mode == 'bad-digest' else 'a' * 128
         print('SYNVEIL_AUDIT_CRASH_DIGEST=' + digest, flush=True)
@@ -80,15 +90,21 @@ else:
     assert command.count('--digest ' + 'a' * 128) == 2
     assert '/journal' in command and '/copies/snapshot' in command
     assert 'synctl --json status' in command
-    if mode == 'lost-data': sys.exit(1)
+    if rollover:
+        assert command.count('--digest ' + 'b' * 128) == 2
+        assert '/journal.1' in command and '/copies/archive' in command
+    if mode in ('lost-data', 'lost-archive'): sys.exit(1)
     print('SYNVEIL_AUDIT_CRASH_READ_OK', flush=True)
     time.sleep(30)
 ''')
+            arguments = ["python3", str(root / "tests/smoke-audit-crash.py"), "--timeout", "0.8"]
+            if rollover:
+                arguments.append("--rollover")
             run = subprocess.run(
-                ["python3", str(root / "tests/smoke-audit-crash.py"), "--timeout", "0.8"],
-                env={**os.environ, "CRASH_MODE": mode, "SYNVEIL_OUT_DIR": str(root / "out"),
+                arguments,
+                env={**os.environ, "CRASH_MODE": mode, "CRASH_ROLLOVER": str(int(rollover)), "SYNVEIL_OUT_DIR": str(root / "out"),
                      "SYNVEIL_QEMU_STATE_DISK": str(caller)},
-                capture_output=True, text=True, timeout=8,
+                capture_output=True, text=True, timeout=20,
             )
             logs = list((root / "out/logs").glob("*.log"))
             content = "\n".join(p.read_text() for p in logs)
@@ -101,15 +117,28 @@ else:
     @unittest.skipUnless(os.environ.get("GITHUB_ACTIONS") == "true",
                          "real process identity/signals run in CI; local executor proxies processes")
     def test_actual_emulator_child_is_killed_and_reaped_before_second_boot(self):
-        code, log, error = self.fixture("pass", real_cut=True)
-        self.assertEqual(code, 0, log + error)
-        self.assertIn('emulator SIGKILL and wrapper reap confirmed', log)
-        self.assertIn('SYNVEIL_AUDIT_CRASH_READ_OK', log)
+        for rollover in (False, True):
+            with self.subTest(rollover=rollover):
+                code, log, error = self.fixture("pass", real_cut=True, rollover=rollover)
+                self.assertEqual(code, 0, log + error)
+                self.assertIn('emulator SIGKILL and wrapper reap confirmed', log)
+                self.assertIn('SYNVEIL_AUDIT_CRASH_READ_OK', log)
 
     def test_retained_digest_and_private_disk_are_used_for_both_boots(self):
         code, log, error = self.fixture("pass")
         self.assertEqual(code, 0, log + error)
         self.assertIn('SYNVEIL_AUDIT_CRASH_READ_OK', log)
+
+    def test_rollover_requires_separate_archive_digest_and_four_verifications(self):
+        code, log, error = self.fixture("pass", rollover=True)
+        self.assertEqual(code, 0, log + error)
+        self.assertIn('SYNVEIL_AUDIT_CRASH_ARCHIVE_DIGEST=', log)
+        self.assertIn('SYNVEIL_AUDIT_CRASH_READ_OK', log)
+
+    def test_rollover_refuses_missing_ambiguous_or_lost_archive(self):
+        for mode in ("no-archive-digest", "bad-archive-digest", "duplicate-archive-digest", "lost-archive"):
+            with self.subTest(mode=mode):
+                self.assertNotEqual(self.fixture(mode, rollover=True)[0], 0)
 
     def test_missing_or_ambiguous_evidence_and_failed_second_boot_are_refused(self):
         for mode in ("no-state", "echo", "no-digest", "bad-digest", "duplicate-digest", "lost-data"):
@@ -123,6 +152,63 @@ else:
             with self.subTest(mode=mode):
                 self.assertNotEqual(self.fixture(mode, real_cut=True)[0], 0)
 
+    def test_rollover_shell_refuses_changed_history_and_failed_archive_export(self):
+        spec = importlib.util.spec_from_file_location("rollover_execution", ROOT / "tests/smoke-audit-crash.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for mode in ("pass", "archive-corrupt", "wrong-count", "archive-export-failed", "archive-copy-differs"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                scripts = {
+                    "core": '''#!/usr/bin/env python3
+import json, os, pathlib
+path = pathlib.Path(os.environ['SYNVEIL_AUDIT_PATH'])
+archive = path.with_name(path.name + '.1')
+path.rename(archive)
+original = archive.read_bytes()
+if os.environ['ROLLOVER_MODE'] == 'archive-corrupt': archive.write_bytes(b'changed')
+path.write_bytes(original.splitlines(keepends=True)[0])
+path.chmod(0o600)
+for event in ('request', 'shutdown'): print(json.dumps({'event': event}, separators=(',', ':')))
+''',
+                    "client": "#!/bin/sh\nexit 0\n",
+                    "inspector": '''#!/usr/bin/env python3
+import hashlib, json, os, pathlib, sys
+mode = os.environ['ROLLOVER_MODE']
+args = sys.argv[2:]
+path = pathlib.Path(args[args.index('--path') + 1])
+data = path.read_bytes()
+try:
+    for line in data.splitlines(): json.loads(line)
+except ValueError: sys.exit(1)
+report = {'records': len(data.splitlines()), 'bytes': len(data)}
+if sys.argv[1] == 'export':
+    if path.name.endswith('.1') and mode == 'archive-export-failed': sys.exit(1)
+    output = pathlib.Path(args[args.index('--output') + 1])
+    output.write_bytes(data if mode != 'archive-copy-differs' or output.name != 'archive' else b'changed')
+    output.chmod(0o600)
+    report['digest'] = hashlib.blake2b(data).hexdigest()
+elif sys.argv[1] == 'verify':
+    if hashlib.blake2b(data).hexdigest() != args[args.index('--digest') + 1]: sys.exit(1)
+if path.name.endswith('.1') and mode == 'wrong-count': report['records'] = 1
+print(json.dumps(report, separators=(',', ':')))
+''',
+                }
+                for name, content in scripts.items():
+                    (root / name).write_text(content)
+                    (root / name).chmod(0o700)
+                command = module.write_command(True).replace(
+                    "/run/synveil-audit-crash-test", str(root / "logs")
+                ).replace("/var/lib/synveil/audit-crash-test", str(root / "store")).replace(
+                    "/usr/sbin/veil-core", str(root / "core")
+                ).replace("/usr/sbin/veil-audit", str(root / "inspector")).replace(
+                    "/usr/bin/synctl", str(root / "client")
+                ).replace("600:0:1:4194304", f"600:{os.getuid()}:1:4194304").replace('; ', ';\n')
+                result = subprocess.run(['sh'], input=command, text=True, capture_output=True,
+                                        env={**os.environ, "ROLLOVER_MODE": mode}, timeout=15)
+                self.assertEqual('SYNVEIL_AUDIT_CRASH_WRITE_OK' in result.stdout,
+                                 mode == "pass", result.stderr)
+
     def test_digest_input_and_generated_shell_are_bounded(self):
         spec = importlib.util.spec_from_file_location("crash_smoke", ROOT / "tests/smoke-audit-crash.py")
         module = importlib.util.module_from_spec(spec)
@@ -130,7 +216,12 @@ else:
         for digest in ("", "x" * 128, "A" * 128, "a" * 127, "a; echo bad"):
             with self.assertRaises(ValueError):
                 module.read_command(digest)
-        for command in (module.WRITE.replace('; ', ';\n'), module.read_command('a' * 128)):
+            with self.assertRaises(ValueError):
+                module.read_command('a' * 128, digest)
+        for command in (module.write_command().replace('; ', ';\n'),
+                        module.write_command(True).replace('; ', ';\n'),
+                        module.read_command('a' * 128),
+                        module.read_command('a' * 128, 'b' * 128)):
             self.assertLess(max(map(len, command.splitlines())), 1024)
             result = subprocess.run(['sh', '-n'], input=command, text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)

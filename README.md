@@ -120,6 +120,8 @@ tmpfs read-only recovery and the settings reboot check passed together at
 and tmpfs export failure/recovery passed at
 [9f722d0](docs/validation/native-9f722d0/README.md). Disposable ext4 exhaustion and
 recovered audit/export passed at [fcba067](docs/validation/native-fcba067/README.md).
+Acknowledged audit and snapshot bytes survived abrupt emulator loss and reboot
+at [00476e5](docs/validation/native-00476e5/README.md).
 This remains an experimental VM, **not** a production desktop, signed release,
 owner-recovery system, or physical installer. The first hands-on test contract
 is in [ROADMAP.md](ROADMAP.md) and [docs/FIRST_INSTALL.md](docs/FIRST_INSTALL.md).

@@ -295,7 +295,7 @@ This test targets clean ext4 ENOSPC and resumed writes. It does not simulate
 power loss, journal corruption, device I/O failure or an error-triggered
 read-only remount, and does not establish an installed-system disk-full policy.
 
-## Acknowledged writes after abrupt emulator stop (native validation pending)
+## Acknowledged writes after abrupt emulator stop
 
 `bash build.sh audit-crash-smoke` creates a new private 64 MiB ext4 state image
 for two QEMU boots, ignoring caller-supplied state images. A bounded helper
@@ -319,9 +319,23 @@ Host control-flow fixtures reject missing state readiness, command echo,
 missing/malformed/duplicate digest evidence, failed second-boot verification,
 wrong emulator identity and unexpected exit status. Real signal/process identity
 fixtures run on CI; local process proxies cannot provide that evidence.
-Exact-revision native execution of this gate remains pending.
+This basic gate passed in the complete
+[00476e5 run](validation/native-00476e5/README.md).
 
 This tests already acknowledged writes after an emulator process crash. It
 never interrupts an in-flight append or rotation and does not model a host
 power failure, volatile drive cache loss, arbitrary block loss or physical
 hardware durability. Those scenarios and authenticated integrity remain open.
+
+The later `--rollover` extension seeds exactly 4 MiB of valid synthetic audit
+records, then lets the native helper complete rotation and append to the new
+active file. Before acknowledging, the gate requires the archived seed hash,
+private single-link metadata, 512 archived records, and verified exports of
+both active and archived files. It retains distinct active/archive digests in
+the host log. After SIGKILL and independent reboot, both originals and both
+snapshots must match their respective host-retained digests. Missing or duplicate
+archive digest evidence, archive corruption, wrong counts, failed archive
+export and changed copy bytes are rejected by host fixtures, including execution
+of the generated shell. Native validation remains pending. This tests completed
+rollover; it does not cut power between rename, directory sync and creation of
+the next active file.

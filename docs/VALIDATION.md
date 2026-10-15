@@ -494,7 +494,17 @@ host-retained digest evidence, verified emulator-child SIGKILL and wrapper
 reaping, then independent reboot and exact-byte verification of both files.
 Missing/ambiguous identity, failed signal, unexpected wrapper status, digest
 echo or duplicate evidence, and failed reboot verification must fail closed.
-Host fixtures do not establish native filesystem durability. Native evidence
-for this later gate remains pending. Even a passing guest run validates only
+Host fixtures do not establish native filesystem durability. This basic gate
+passed in the full [00476e5 run](validation/native-00476e5/README.md).
+That guest run validates only
 acknowledged writes under emulator-process loss, not interrupted writes,
 rotation crash windows, drive-cache loss or physical power failure.
+
+The later `audit-crash-smoke --rollover` gate adds a fully acknowledged rollover
+of a 4 MiB synthetic journal. It must verify seed preservation, archive metadata
+and count before cutting the emulator, retain separate active/archive digests
+on the host, and verify both originals and both exported snapshots after reboot.
+Host fixtures must reject lost/ambiguous archive evidence and execute the shell
+under corruption, count and export/copy failures. Exact-revision guest execution
+is still required; completed-rollover survival does not prove recovery from an
+interrupted rotation.
