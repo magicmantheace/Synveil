@@ -156,8 +156,10 @@ and recovered-export gate passed at
 verification after abrupt emulator stop passed in the full
 [00476e5 run](docs/validation/native-00476e5/README.md).
 A completed-rollover extension retains separate active/archive digests on the
-host and verifies both originals and snapshots after reboot; its native
-execution remains pending. Interrupted rotation remains open.
+host and verifies both originals and snapshots after reboot; this gate passed
+in the [partial c8a759b run](docs/validation/native-c8a759b/README.md). That run
+failed two graphical gates, so full revalidation remains open. Interrupted
+rotation remains open.
 Exports preserve source history and do not release the archive slot. Explicit retention release,
 independent integrity anchoring and power-loss testing remain open.
 

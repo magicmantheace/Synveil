@@ -91,11 +91,15 @@ def read_command(digest, archive_digest=None):
 
 
 def retained_digest(log, label):
-    pattern = rb"^SYNVEIL_AUDIT_CRASH_" + label + rb"=([0-9a-f]{128})\r?$"
-    matches = re.findall(pattern, log, re.MULTILINE)
-    if len(matches) != 1:
+    prefix = b"SYNVEIL_AUDIT_CRASH_" + label + b"="
+    # Count every candidate, including malformed ones. Filtering valid values
+    # first would silently discard a conflicting or truncated second receipt.
+    candidates = [line.removesuffix(b"\r")[len(prefix):]
+                  for line in log.split(b"\n") if line.startswith(prefix)]
+    if len(candidates) != 1 or re.fullmatch(rb"[0-9a-f]{128}", candidates[0]) is None:
         raise ValueError("missing or ambiguous retained digest")
-    return matches[0].decode("ascii")
+    return candidates[0].decode("ascii")
+
 
 
 def smoke(timeout, rollover=False):

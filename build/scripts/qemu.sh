@@ -34,8 +34,15 @@ if [[ -n "$STATE_DISK" ]]; then
     [[ -f "$STATE_DISK" && ! -L "$STATE_DISK" ]] || die "state disk must be a regular file: $STATE_DISK"
 fi
 
+QEMU_MACHINE=q35
+if [[ "$DISPLAY_BACKEND" != none || "$VIDEO" == 1 ]]; then
+    # Q35 otherwise also supplies a PS/2 keyboard. The guest's first evdev
+    # keyboard can differ from QMP's USB target, silently losing all input.
+    # Keep the graphical test target on its one explicitly configured keyboard.
+    QEMU_MACHINE=q35,i8042=off,vmport=off
+fi
 QEMU_ARGS=(
-    -machine q35
+    -machine "$QEMU_MACHINE"
     -m "${SYNVEIL_QEMU_MEMORY:-512M}"
     -smp "${SYNVEIL_QEMU_CPUS:-2}"
     -display "$DISPLAY_BACKEND"

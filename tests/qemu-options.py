@@ -146,6 +146,7 @@ with open(os.environ["SYNVEIL_TEST_DISK"], "w") as disk:
         self.assertEqual(args[args.index("-display") + 1], "none")
         self.assertIn("-net", args)
         self.assertIn("none", args)
+        self.assertEqual(args[args.index("-machine") + 1], "q35")
         self.assertNotIn("virtio-vga", args)
         self.assertNotIn("virtio-net-pci,netdev=synveil_net", args)
 
@@ -154,6 +155,8 @@ with open(os.environ["SYNVEIL_TEST_DISK"], "w") as disk:
                                     "SYNVEIL_QEMU_NETWORK": "1"})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(args[args.index("-display") + 1], "gtk")
+        self.assertEqual(args[args.index("-machine") + 1], "q35,i8042=off,vmport=off")
+        self.assertEqual(args.count("usb-kbd"), 1)
         for device in ("virtio-vga", "qemu-xhci", "usb-kbd", "usb-tablet"):
             self.assertIn(device, args)
         self.assertIn("user,id=synveil_net", args)
@@ -165,6 +168,7 @@ with open(os.environ["SYNVEIL_TEST_DISK"], "w") as disk:
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(args[args.index("-display") + 1], "none")
         self.assertIn("virtio-vga", args)
+        self.assertEqual(args[args.index("-machine") + 1], "q35,i8042=off,vmport=off")
         self.assertIn("-net", args)
 
     def test_optional_qmp_requires_private_parent_and_remains_disabled_by_default(self):

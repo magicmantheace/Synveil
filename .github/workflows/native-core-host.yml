@@ -14,6 +14,7 @@ on:
       - development/audit-ext4-exhaustion
       - development/audit-abrupt-reboot
       - development/audit-rollover-reboot
+      - development/audit-crash-evidence
       - development/archive-stream-integrity
     paths:
       - Cargo.toml
@@ -37,6 +38,8 @@ on:
       - tests/seat-supervisor.py
       - tests/native-smoke.py
       - tests/native-recovery.py
+      - tests/qemu-options.py
+      - build/scripts/qemu.sh
       - tests/smoke-persistence.py
       - tests/smoke-audit-crash.py
       - tests/audit-crash-smoke.py
@@ -92,6 +95,7 @@ jobs:
           python3 tests/seat-supervisor.py
           python3 tests/native-smoke.py
           python3 tests/native-recovery.py
+          python3 tests/qemu-options.py
           python3 tests/audit-crash-smoke.py
           python3 tests/system-generation.py
           python3 tests/recovery-status.py

@@ -67,6 +67,7 @@ jobs:
 
       - name: Validate build tooling
         run: |
+          qemu-system-x86_64 -machine q35,help | grep -F 'i8042='
           bash build.sh lint
           python3 tests/native-preflight.py
           python3 tests/native-build.py
