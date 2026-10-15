@@ -12,6 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from state_disk import create_state_disk  # noqa: E402
+from audit_fixture import AUDIT_SEED_AWK  # noqa: E402
 
 spec = importlib.util.spec_from_file_location("persistence_smoke", ROOT / "tests/smoke-persistence.py")
 persistence = importlib.util.module_from_spec(spec)
@@ -42,50 +43,96 @@ WRITE = (
 )
 
 
-def read_command(digest):
-    if re.fullmatch(r"[0-9a-f]{128}", digest) is None:
-        raise ValueError("invalid retained digest")
+def write_command(rollover=False):
+    if not rollover:
+        return WRITE
+    seed = (
+        "if awk '" + AUDIT_SEED_AWK + "' > \"$journal\" &&\n"
+        'chmod 600 "$journal" && [ "$(stat -c %s "$journal")" = 4194304 ]; then\n'
+        'old=$(sha256sum "$journal" | cut -d " " -f1);\n'
+    )
+    archive_checks = (
+        '[ "$(sha256sum "$journal.1" | cut -d " " -f1)" = "$old" ] &&\n'
+        '[ "$(stat -c "%a:%u:%h:%s" "$journal.1")" = 600:0:1:4194304 ] &&\n'
+        '/usr/sbin/veil-audit check --path "$journal.1" >"$d/archive-report.json" &&\n'
+        'grep -Fq \'"records":512,\' "$d/archive-report.json" &&\n'
+        '/usr/sbin/veil-audit export --path "$journal.1" --output "$store/copies/archive" >"$d/archive-export.json" &&\n'
+        'archive_digest=$(sed -n \'s/.*"digest":"\\([0-9a-f]*\\)".*/\\1/p\' "$d/archive-export.json") &&\n'
+        '[ "${#archive_digest}" = 128 ] &&\n'
+        '/usr/sbin/veil-audit verify --path "$journal.1" --digest "$archive_digest" >/dev/null &&\n'
+        '/usr/sbin/veil-audit verify --path "$store/copies/archive" --digest "$archive_digest" >/dev/null'
+    )
+    return WRITE.replace('SYNVEIL_AUDIT_PATH=', seed + 'SYNVEIL_AUDIT_PATH=', 1).replace(
+        '--digest "$digest" >/dev/null; then',
+        '--digest "$digest" >/dev/null &&\n' + archive_checks + '; then'
+    ).replace(
+        'printf "\\n%s%s%s\\n" SYNVEIL_ AUDIT_CRASH_DIGEST=',
+        'printf "\\n%s%s%s\\n" SYNVEIL_ AUDIT_CRASH_ARCHIVE_DIGEST= "$archive_digest";\n'
+        'printf "\\n%s%s%s\\n" SYNVEIL_ AUDIT_CRASH_DIGEST='
+    ) + 'fi\n'
+
+
+def read_command(digest, archive_digest=None):
+    for expected in (digest,) if archive_digest is None else (digest, archive_digest):
+        if re.fullmatch(r"[0-9a-f]{128}", expected) is None:
+            raise ValueError("invalid retained digest")
+    paths = [("journal", digest), ("copies/snapshot", digest)]
+    if archive_digest is not None:
+        paths += [("journal.1", archive_digest), ("copies/archive", archive_digest)]
+    verification = ' &&\n'.join(
+        f'/usr/sbin/veil-audit verify --path /var/lib/synveil/audit-crash-test/{path} '
+        f'--digest {expected} >/dev/null' for path, expected in paths
+    )
     return (
-        'if /usr/sbin/veil-audit verify --path /var/lib/synveil/audit-crash-test/journal '
-        f'--digest {digest} >/dev/null &&\n'
-        '/usr/sbin/veil-audit verify --path /var/lib/synveil/audit-crash-test/copies/snapshot '
-        f'--digest {digest} >/dev/null &&\n'
+        'if ' + verification + ' &&\n'
         'timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then\n'
         'printf "\\n%s%s\\n" SYNVEIL_ AUDIT_CRASH_READ_OK; fi\n'
     )
 
 
-def smoke(timeout):
+def retained_digest(log, label):
+    pattern = rb"^SYNVEIL_AUDIT_CRASH_" + label + rb"=([0-9a-f]{128})\r?$"
+    matches = re.findall(pattern, log, re.MULTILINE)
+    if len(matches) != 1:
+        raise ValueError("missing or ambiguous retained digest")
+    return matches[0].decode("ascii")
+
+
+def smoke(timeout, rollover=False):
     out = Path(os.environ.get("SYNVEIL_OUT_DIR", ROOT / "out"))
     logs = out / "logs"
     logs.mkdir(parents=True, exist_ok=True)
-    write_log = logs / "qemu-audit-crash-write.log"
-    read_log = logs / "qemu-audit-crash-read.log"
+    prefix = "qemu-audit-rollover-crash" if rollover else "qemu-audit-crash"
+    write_log = logs / f"{prefix}-write.log"
+    read_log = logs / f"{prefix}-read.log"
     # Never accept a supplied disk. Keep it alive through both boots and waits.
     with tempfile.TemporaryDirectory(prefix="synveil-audit-crash-") as directory:
         disk = Path(directory) / "state.ext4"
         create_state_disk(disk, 64)
-        if not persistence.boot_round(disk, WRITE_MARKER, WRITE.replace("; ", ";\n"),
+        if not persistence.boot_round(disk, WRITE_MARKER, write_command(rollover).replace("; ", ";\n"),
                                       timeout, write_log, abrupt=True, required=READY):
             return False
-        matches = re.findall(rb"^SYNVEIL_AUDIT_CRASH_DIGEST=([0-9a-f]{128})\r?$",
-                             write_log.read_bytes(), re.MULTILINE)
-        if len(matches) != 1:
+        evidence = write_log.read_bytes()
+        try:
+            digest = retained_digest(evidence, b"DIGEST")
+            archive_digest = retained_digest(evidence, b"ARCHIVE_DIGEST") if rollover else None
+        except ValueError:
             return False
-        digest = matches[0].decode("ascii")
         # The expected digest comes from the first boot's host-retained log,
         # never from a digest file potentially changed with the guest disk.
-        return persistence.boot_round(disk, READ_MARKER, read_command(digest),
+        return persistence.boot_round(disk, READ_MARKER, read_command(digest, archive_digest),
                                       timeout, read_log, required=READY)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--timeout", type=float, default=60)
+    parser.add_argument("--rollover", action="store_true",
+                        help="also retain and verify a completed rollover archive")
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error("timeout must be positive")
-    passed = smoke(args.timeout)
+    passed = smoke(args.timeout, args.rollover)
     print("[synveil] acknowledged audit after abrupt QEMU stop " + ("passed" if passed else "failed"))
     return 0 if passed else 1
 

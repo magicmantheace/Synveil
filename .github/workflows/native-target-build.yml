@@ -21,6 +21,7 @@ on:
       - build/scripts/qemu.sh
       - build/rootfs/**
       - tools/state_disk.py
+      - tools/audit_fixture.py
       - build/config/**
       - tests/**
       - tools/package_native.py
@@ -227,6 +228,10 @@ jobs:
       - name: Preserve acknowledged audit and snapshot after abrupt emulator stop
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: bash build.sh audit-crash-smoke --timeout 60
+
+      - name: Preserve completed rollover and both snapshots after abrupt stop
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: bash build.sh audit-crash-smoke --rollover --timeout 60
 
       - name: One-time root-owned credential enrollment in QEMU state
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}

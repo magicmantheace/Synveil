@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from qmp_input import QMPError, open_demo_terminal  # noqa: E402
 from state_disk import create_state_disk  # noqa: E402
+from audit_fixture import AUDIT_SEED_AWK  # noqa: E402
 
 COMMAND = (
     "core_pid=$(pidof veil-core); "
@@ -145,7 +146,6 @@ SEAT_CRASH = (
     "printf '\\n%s%s\\n' SYNVEIL_ SEAT_CRASH_OK; fi; break; fi; "
     "sleep 0.1; done; fi; fi\n"
 )
-AUDIT_SEED_AWK = 'BEGIN {\n    prefix = "{\\"schema\\":\\"synveil.audit/v1\\",\\"component\\":\\"veil-core\\",\\"pid\\":1,\\"sequence\\":1,\\"unix_time_ms\\":null,\\"version\\":\\"fixture\\",\\"git_revision\\":null,\\"event\\":\\"guest_fixture\\",\\"fields\\":{\\"padding\\":\\""\n    suffix = "\\"}}\\n"\n    padding = ""\n    for (i = length(prefix) + length(suffix); i < 8192; i++) padding = padding "x"\n    line = prefix padding suffix\n    for (i = 0; i < 512; i++) printf "%s", line\n}'
 AUDIT_ROTATION = (
     {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY"},
     b"SYNVEIL_STATE_UNAVAILABLE", b"SYNVEIL_AUDIT_ROTATION_OK",

@@ -325,3 +325,16 @@ This tests already acknowledged writes after an emulator process crash. It
 never interrupts an in-flight append or rotation and does not model a host
 power failure, volatile drive cache loss, arbitrary block loss or physical
 hardware durability. Those scenarios and authenticated integrity remain open.
+
+The later `--rollover` extension seeds exactly 4 MiB of valid synthetic audit
+records, then lets the native helper complete rotation and append to the new
+active file. Before acknowledging, the gate requires the archived seed hash,
+private single-link metadata, 512 archived records, and verified exports of
+both active and archived files. It retains distinct active/archive digests in
+the host log. After SIGKILL and independent reboot, both originals and both
+snapshots must match their respective host-retained digests. Missing or duplicate
+archive digest evidence, archive corruption, wrong counts, failed archive
+export and changed copy bytes are rejected by host fixtures, including execution
+of the generated shell. Native validation remains pending. This tests completed
+rollover; it does not cut power between rename, directory sync and creation of
+the next active file.
