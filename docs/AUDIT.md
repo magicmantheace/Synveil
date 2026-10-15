@@ -336,8 +336,9 @@ the host log. After SIGKILL and independent reboot, both originals and both
 snapshots must match their respective host-retained digests. Missing or duplicate
 archive digest evidence, archive corruption, wrong counts, failed archive
 export and changed copy bytes are rejected by host fixtures, including execution
-of the generated shell. Native validation remains pending. This tests completed
-rollover; it does not cut power between rename, directory sync and creation of
+of the generated shell. This gate passed in the
+[partial c8a759b run](validation/native-c8a759b/README.md), whose two graphical
+failures still require full revalidation. This tests completed rollover; it does not cut power between rename, directory sync and creation of
 the next active file.
 
 The crash harness now rejects a valid active/archive digest receipt accompanied

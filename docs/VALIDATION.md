@@ -505,9 +505,10 @@ of a 4 MiB synthetic journal. It must verify seed preservation, archive metadata
 and count before cutting the emulator, retain separate active/archive digests
 on the host, and verify both originals and both exported snapshots after reboot.
 Host fixtures must reject lost/ambiguous archive evidence and execute the shell
-under corruption, count and export/copy failures. Exact-revision guest execution
-is still required; completed-rollover survival does not prove recovery from an
-interrupted rotation.
+under corruption, count and export/copy failures. This gate passed in the
+[partial c8a759b run](validation/native-c8a759b/README.md), which failed two
+graphical gates. Completed-rollover survival does not prove recovery from an
+interrupted rotation or a completely successful native pipeline.
 
 Digest receipt parsing counts every exact-prefix candidate line, including
 malformed values. A valid receipt accompanied by a truncated, invalid or
@@ -516,3 +517,21 @@ Do not filter to well-formed values before deciding whether the evidence is
 unique. Host regressions cover both receipt orders, CRLF, incorrect lengths,
 uppercase values, trailing whitespace and embedded NUL bytes. This later parser
 hardening requires fresh CI validation; native rollover evidence remains pending.
+
+## Single-keyboard graphical QEMU target
+
+Graphical QEMU launches now use `q35,i8042=off,vmport=off` with the explicitly
+configured USB keyboard and tablet. Serial-only launches keep the plain Q35
+machine. Q35's otherwise implicit PS/2 keyboard can leave the guest's first
+evdev choice different from QMP's input target. The c8a759b failures are
+consistent with that ambiguity, but do not identify the selected device.
+This launcher change is a candidate fix requiring fresh native confirmation;
+keyboard timing and guest authentication policy are unchanged.
+
+Host argument tests require one explicit USB keyboard and the disabled i8042
+controller for both GUI and headless-video launches, and ordinary Q35 for
+serial-only launches. Native preflight requires QEMU to advertise its i8042
+machine property before spending time building the toolchain/image. Both failed
+graphical scenarios and all existing guest gates must pass before claiming the
+failures resolved. Physical multiple-keyboard handling is outside this QEMU
+hardware target.
