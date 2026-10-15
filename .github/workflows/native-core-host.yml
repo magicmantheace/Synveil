@@ -14,6 +14,7 @@ on:
       - development/audit-ext4-exhaustion
       - development/audit-abrupt-reboot
       - development/audit-rollover-reboot
+      - development/audit-crash-evidence
       - development/archive-stream-integrity
     paths:
       - Cargo.toml

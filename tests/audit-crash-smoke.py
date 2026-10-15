@@ -77,12 +77,14 @@ if first:
         if mode != 'no-archive-digest':
             digest = 'bad' if mode == 'bad-archive-digest' else 'b' * 128
             print('SYNVEIL_AUDIT_CRASH_ARCHIVE_DIGEST=' + digest, flush=True)
+            if mode == 'mixed-archive-digest': print('SYNVEIL_AUDIT_CRASH_ARCHIVE_DIGEST=truncated', flush=True)
             if mode == 'duplicate-archive-digest':
                 print('SYNVEIL_AUDIT_CRASH_ARCHIVE_DIGEST=' + digest, flush=True)
     if mode != 'no-digest':
         digest = 'bad' if mode == 'bad-digest' else 'a' * 128
         print('SYNVEIL_AUDIT_CRASH_DIGEST=' + digest, flush=True)
         if mode == 'duplicate-digest': print('SYNVEIL_AUDIT_CRASH_DIGEST=' + digest, flush=True)
+        if mode == 'mixed-digest': print('SYNVEIL_AUDIT_CRASH_DIGEST=truncated', flush=True)
     print('SYNVEIL_AUDIT_CRASH_WRITE_OK', flush=True)
     if mode == 'early-exit': sys.exit(0)
     time.sleep(30)
@@ -136,12 +138,12 @@ else:
         self.assertIn('SYNVEIL_AUDIT_CRASH_READ_OK', log)
 
     def test_rollover_refuses_missing_ambiguous_or_lost_archive(self):
-        for mode in ("no-archive-digest", "bad-archive-digest", "duplicate-archive-digest", "lost-archive"):
+        for mode in ("no-archive-digest", "bad-archive-digest", "duplicate-archive-digest", "mixed-archive-digest", "lost-archive"):
             with self.subTest(mode=mode):
                 self.assertNotEqual(self.fixture(mode, rollover=True)[0], 0)
 
     def test_missing_or_ambiguous_evidence_and_failed_second_boot_are_refused(self):
-        for mode in ("no-state", "echo", "no-digest", "bad-digest", "duplicate-digest", "lost-data"):
+        for mode in ("no-state", "echo", "no-digest", "bad-digest", "duplicate-digest", "mixed-digest", "lost-data"):
             with self.subTest(mode=mode):
                 self.assertNotEqual(self.fixture(mode)[0], 0)
 
@@ -208,6 +210,23 @@ print(json.dumps(report, separators=(',', ':')))
                                         env={**os.environ, "ROLLOVER_MODE": mode}, timeout=15)
                 self.assertEqual('SYNVEIL_AUDIT_CRASH_WRITE_OK' in result.stdout,
                                  mode == "pass", result.stderr)
+
+    def test_retained_digest_rejects_malformed_conflicting_receipts(self):
+        spec = importlib.util.spec_from_file_location("receipt_execution", ROOT / "tests/smoke-audit-crash.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for label in (b"DIGEST", b"ARCHIVE_DIGEST"):
+            prefix = b"SYNVEIL_AUDIT_CRASH_" + label + b"="
+            valid = prefix + b"a" * 128
+            self.assertEqual(module.retained_digest(b"unrelated\n" + valid + b"\r\n", label), "a" * 128)
+            for value in (b"", b"a" * 127, b"A" * 128, b"b" * 129, b"a" * 128 + b" ",
+                          b"a" * 128 + b"\x00"):
+                malformed = prefix + value
+                for log in (malformed + b"\n", valid + b"\n" + malformed + b"\n",
+                            malformed + b"\n" + valid + b"\n"):
+                    with self.subTest(label=label, length=len(value), log=log):
+                        with self.assertRaises(ValueError):
+                            module.retained_digest(log, label)
 
     def test_digest_input_and_generated_shell_are_bounded(self):
         spec = importlib.util.spec_from_file_location("crash_smoke", ROOT / "tests/smoke-audit-crash.py")

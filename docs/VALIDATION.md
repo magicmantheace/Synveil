@@ -508,3 +508,11 @@ Host fixtures must reject lost/ambiguous archive evidence and execute the shell
 under corruption, count and export/copy failures. Exact-revision guest execution
 is still required; completed-rollover survival does not prove recovery from an
 interrupted rotation.
+
+Digest receipt parsing counts every exact-prefix candidate line, including
+malformed values. A valid receipt accompanied by a truncated, invalid or
+conflicting second receipt must fail for both active and archived evidence.
+Do not filter to well-formed values before deciding whether the evidence is
+unique. Host regressions cover both receipt orders, CRLF, incorrect lengths,
+uppercase values, trailing whitespace and embedded NUL bytes. This later parser
+hardening requires fresh CI validation; native rollover evidence remains pending.

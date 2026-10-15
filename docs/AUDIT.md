@@ -339,3 +339,9 @@ export and changed copy bytes are rejected by host fixtures, including execution
 of the generated shell. Native validation remains pending. This tests completed
 rollover; it does not cut power between rename, directory sync and creation of
 the next active file.
+
+The crash harness now rejects a valid active/archive digest receipt accompanied
+by any malformed receipt with the same prefix. Counting only regex-valid lines
+could otherwise hide truncated or conflicting evidence. This changes host-side
+test gating, not the audit runtime or its on-disk format. Candidate-count and
+control-flow regressions require CI validation before integration.
