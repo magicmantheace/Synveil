@@ -43,13 +43,18 @@ WRITE = (
 )
 
 
-def write_command(rollover=False):
-    if not rollover:
+def write_command(rollover=False, archive_only=False):
+    if rollover and archive_only:
+        raise ValueError("choose one archive setup")
+    if not (rollover or archive_only):
         return WRITE
+    # Construct the post-rename layout; this does not interrupt a live rename.
+    seed_path = '$journal.1' if archive_only else '$journal'
     seed = (
-        "if awk '" + AUDIT_SEED_AWK + "' > \"$journal\" &&\n"
-        'chmod 600 "$journal" && [ "$(stat -c %s "$journal")" = 4194304 ]; then\n'
-        'old=$(sha256sum "$journal" | cut -d " " -f1);\n'
+        "if awk '" + AUDIT_SEED_AWK + f"' > \"{seed_path}\" &&\n"
+        f'chmod 600 "{seed_path}" && [ "$(stat -c %s "{seed_path}")" = 4194304 ] &&\n'
+        + ('[ ! -e "$journal" ] && [ ! -L "$journal" ] &&\n' if archive_only else '')
+        + f'old=$(sha256sum "{seed_path}" | cut -d " " -f1); then\n'
     )
     archive_checks = (
         '[ "$(sha256sum "$journal.1" | cut -d " " -f1)" = "$old" ] &&\n'
@@ -102,24 +107,26 @@ def retained_digest(log, label):
 
 
 
-def smoke(timeout, rollover=False):
+def smoke(timeout, rollover=False, archive_only=False):
+    command = write_command(rollover, archive_only)
     out = Path(os.environ.get("SYNVEIL_OUT_DIR", ROOT / "out"))
     logs = out / "logs"
     logs.mkdir(parents=True, exist_ok=True)
-    prefix = "qemu-audit-rollover-crash" if rollover else "qemu-audit-crash"
+    prefix = ("qemu-audit-archive-only-crash" if archive_only else
+              "qemu-audit-rollover-crash" if rollover else "qemu-audit-crash")
     write_log = logs / f"{prefix}-write.log"
     read_log = logs / f"{prefix}-read.log"
     # Never accept a supplied disk. Keep it alive through both boots and waits.
     with tempfile.TemporaryDirectory(prefix="synveil-audit-crash-") as directory:
         disk = Path(directory) / "state.ext4"
         create_state_disk(disk, 64)
-        if not persistence.boot_round(disk, WRITE_MARKER, write_command(rollover).replace("; ", ";\n"),
+        if not persistence.boot_round(disk, WRITE_MARKER, command.replace("; ", ";\n"),
                                       timeout, write_log, abrupt=True, required=READY):
             return False
         evidence = write_log.read_bytes()
         try:
             digest = retained_digest(evidence, b"DIGEST")
-            archive_digest = retained_digest(evidence, b"ARCHIVE_DIGEST") if rollover else None
+            archive_digest = retained_digest(evidence, b"ARCHIVE_DIGEST") if rollover or archive_only else None
         except ValueError:
             return False
         # The expected digest comes from the first boot's host-retained log,
@@ -131,12 +138,15 @@ def smoke(timeout, rollover=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--timeout", type=float, default=60)
-    parser.add_argument("--rollover", action="store_true",
-                        help="also retain and verify a completed rollover archive")
+    setup = parser.add_mutually_exclusive_group()
+    setup.add_argument("--rollover", action="store_true",
+                       help="also retain and verify a completed rollover archive")
+    setup.add_argument("--archive-only", action="store_true",
+                       help="construct an archive with no active journal before native recovery")
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error("timeout must be positive")
-    passed = smoke(args.timeout, args.rollover)
+    passed = smoke(args.timeout, args.rollover, args.archive_only)
     print("[synveil] acknowledged audit after abrupt QEMU stop " + ("passed" if passed else "failed"))
     return 0 if passed else 1
 

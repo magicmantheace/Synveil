@@ -15,6 +15,7 @@ on:
       - development/audit-abrupt-reboot
       - development/audit-rollover-reboot
       - development/audit-crash-evidence
+      - development/audit-archive-only
       - development/archive-stream-integrity
     paths:
       - Cargo.toml

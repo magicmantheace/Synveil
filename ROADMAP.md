@@ -160,6 +160,10 @@ host and verifies both originals and snapshots after reboot; this gate passed
 in the [partial c8a759b run](docs/validation/native-c8a759b/README.md). That run
 failed two graphical gates, so full revalidation remains open. Interrupted
 rotation remains open.
+A further gate constructs the archive-only intermediate layout and requires
+native active-journal recovery, archive preservation, and verification of both
+originals and snapshots after abrupt stop/reboot. Guest validation is pending;
+the constructed layout does not establish interrupted-rotation durability.
 Exports preserve source history and do not release the archive slot. Explicit retention release,
 independent integrity anchoring and power-loss testing remain open.
 

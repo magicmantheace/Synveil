@@ -510,6 +510,17 @@ under corruption, count and export/copy failures. This gate passed in the
 graphical gates. Completed-rollover survival does not prove recovery from an
 interrupted rotation or a completely successful native pipeline.
 
+The `audit-crash-smoke --archive-only` gate constructs a valid 4 MiB archive
+with no active journal, representing the layout after archival rename and
+before active-file creation. The native helper must create and acknowledge a
+new active journal without changing the retained archive. Both originals and
+their exported snapshots must then survive the same verified emulator stop and
+independent reboot, checked against separate host-retained digests. Host tests
+execute the generated shell for both archive layouts, including corrupt history,
+wrong record counts and failed or changed archive exports. Native evidence for
+this new gate is pending. Constructing this layout does not prove interruption
+of a live rename/fsync operation or physical power-loss recovery.
+
 Digest receipt parsing counts every exact-prefix candidate line, including
 malformed values. A valid receipt accompanied by a truncated, invalid or
 conflicting second receipt must fail for both active and archived evidence.

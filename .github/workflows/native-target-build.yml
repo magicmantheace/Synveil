@@ -234,6 +234,10 @@ jobs:
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: bash build.sh audit-crash-smoke --rollover --timeout 60
 
+      - name: Recover archive-only layout and preserve both journals after abrupt stop
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: bash build.sh audit-crash-smoke --archive-only --timeout 60
+
       - name: One-time root-owned credential enrollment in QEMU state
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |
