@@ -153,12 +153,12 @@ publication and tmpfs export storage-failure gates passed at
 [9f722d0](docs/validation/native-9f722d0/README.md). A disposable ext4 exhaustion
 and recovered-export gate passed at
 [fcba067](docs/validation/native-fcba067/README.md). Acknowledged journal/snapshot
-verification after abrupt emulator stop is implemented, pending native execution.
+verification after abrupt emulator stop passed in the full
+[00476e5 run](docs/validation/native-00476e5/README.md).
 A completed-rollover extension retains separate active/archive digests on the
 host and verifies both originals and snapshots after reboot; its native
-execution is also pending. Interrupted rotation remains open.
-Exports
-preserve source history and do not release the archive slot. Explicit retention release,
+execution remains pending. Interrupted rotation remains open.
+Exports preserve source history and do not release the archive slot. Explicit retention release,
 independent integrity anchoring and power-loss testing remain open.
 
 ## Phase 3 — Observer

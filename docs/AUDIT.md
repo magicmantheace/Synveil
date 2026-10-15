@@ -295,7 +295,7 @@ This test targets clean ext4 ENOSPC and resumed writes. It does not simulate
 power loss, journal corruption, device I/O failure or an error-triggered
 read-only remount, and does not establish an installed-system disk-full policy.
 
-## Acknowledged writes after abrupt emulator stop (native validation pending)
+## Acknowledged writes after abrupt emulator stop
 
 `bash build.sh audit-crash-smoke` creates a new private 64 MiB ext4 state image
 for two QEMU boots, ignoring caller-supplied state images. A bounded helper
@@ -319,7 +319,8 @@ Host control-flow fixtures reject missing state readiness, command echo,
 missing/malformed/duplicate digest evidence, failed second-boot verification,
 wrong emulator identity and unexpected exit status. Real signal/process identity
 fixtures run on CI; local process proxies cannot provide that evidence.
-Exact-revision native execution of this gate remains pending.
+This basic gate passed in the complete
+[00476e5 run](validation/native-00476e5/README.md).
 
 This tests already acknowledged writes after an emulator process crash. It
 never interrupts an in-flight append or rotation and does not model a host
