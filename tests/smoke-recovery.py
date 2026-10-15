@@ -14,6 +14,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from qmp_input import QMPError, open_demo_terminal  # noqa: E402
+from state_disk import create_state_disk  # noqa: E402
 
 COMMAND = (
     "core_pid=$(pidof veil-core); "
@@ -273,7 +274,39 @@ AUDIT_ENOSPC = (
     "printf '\\n%s%s\\n' SYNVEIL_ AUDIT_ENOSPC_OK; fi; fi\n"
 )
 
+# Reuse the same native probes and byte-preservation/export checks on ext4.
+# Only the bounded filler and recovery section differ from the tmpfs gate.
+_ext4_script = AUDIT_ENOSPC[3].replace(
+    'd=/run/synveil-audit-enospc-test; store="$d/store"; passed=;',
+    'd=/run/synveil-audit-ext4-test; store=/var/lib/synveil/audit-ext4-test; passed=;'
+).replace(
+    'if mkdir -m 700 "$d" && mkdir -m 700 "$store" &&\n'
+    'mount -t tmpfs -o size=1048576,mode=0700,nosuid,nodev tmpfs "$store"; then\n',
+    "if awk '$1==\"/dev/vdb\" && $2==\"/var\" && $3==\"ext4\" { found=1 } END { exit !found }' /proc/mounts &&\n"
+    'mkdir -m 700 "$d" && mkdir -m 700 "$store"; then\n'
+).replace('count=2048', 'count=65536').replace(
+    'audit_probe full &&\n',
+    'grep -Fq "No space left on device" "$d/fill.log" && sync &&\n'
+    'audit_probe full &&\n'
+).replace(
+    'rm "$store/filler" && audit_probe resumed &&\n',
+    'timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null &&\n'
+    'rm "$store/filler" && sync && audit_probe resumed &&\n'
+)
+_ext4_ro_start = _ext4_script.index('mount -o remount,ro')
+_ext4_ro_end = _ext4_script.index('/usr/sbin/veil-audit export', _ext4_script.index('audit_probe writable'))
+_ext4_script = _ext4_script[:_ext4_ro_start] + _ext4_script[_ext4_ro_end:]
+_ext4_script = _ext4_script.replace('then passed=1; fi; fi; fi;', 'then passed=1; fi; fi;').replace(
+    'if umount "$store" && [ "$passed" = 1 ]; then',
+    'if [ "$passed" = 1 ]; then'
+).replace('AUDIT_ENOSPC_OK', 'AUDIT_EXT4_OK')
+AUDIT_EXT4 = (
+    {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY"},
+    b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_AUDIT_EXT4_OK", _ext4_script,
+)
+
 SCENARIOS = {
+    "audit-ext4": AUDIT_EXT4,
     "audit-enospc": AUDIT_ENOSPC,
     "audit-rotation": AUDIT_ROTATION,
     "seat-crash": SEAT_CRASH,
@@ -379,6 +412,7 @@ def smoke(timeout_seconds, case="crash"):
     if case in ("enroll", "seat-crash"):
         guest_env["SYNVEIL_QEMU_VIDEO"] = "1"
     corrupt_disk = None
+    audit_disk = None
     qmp_directory = None
     if case == "desktop-terminal":
         qmp_directory = tempfile.TemporaryDirectory(prefix="synveil-qmp-")
@@ -392,6 +426,16 @@ def smoke(timeout_seconds, case="crash"):
         path = Path(corrupt_disk.name) / "invalid.ext4"
         with path.open("wb") as state:
             state.truncate(16 * 1024 * 1024)
+        guest_env["SYNVEIL_QEMU_STATE_DISK"] = str(path)
+    if case == "audit-ext4":
+        # Never fill a caller-supplied image. Always create a disposable disk.
+        audit_disk = tempfile.TemporaryDirectory(prefix="synveil-audit-ext4-")
+        path = Path(audit_disk.name) / "state.ext4"
+        try:
+            create_state_disk(path, 64)
+        except BaseException:
+            audit_disk.cleanup()
+            raise
         guest_env["SYNVEIL_QEMU_STATE_DISK"] = str(path)
     process = subprocess.Popen(
         ["bash", str(ROOT / "build/scripts/qemu.sh")],
@@ -464,6 +508,8 @@ def smoke(timeout_seconds, case="crash"):
             process.wait(timeout=3)
         process.stdin.close()
         process.stdout.close()
+        if audit_disk is not None:
+            audit_disk.cleanup()
         if corrupt_disk is not None:
             corrupt_disk.cleanup()
         if qmp_directory is not None:

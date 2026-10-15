@@ -140,7 +140,8 @@ The tool never deletes that name because it may have been replaced.
 Host regressions exercise directory substitution, competing files/symlinks and
 unpublished partial-copy disposal. Host run 38665047365 passed formatting,
 clippy and all 107 Rust tests at 594c1cb. Native validation of this later
-implementation remains pending.
+implementation passed the complete native run at
+[9f722d0](validation/native-9f722d0/README.md).
 
 The isolated exhaustion/read-only guest gate now also attempts snapshot
 exports into a separate private directory on its synthetic filesystem. It
@@ -149,7 +150,8 @@ partial copy and an unchanged source hash. After recovering write access,
 export and verification must succeed and copy/source hashes must match.
 Host fixtures reject false success, leftover partial files, wrong failure
 categories, failed recovered export and altered copy bytes. Native evidence
-for these export-failure gates remains pending.
+for these export-failure gates passed at
+[9f722d0](validation/native-9f722d0/README.md).
 
 The compact `synveil.audit-export/v1` stdout receipt includes the exact byte
 count, record count, BLAKE2b-512 digest and `authenticated: false`; it contains
@@ -265,3 +267,29 @@ The read-only extension passed in the
 graphical settings gate failed. The complete native run, including settings,
 subsequently passed at [612bd80](validation/native-612bd80/README.md). It does not
 simulate an ext4 error-triggered remount or establish power-loss durability.
+
+## Disposable ext4 exhaustion gate (native validation pending)
+
+The `audit-ext4` scenario always creates a fresh 64 MiB host-side ext4 image
+and overrides any caller-supplied state path for its own QEMU process. It
+requires state readiness and `/dev/vdb` mounted as ext4 at `/var`. The test
+keeps helper sockets and logs on `/run`, seeds a private page-aligned journal
+on `/var`, and uses a bounded 64 MiB filler to force actual ENOSPC. Both the
+filler and bounded native core must report exhaustion. The seeded journal
+hash and one-record structural report must remain unchanged, failed export
+must report StorageFull with no partial destination, and main-core status
+must remain available while storage is full.
+
+After deleting only the synthetic filler and synchronizing, another helper
+must append valid records without sink warnings. Export, digest verification,
+copy/source byte equality and independent main-core status must succeed.
+QEMU is terminated before the private disposable image is removed, including
+on guest failure or timeout. The caller's state image is never passed to this
+scenario. Host fixtures reject missing state readiness, wrong mount identity,
+false exhaustion, changed history, incorrect export errors, partial copies,
+failed recovery and loss of main-core IPC. The guest shell is syntax checked.
+These are harness checks; exact-revision native ext4 execution remains pending.
+
+This test targets clean ext4 ENOSPC and resumed writes. It does not simulate
+power loss, journal corruption, device I/O failure or an error-triggered
+read-only remount, and does not establish an installed-system disk-full policy.

@@ -413,7 +413,9 @@ write/reboot gate and all existing native, guest and packaged-VM gates.
 
 Basic snapshot export/verify, replacement refusal and well-formed edit detection
 passed at [612bd80](validation/native-612bd80/README.md). This does not validate
-later publication changes or storage-failure gates.
+later publication changes or storage-failure gates. Those unnamed-inode
+publication and tmpfs full/read-only export checks subsequently passed in the
+complete [9f722d0 run](validation/native-9f722d0/README.md).
 
 Snapshot export must preserve the source, hold cooperative inspection locks,
 copy exactly the bounded validated bytes, enforce private separate output
@@ -434,7 +436,13 @@ The isolated tmpfs gate must also require export failure on full/read-only
 storage with no partial snapshot and unchanged source, then successful
 export/verification after recovery. Specific failure categories prevent a
 permissions or invalid-input error from passing as storage-exhaustion evidence.
-These added native scenarios remain pending their exact-revision execution.
+These tmpfs scenarios passed at
+[9f722d0](validation/native-9f722d0/README.md). The later disposable `audit-ext4`
+scenario requires a newly created host-side image, mounted ext4 identity,
+actual ENOSPC warnings, unchanged seeded history, healthy main-core IPC while
+full, failed export without partial output, and successful appends/export after
+space recovery. Host control-flow fixtures are not native ext4 evidence;
+exact-revision guest execution remains pending.
 
 ## Downloadable authenticated preview gate
 

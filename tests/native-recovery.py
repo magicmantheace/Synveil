@@ -24,6 +24,13 @@ class RecoveryTests(unittest.TestCase):
                 "class QMPError(RuntimeError): pass\n"
                 "def open_demo_terminal(path, *, timeout): return None\n"
             )
+            (root / "tools/state_disk.py").write_text(
+                "def create_state_disk(path, size_mib):\n"
+                "    assert size_mib == 64\n"
+                "    path.write_bytes(b'disposable fixture')\n"
+            )
+            caller_disk = root / "caller.ext4"
+            caller_disk.write_bytes(b'preserve caller image')
             shutil.copyfile(ROOT / "tests/smoke-recovery.py", root / "tests/smoke-recovery.py")
             (root / "build/scripts/qemu.sh").write_text(
                 'exec python3 "$(dirname "$0")/console.py"\n'
@@ -38,7 +45,7 @@ ready = 'SYNVEIL_CORE_UNAVAILABLE' if case == 'absent' else 'SYNVEIL_CORE_READY'
 print(ready + '\\r\\nSYNVEIL_BOOT_OK', flush=True)
 if case in ('state-missing', 'state-corrupt'):
     print('SYNVEIL_STATE_UNAVAILABLE', flush=True)
-if case in ('enroll', 'enrolled-reboot', 'seat-crash', 'audit-rotation'):
+if case in ('enroll', 'enrolled-reboot', 'seat-crash', 'audit-rotation', 'audit-ext4') and mode != 'no-state':
     print('SYNVEIL_STATE_READY', flush=True)
 if case in ('enroll', 'seat-locked', 'seat-crash'):
     print('SYNVEIL_SEAT_READY', flush=True)
@@ -91,6 +98,17 @@ if mode == 'pass':
     elif case in ('state-missing', 'state-corrupt'):
         assert 'synctl --json status' in command
         assert '/tmp/state-recovery-probe' in command
+    elif case == 'audit-ext4':
+        path = os.environ['SYNVEIL_QEMU_STATE_DISK']
+        assert 'synveil-audit-ext4-' in path and not path.endswith('caller.ext4')
+        assert open(path, 'rb').read() == b'disposable fixture'
+        print('AUDIT_TEST_DISK=' + path, flush=True)
+        assert 'count=65536' in command and '/proc/mounts' in command
+        assert '$3=="ext4"' in command and '/var/lib/synveil/audit-ext4-test' in command
+        assert 'StorageFull' in command and 'audit_probe resumed' in command
+        assert 'export-recovered.json' in command and 'veil-audit verify' in command
+        assert 'remount' not in command and 'umount' not in command
+        assert max(map(len, command.splitlines())) < 1024
     elif case == 'audit-enospc':
         assert 'size=1048576' in command and 'count=2048' in command
         assert 'No space left on device' in command and 'audit_probe resumed' in command
@@ -117,7 +135,7 @@ if mode == 'pass':
         assert 'for round in 1 2 3' in command and 'shell-alive' in command
         assert max(map(len, command.splitlines())) < 1024
     marker = {'crash': 'RECOVERY', 'absent': 'ABSENT', 'protocol': 'PROTOCOL',
-              'audit-enospc': 'AUDIT_ENOSPC', 'audit-rotation': 'AUDIT_ROTATION', 'observe': 'OBSERVE', 'demo': 'DEMO',
+              'audit-ext4': 'AUDIT_EXT4', 'audit-enospc': 'AUDIT_ENOSPC', 'audit-rotation': 'AUDIT_ROTATION', 'observe': 'OBSERVE', 'demo': 'DEMO',
               'desktop': 'DESKTOP_RECOVERY', 'desktop-terminal': 'TERMINAL_LIFETIME',
               'enroll': 'ENROLL_SMOKE', 'enrolled-reboot': 'ENROLL_REBOOT',
               'seat-locked': 'SEAT_LOCKED', 'seat-crash': 'SEAT_CRASH',
@@ -134,11 +152,17 @@ elif mode == 'timeout':
             result = subprocess.run(
                 ["python3", str(root / "tests/smoke-recovery.py"), "--timeout", "0.5", "--case", case],
                 env={**os.environ, "FIXTURE_MODE": mode, "FIXTURE_CASE": case,
-                     "SYNVEIL_OUT_DIR": str(root / "out")},
+                     "SYNVEIL_OUT_DIR": str(root / "out"),
+                     "SYNVEIL_QEMU_STATE_DISK": str(caller_disk)},
                 capture_output=True, text=True, timeout=5,
             )
             name = "recovery" if case == "crash" else case
             log = (root / f"out/logs/qemu-{name}-smoke.log").read_text()
+            if case == "audit-ext4":
+                self.assertEqual(caller_disk.read_bytes(), b'preserve caller image')
+                for line in log.splitlines():
+                    if line.startswith("AUDIT_TEST_DISK="):
+                        self.assertFalse(Path(line.split("=", 1)[1]).parent.exists())
             return result.returncode, log
 
     def test_live_shell_passes(self):
@@ -174,6 +198,12 @@ elif mode == 'timeout':
         self.assertEqual(self.fixture("pass", "audit-rotation")[0], 0)
         self.assertNotEqual(self.fixture("echo", "audit-rotation")[0], 0)
         self.assertNotEqual(self.fixture("no-ready", "audit-rotation")[0], 0)
+
+    def test_audit_ext4_requires_disposable_disk_and_real_marker(self):
+        self.assertEqual(self.fixture("pass", "audit-ext4")[0], 0)
+        self.assertNotEqual(self.fixture("echo", "audit-ext4")[0], 0)
+        self.assertNotEqual(self.fixture("no-ready", "audit-ext4")[0], 0)
+        self.assertNotEqual(self.fixture("no-state", "audit-ext4")[0], 0)
 
     def test_audit_enospc_requires_real_marker_and_healthy_boot(self):
         self.assertEqual(self.fixture("pass", "audit-enospc")[0], 0)
@@ -215,13 +245,18 @@ elif mode == 'timeout':
         spec = importlib.util.spec_from_file_location("audit_enospc_execution", ROOT / "tests/smoke-recovery.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        for mode in ("pass", "no-exhaustion", "full-write", "no-warning",
+        modes = ("pass", "no-exhaustion", "full-write", "no-warning",
                      "resume-failed", "unmount-failed", "ro-write", "ro-silent",
                      "rw-failed", "ro-remount-failed", "rw-remount-failed",
                      "full-export-succeeds", "full-export-partial", "wrong-full-error",
                      "readonly-export-succeeds", "readonly-export-partial",
-                     "recovered-export-fails", "recovered-copy-differs"):
-            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                     "recovered-export-fails", "recovered-copy-differs")
+        ext4_modes = tuple(mode for mode in modes if not mode.startswith(("ro-", "rw-", "readonly-"))
+                           and mode != "unmount-failed") + ("wrong-fstype", "wrong-device", "missing-mount",
+                                                           "wrong-fill-error", "main-unhealthy")
+        for case, mode in ([("audit-enospc", mode) for mode in modes] +
+                           [("audit-ext4", mode) for mode in ext4_modes]):
+            with self.subTest(case=case, mode=mode), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 scripts = {
                     "mount": '''#!/usr/bin/env python3
@@ -236,11 +271,13 @@ elif 'remount,rw' in sys.argv:
     marker.unlink()
 ''',
                     "umount": '#!/bin/sh\n[ "$ENOSPC_MODE" != unmount-failed ]\n',
-                    "client": "#!/bin/sh\nexit 0\n",
+                    "client": '#!/bin/sh\n[ "$ENOSPC_MODE" != main-unhealthy ] || [ "$1" = --socket ]\n',
+
                     "dd": '''#!/usr/bin/env python3
 import os, pathlib, sys
 path = next(arg[3:] for arg in sys.argv if arg.startswith('of='))
 pathlib.Path(path).write_bytes(b'fixture filler')
+print('Permission denied' if os.environ['ENOSPC_MODE'] == 'wrong-fill-error' else 'No space left on device', file=sys.stderr)
 sys.exit(0 if os.environ['ENOSPC_MODE'] == 'no-exhaustion' else 1)
 ''',
                     "core": '''#!/usr/bin/env python3
@@ -303,7 +340,15 @@ print(json.dumps(report, separators=(',', ':')))
                 for name, content in scripts.items():
                     (root / name).write_text(content)
                     (root / name).chmod(0o700)
-                command = module.AUDIT_ENOSPC[3].replace(
+                mounts = root / "mounts"
+                device = "/dev/wrong" if mode == "wrong-device" else "/dev/vdb"
+                fstype = "tmpfs" if mode == "wrong-fstype" else "ext4"
+                mounts.write_text("" if mode == "missing-mount" else f"{device} /var {fstype} rw 0 0\n")
+                command = module.SCENARIOS[case][3].replace(
+                    "/var/lib/synveil/audit-ext4-test", str(root / "test/store")
+                ).replace("/run/synveil-audit-ext4-test", str(root / "test")).replace(
+                    "/proc/mounts", str(mounts)
+                ).replace(
                     "/run/synveil-audit-enospc-test", str(root / "test")
                 ).replace("mount -t tmpfs", str(root / "mount") + " -t tmpfs").replace(
                     "mount -o remount", str(root / "mount") + " -o remount"
@@ -317,7 +362,7 @@ print(json.dumps(report, separators=(',', ':')))
                 result = subprocess.run(["sh"], input=command, text=True,
                                         capture_output=True, timeout=15,
                                         env={**os.environ, "ENOSPC_MODE": mode})
-                self.assertEqual("SYNVEIL_AUDIT_ENOSPC_OK" in result.stdout,
+                self.assertEqual(module.SCENARIOS[case][2].decode() in result.stdout,
                                  mode == "pass", result.stderr)
 
     def test_audit_failure_gate_executes_and_rejects_lost_evidence(self):

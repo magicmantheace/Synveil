@@ -116,7 +116,9 @@ journal checks and the downloadable authenticated preview also passed at
 audit capacity, incomplete-tail refusal and streamed archive checks passed at
 [3fb0158](docs/validation/native-3fb0158/README.md). Offline audit export/verification,
 tmpfs read-only recovery and the settings reboot check passed together at
-[612bd80](docs/validation/native-612bd80/README.md).
+[612bd80](docs/validation/native-612bd80/README.md). Unnamed snapshot publication
+and tmpfs export failure/recovery passed at
+[9f722d0](docs/validation/native-9f722d0/README.md).
 This remains an experimental VM, **not** a production desktop, signed release,
 owner-recovery system, or physical installer. The first hands-on test contract
 is in [ROADMAP.md](ROADMAP.md) and [docs/FIRST_INSTALL.md](docs/FIRST_INSTALL.md).
