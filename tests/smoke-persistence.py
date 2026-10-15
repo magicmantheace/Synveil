@@ -14,7 +14,42 @@ REQUIRED = {b"SYNVEIL_BOOT_OK", b"SYNVEIL_STATE_READY"}
 FORBIDDEN = b"SYNVEIL_STATE_UNAVAILABLE"
 
 
-def boot_round(disk: Path, marker: bytes, command: str, timeout: float, log: Path) -> bool:
+def power_cut(process) -> bool:
+    """Kill only the wrapper's QEMU child; wait for the wrapper to reap it."""
+    try:
+        children = []
+        entries = list(Path("/proc").iterdir())
+        if len(entries) > 4096:
+            return False
+        for entry in entries:
+            if not entry.name.isdecimal():
+                continue
+            try:
+                status = (entry / "status").read_text()
+            except (FileNotFoundError, ProcessLookupError, PermissionError):
+                continue
+            if any(line.split() == ["PPid:", str(process.pid)] for line in status.splitlines()):
+                children.append(entry.name)
+        if len(children) != 1:
+            return False
+        child = int(children[0])
+        descriptor = os.pidfd_open(child)
+        try:
+            arguments = Path(f"/proc/{child}/cmdline").read_bytes().split(b"\0")
+            if (os.getpgid(child) != process.pid or not arguments[0] or
+                    Path(os.fsdecode(arguments[0])).name != "qemu-system-x86_64"):
+                return False
+            signal.pidfd_send_signal(descriptor, signal.SIGKILL)
+        finally:
+            os.close(descriptor)
+        # qemu.sh waits for its emulator child and returns its shell status.
+        return process.wait(timeout=3) == 128 + signal.SIGKILL
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return False
+
+
+def boot_round(disk: Path, marker: bytes, command: str, timeout: float, log: Path,
+               *, abrupt=False, required=REQUIRED) -> bool:
     process = subprocess.Popen(
         ["bash", str(ROOT / "build/scripts/qemu.sh")],
         env={**os.environ, "SYNVEIL_QEMU_STATE_DISK": str(disk)},
@@ -47,12 +82,17 @@ def boot_round(disk: Path, marker: bytes, command: str, timeout: float, log: Pat
                         seen = {line for line in seen if line.startswith(b"SYNVEIL_")}
                 if FORBIDDEN in seen:
                     return False
-                if not sent and REQUIRED <= seen:
+                if not sent and required <= seen:
                     # Assemble marker at runtime; don't accept console-echoed text.
                     process.stdin.write(command.encode())
                     process.stdin.flush()
                     sent = True
                 if sent and marker in seen:
+                    if abrupt:
+                        if not power_cut(process):
+                            return False
+                        evidence.write(b"[synveil-smoke] emulator SIGKILL and wrapper reap confirmed\n")
+                        evidence.flush()
                     return True
                 if len(pending) > 65536:
                     return False
