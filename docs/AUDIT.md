@@ -116,22 +116,30 @@ include key names; the CLI emits only the failure category. Regression tests
 cover repeated envelope keys, Unicode-escaped aliases, nested objects inside
 arrays, and the preservation of ambiguous input files.
 
-## Owner-controlled snapshot export (native validation pending)
+## Owner-controlled snapshot export
 
 `veil-audit export --path JOURNAL --output /absolute/private-dir/SNAPSHOT`
 validates and copies at most 4 MiB while holding the inspector's shared journal
 and stable-directory locks. The destination must be a new mode-0600 file in
 a separate mode-0700 directory owned by the effective caller. Existing files,
 final symlinks, unsafe output directories and the source journal directory
-are refused. Successful output and its parent are synchronized. Failed copies
-remove only a destination still matching the created inode.
-Creation and failed-copy cleanup are anchored to the opened private destination
-directory using Linux descriptor-relative operations. A renamed or substituted
-parent pathname cannot redirect those operations. Cleanup inspects the final
-object without reading it or following symlinks and refuses unrelated inodes.
-Host regressions substitute a directory path and preserve replacement files
-and symlink targets, including cleanup without read permission on a failed
-copy. Host validation passed; target validation remains pending.
+are refused. Basic export, digest verification, replacement refusal and
+well-formed edit detection passed at
+[612bd80](validation/native-612bd80/README.md).
+
+A later hardening change creates an unnamed Linux `O_TMPFILE` inode relative
+to the opened private destination directory. The copy is written, synchronized
+and read back before `linkat` atomically publishes its destination name without
+replacement. Closing an unpublished inode discards it without pathname-based
+cleanup; another process's replacement entry cannot be deleted. Publication
+uses `/proc/self/fd` so it requires no additional capability. Filesystems lacking
+`O_TMPFILE` support or unavailable procfs fail closed; no named-copy fallback
+exists. If directory synchronization or identity checking fails after
+publication, a complete copy may remain and no success receipt is returned.
+The tool never deletes that name because it may have been replaced.
+Host regressions exercise directory substitution, competing files/symlinks and
+unpublished partial-copy disposal. This later implementation requires fresh
+host/native validation.
 
 The isolated exhaustion/read-only guest gate now also attempts snapshot
 exports into a separate private directory on its synthetic filesystem. It

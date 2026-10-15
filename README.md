@@ -114,7 +114,9 @@ and preservation of the package's blank state disk. Audit inspection, persistent
 journal checks and the downloadable authenticated preview also passed at
 [262d275](docs/validation/native-262d275/README.md). Rollover, exhausted
 audit capacity, incomplete-tail refusal and streamed archive checks passed at
-[3fb0158](docs/validation/native-3fb0158/README.md).
+[3fb0158](docs/validation/native-3fb0158/README.md). Offline audit export/verification,
+tmpfs read-only recovery and the settings reboot check passed together at
+[612bd80](docs/validation/native-612bd80/README.md).
 This remains an experimental VM, **not** a production desktop, signed release,
 owner-recovery system, or physical installer. The first hands-on test contract
 is in [ROADMAP.md](ROADMAP.md) and [docs/FIRST_INSTALL.md](docs/FIRST_INSTALL.md).

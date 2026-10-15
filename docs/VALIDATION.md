@@ -406,9 +406,14 @@ gates but failed the graphical settings write/reboot gate: the retained write
 log contains no settings-save marker and the settings file never appeared.
 It must not be reported as a complete successful pipeline. QMP key injection
 now holds each press briefly before release so USB polling can observe it;
-fresh native validation is required to confirm the settings failure is resolved.
+the full [612bd80 run](validation/native-612bd80/README.md) passed the settings
+write/reboot gate and all existing native, guest and packaged-VM gates.
 
 ## Offline audit export validation contract
+
+Basic snapshot export/verify, replacement refusal and well-formed edit detection
+passed at [612bd80](validation/native-612bd80/README.md). This does not validate
+later publication changes or storage-failure gates.
 
 Snapshot export must preserve the source, hold cooperative inspection locks,
 copy exactly the bounded validated bytes, enforce private separate output
@@ -418,6 +423,12 @@ and detect edits that remain structurally valid using an independently retained
 digest. Target build/link audits and guest export/verify execution are required
 before runtime completion. A digest match is not origin authentication or an
 independent retention/integrity system; archive deletion remains unavailable.
+
+The unnamed-inode implementation must discard unpublished failed copies
+without unlinking destination pathnames, exclusively publish verified bytes,
+and preserve competing files/symlinks even when the output directory is moved.
+Unsupported filesystems/procfs must fail closed. Errors after publication may
+leave a complete copy without a success receipt; no pathname deletion is allowed.
 
 The isolated tmpfs gate must also require export failure on full/read-only
 storage with no partial snapshot and unchanged source, then successful
