@@ -15,7 +15,13 @@ const NOFOLLOW_NONBLOCK: i32 = 0o400000 | 0o4000;
 unsafe extern "C" {
     fn geteuid() -> u32;
     fn openat(directory: i32, name: *const c_char, flags: i32, ...) -> i32;
-    fn linkat(source_directory: i32, source: *const c_char, directory: i32, name: *const c_char, flags: i32) -> i32;
+    fn linkat(
+        source_directory: i32,
+        source: *const c_char,
+        directory: i32,
+        name: *const c_char,
+        flags: i32,
+    ) -> i32;
 }
 
 fn output_name(output: &Path) -> io::Result<CString> {
@@ -38,7 +44,16 @@ fn publish_output(file: &fs::File, directory: &fs::File, name: &CString) -> io::
     // The procfs descriptor link permits unprivileged publication of O_TMPFILE.
     // linkat creates the destination atomically and refuses every existing entry.
     let source = CString::new(format!("/proc/self/fd/{}", file.as_raw_fd())).unwrap();
-    if unsafe { linkat(-100, source.as_ptr(), directory.as_raw_fd(), name.as_ptr(), 0x400) } < 0 {
+    if unsafe {
+        linkat(
+            -100,
+            source.as_ptr(),
+            directory.as_raw_fd(),
+            name.as_ptr(),
+            0x400,
+        )
+    } < 0
+    {
         return Err(io::Error::last_os_error());
     }
     Ok(())
@@ -296,7 +311,10 @@ mod tests {
         let directory = fs::File::open(parent).unwrap();
         let moved = root.join("moved");
         let unrelated = root.join("unrelated");
-        fs::DirBuilder::new().mode(0o700).create(&unrelated).unwrap();
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&unrelated)
+            .unwrap();
         let mut copy = create_output(&directory).unwrap();
         copy.write_all(b"private snapshot").unwrap();
         assert!(!output.exists());
@@ -304,7 +322,10 @@ mod tests {
         fs::rename(parent, &moved).unwrap();
         std::os::unix::fs::symlink(&unrelated, parent).unwrap();
         publish_output(&copy, &directory, &output_name(&output).unwrap()).unwrap();
-        assert_eq!(fs::read(moved.join("snapshot")).unwrap(), b"private snapshot");
+        assert_eq!(
+            fs::read(moved.join("snapshot")).unwrap(),
+            b"private snapshot"
+        );
         assert!(!unrelated.join("snapshot").exists());
         fs::remove_dir_all(root).unwrap();
     }
@@ -317,7 +338,10 @@ mod tests {
         let mut copy = create_output(&directory).unwrap();
         copy.write_all(b"partial").unwrap();
         fs::write(&output, b"replacement").unwrap();
-        assert_eq!(publish_output(&copy, &directory, &name).unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(
+            publish_output(&copy, &directory, &name).unwrap_err().kind(),
+            io::ErrorKind::AlreadyExists
+        );
         drop(copy);
         assert_eq!(fs::read(&output).unwrap(), b"replacement");
         fs::remove_file(&output).unwrap();
@@ -325,9 +349,17 @@ mod tests {
         fs::write(&target, b"unrelated").unwrap();
         std::os::unix::fs::symlink(&target, &output).unwrap();
         let copy = create_output(&directory).unwrap();
-        assert_eq!(publish_output(&copy, &directory, &name).unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(
+            publish_output(&copy, &directory, &name).unwrap_err().kind(),
+            io::ErrorKind::AlreadyExists
+        );
         drop(copy);
-        assert!(fs::symlink_metadata(&output).unwrap().file_type().is_symlink());
+        assert!(
+            fs::symlink_metadata(&output)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
         assert_eq!(fs::read(target).unwrap(), b"unrelated");
         fs::remove_dir_all(root).unwrap();
     }
