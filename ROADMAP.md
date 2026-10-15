@@ -149,7 +149,9 @@ Ext4 disk-full policy, power-loss and tamper evidence remain open.
 Owner-controlled offline snapshot export and verification against a separately
 retained digest passed native validation at
 [612bd80](docs/validation/native-612bd80/README.md). Later unnamed-inode
-publication and export storage-failure gates require fresh validation. Exports
+publication and tmpfs export storage-failure gates passed at
+[9f722d0](docs/validation/native-9f722d0/README.md). A disposable ext4 exhaustion
+and recovered-export gate is implemented, pending native execution. Exports
 preserve source history and do not release the archive slot. Explicit retention release,
 independent integrity anchoring and power-loss testing remain open.
 
