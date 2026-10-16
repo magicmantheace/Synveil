@@ -10,6 +10,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DisplaySourceTests(unittest.TestCase):
+    def test_login_grab_waits_for_releases_and_rechecks_input_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            executable = Path(tmp) / "login-keyboard-test"
+            subprocess.run(
+                ["gcc", "-O2", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                 "-I", str(ROOT / "src/veil-display"),
+                 str(ROOT / "tests/display-keyboard-grab.c"), "-o", str(executable)],
+                check=True, timeout=15,
+            )
+            subprocess.run([str(executable)], check=True, timeout=3)
+
     def test_versioned_preferences_are_private_atomic_and_fail_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             executable = Path(tmp) / "desktop-preferences-test"

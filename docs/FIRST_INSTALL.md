@@ -272,6 +272,16 @@ validation still block first installation.
 
 ## Authenticated keyboard and tablet session
 
+The root login VT now requests and verifies `K_OFF` before acquiring evdev
+input. While waiting for a held VT-switch chord to release, ordinary console
+typing on that VT is suppressed. Keyboard acquisition checks for released keys,
+grabs exclusively, discards pre-login queued events without logging them, and
+rechecks the physical key bitmap. A raced key press releases the grab and retries;
+waiting and event draining are bounded. Failure leaves login input unavailable
+and preserves serial recovery. The authenticated tty1 remains in its normal
+keyboard mode. Host regressions pass; native validation of this candidate
+terminal-input fix is pending. This remains a single-keyboard QEMU prototype.
+
 The experimental authenticated user desktop supports keyboard navigation
 through tty1 and, when available, an absolute Linux evdev pointer delegated
 by the root VT helper. It reuses the existing five-page framebuffer

@@ -614,3 +614,23 @@ shell against synthetic process metadata for all outcomes and reject contradicto
 late success. These diagnostics preserve the same return-success requirements;
 they do not establish a fix for the native graphical failure. The host fixtures
 passed at `29e9504`; fresh native validation is required.
+
+## Released-key login acquisition
+
+The later native `99caf0c` run failed the same graphical return check and emitted
+`SYNVEIL_USER_RETURN_FAILED_SHELL_ALIVE`. All audit gates passed. This narrows
+the failure to a living terminal shell; it does not prove why `exit` was missed.
+A candidate race is reacquiring EVIOCGRAB before Ctrl+Alt+F2 release, preventing
+Linux's console keyboard handler from seeing modifier-up events. The pinned Linux v6.18.55
+[keyboard handler](https://github.com/gregkh/linux/blob/v6.18.55/drivers/tty/vt/keyboard.c)
+refreshes LEDs on handler restart, without rebuilding its key-down bitmap.
+
+The candidate fix quiets the dedicated tty2 login VT using verified K_OFF,
+then waits for an idle physical keyboard before grabbing it, drains bounded
+pre-login events, and rechecks key state. If the recheck sees a held key, release
+the grab and retry. K_OFF suppresses console character delivery while still
+allowing the console modifier handler to process releases before the grab.
+tty1 and authorization rules remain unchanged. Host C tests model immediate
+idle, held release, a query/grab race, persistent held input, ioctl/read/poll
+failure, truncated events and event flooding. Full native graphical and all
+existing guest gates must pass before claiming the missed-exit issue resolved.

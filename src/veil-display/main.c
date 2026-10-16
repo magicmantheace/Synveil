@@ -34,6 +34,7 @@
 #include "lifetime.h"
 #include "mapping.h"
 #include "seat_privacy.h"
+#include "login_keyboard.h"
 #include "enroll.h"
 
 struct surface {
@@ -873,7 +874,12 @@ static int auth_restore_login_vt(void) {
             struct vt_stat current = {0};
             if (ioctl(controller, VT_GETSTATE, &current) != 0) break;
             if (current.v_active == AUTH_LOGIN_VT) {
-                result = 0;
+                int login_tty = open("/dev/tty2", O_RDWR | O_CLOEXEC |
+                                    O_NOCTTY | O_NOFOLLOW | O_NONBLOCK);
+                if (login_tty >= 0) {
+                    result = synveil_login_vt_quiet(login_tty);
+                    close(login_tty);
+                }
                 break;
             }
             struct timespec now;
@@ -890,10 +896,11 @@ static int auth_restore_login_vt(void) {
 static int auth_open_private_keyboard(void) {
     int keyboard = open_keyboard_policy(1);
     if (keyboard < 0) return -1;
-    // No tty consumer or second evdev reader may receive password keys.
-    // Closing this FD before launching the shell automatically releases
-    // the kernel's exclusive grab and restores terminal keyboard input.
-    if (ioctl(keyboard, EVIOCGRAB, 1) != 0) {
+    // The login VT is K_OFF, so waiting for release cannot echo passwords.
+    // Grabbing a held VT-switch chord could hide its releases from Linux's
+    // console modifier state. Wait for idle, grab, drain and recheck instead.
+    // Closing this FD before launching releases the exclusive grab.
+    if (synveil_login_keyboard_grab(keyboard) != 0) {
         close(keyboard);
         return -1;
     }
