@@ -983,8 +983,13 @@ mod tests {
         assert_eq!(metadata.mode() & 0o777, 0o700);
         let phase = std::env::var("SYNVEIL_TEST_CRASH_PHASE").unwrap();
         assert!(
-            ["renamed", "directory-synced", "empty-active", "partial-active"]
-                .contains(&phase.as_str())
+            [
+                "renamed",
+                "directory-synced",
+                "empty-active",
+                "partial-active"
+            ]
+            .contains(&phase.as_str())
         );
         let next = std::env::var("SYNVEIL_TEST_CRASH_RECORD").unwrap();
         let mut storage = ProcessCrashIo {
@@ -1001,7 +1006,12 @@ mod tests {
         use std::process::{Command, Stdio};
         use std::time::{Duration, Instant};
 
-        for phase in ["renamed", "directory-synced", "empty-active", "partial-active"] {
+        for phase in [
+            "renamed",
+            "directory-synced",
+            "empty-active",
+            "partial-active",
+        ] {
             let dir = test_dir("process-crash");
             fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
             let journal = dir.join("journal");
