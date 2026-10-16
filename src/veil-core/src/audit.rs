@@ -814,6 +814,7 @@ mod tests {
         target: PathBuf,
         kind: &'static str,
         installed: bool,
+        installed_inode: Option<u64>,
         writes: usize,
     }
 
@@ -838,6 +839,7 @@ mod tests {
                 }
                 _ => unreachable!(),
             }
+            self.installed_inode = Some(fs::symlink_metadata(&self.journal)?.ino());
             self.installed = true;
             Ok(())
         }
@@ -865,6 +867,7 @@ mod tests {
                 target: target.clone(),
                 kind,
                 installed: false,
+                installed_inode: None,
                 writes: 0,
             };
             let next = record("next", json!({"padding": "y".repeat(8192)})).to_string();
@@ -874,7 +877,10 @@ mod tests {
                 "replacement boundary was not reached: {kind}"
             );
             assert_eq!(storage.writes, 0, "attempted write through {kind}");
-            assert!(fs::symlink_metadata(&journal).is_ok());
+            assert_eq!(
+                fs::symlink_metadata(&journal).unwrap().ino(),
+                storage.installed_inode.unwrap()
+            );
             assert_eq!(fs::read(&target).unwrap(), b"unrelated private data\n");
             assert_eq!(fs::metadata(&target).unwrap().ino(), target_inode);
             assert_eq!(fs::read(&archive).unwrap(), previous);
