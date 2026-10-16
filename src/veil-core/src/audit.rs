@@ -877,10 +877,25 @@ mod tests {
                 "replacement boundary was not reached: {kind}"
             );
             assert_eq!(storage.writes, 0, "attempted write through {kind}");
-            assert_eq!(
-                fs::symlink_metadata(&journal).unwrap().ino(),
-                storage.installed_inode.unwrap()
-            );
+            let refused = fs::symlink_metadata(&journal).unwrap();
+            assert_eq!(refused.ino(), storage.installed_inode.unwrap());
+            match kind {
+                "symlink" => {
+                    assert!(refused.file_type().is_symlink());
+                    assert_eq!(fs::read_link(&journal).unwrap(), target);
+                }
+                "hardlink" => {
+                    assert!(refused.is_file());
+                    assert_eq!(refused.ino(), target_inode);
+                    assert_eq!(refused.nlink(), 2);
+                }
+                "directory" => assert!(refused.is_dir()),
+                "fifo" => {
+                    use std::os::unix::fs::FileTypeExt;
+                    assert!(refused.file_type().is_fifo());
+                }
+                _ => unreachable!(),
+            }
             assert_eq!(fs::read(&target).unwrap(), b"unrelated private data\n");
             assert_eq!(fs::metadata(&target).unwrap().ino(), target_inode);
             assert_eq!(fs::read(&archive).unwrap(), previous);
