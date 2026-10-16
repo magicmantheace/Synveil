@@ -163,8 +163,11 @@ both graphical scenarios, passed at
 [1edc09e](docs/validation/native-1edc09e/README.md). Interrupted rotation remains open.
 A further gate constructs the archive-only intermediate layout and requires
 native active-journal recovery, archive preservation, and verification of both
-originals and snapshots after abrupt stop/reboot. Guest validation is pending;
-the constructed layout does not establish interrupted-rotation durability.
+originals and snapshots after abrupt stop/reboot. This passed in the full
+[c97f554 run](docs/validation/native-c97f554/README.md); the constructed layout
+does not establish interrupted-rotation durability. Deterministic host error
+injection at append/rotation I/O boundaries passed at `6e7d7ed`; real device
+failure and native revalidation of the storage adapter remain open.
 Exports preserve source history and do not release the archive slot. Explicit retention release,
 independent integrity anchoring and power-loss testing remain open.
 

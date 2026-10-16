@@ -1,0 +1,202 @@
+{
+  "schema": "synveil.workflow-evidence/v1",
+  "git_commit": "c97f554da6927c19e8651b7388444a3599cb8a2b",
+  "run_id": 38833990492,
+  "url": "https://github.com/magicmantheace/Synveil/actions/runs/38833990492",
+  "conclusion": "success",
+  "completed_at": "2026-10-16T01:50:35Z",
+  "job": {
+    "id": 116759071687,
+    "conclusion": "success",
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success"
+      },
+      {
+        "name": "Check out Synveil",
+        "conclusion": "success"
+      },
+      {
+        "name": "Install bootstrap host dependencies",
+        "conclusion": "success"
+      },
+      {
+        "name": "Validate build tooling",
+        "conclusion": "success"
+      },
+      {
+        "name": "Install and authenticate pinned Rust sources",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build isolated Synveil toolchain",
+        "conclusion": "success"
+      },
+      {
+        "name": "Compile and audit native binaries",
+        "conclusion": "success"
+      },
+      {
+        "name": "Show native artifact identity",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build native rootfs and boot image",
+        "conclusion": "success"
+      },
+      {
+        "name": "Require native core status in QEMU",
+        "conclusion": "success"
+      },
+      {
+        "name": "Verify structured read-only observer in guest",
+        "conclusion": "success"
+      },
+      {
+        "name": "Require recovery shell after core crash",
+        "conclusion": "success"
+      },
+      {
+        "name": "Restart core and retain recovery after restart exhaustion",
+        "conclusion": "success"
+      },
+      {
+        "name": "Reject malformed IPC and retain healthy status in guest",
+        "conclusion": "success"
+      },
+      {
+        "name": "Recover in guest with core binary absent",
+        "conclusion": "success"
+      },
+      {
+        "name": "Prove isolated read-only recovery with core seat and desktop missing",
+        "conclusion": "success"
+      },
+      {
+        "name": "Recover from absent or invalid QEMU state disk",
+        "conclusion": "success"
+      },
+      {
+        "name": "Require locked seat and no default password on ephemeral VM",
+        "conclusion": "success"
+      },
+      {
+        "name": "Validate virtual framebuffer in headless QEMU",
+        "conclusion": "success"
+      },
+      {
+        "name": "Recover graphical menu after one crash with serial shell alive",
+        "conclusion": "success"
+      },
+      {
+        "name": "Terminate the demo shell when the graphical launcher crashes",
+        "conclusion": "success"
+      },
+      {
+        "name": "Verify non-root VT demo terminal identity in guest",
+        "conclusion": "success"
+      },
+      {
+        "name": "Validate opt-in QEMU DHCP configuration",
+        "conclusion": "success"
+      },
+      {
+        "name": "Verify state survives two separate QEMU boots",
+        "conclusion": "success"
+      },
+      {
+        "name": "Preserve audit history through rollover capacity and incomplete tails",
+        "conclusion": "success"
+      },
+      {
+        "name": "Recover native audit after isolated exhaustion and read-only storage",
+        "conclusion": "success"
+      },
+      {
+        "name": "Recover audit appends and export after disposable ext4 exhaustion",
+        "conclusion": "success"
+      },
+      {
+        "name": "Preserve acknowledged audit and snapshot after abrupt emulator stop",
+        "conclusion": "success"
+      },
+      {
+        "name": "Preserve completed rollover and both snapshots after abrupt stop",
+        "conclusion": "success"
+      },
+      {
+        "name": "Recover archive-only layout and preserve both journals after abrupt stop",
+        "conclusion": "success"
+      },
+      {
+        "name": "One-time root-owned credential enrollment in QEMU state",
+        "conclusion": "success"
+      },
+      {
+        "name": "Verify graphical settings load across separate QEMU boots",
+        "conclusion": "success"
+      },
+      {
+        "name": "Revoke authenticated nonroot terminal on seat broker crash",
+        "conclusion": "success"
+      },
+      {
+        "name": "Prove authenticated preview refuses unauthenticated root serial",
+        "conclusion": "success"
+      },
+      {
+        "name": "Authenticate via real framebuffer and revoke on GUI crash",
+        "conclusion": "success"
+      },
+      {
+        "name": "Enroll first owner graphically with locked serial and reboot",
+        "conclusion": "success"
+      },
+      {
+        "name": "Package validated authenticated VM without copying test credentials",
+        "conclusion": "success"
+      },
+      {
+        "name": "Independently enroll and log in using packaged VM artifacts",
+        "conclusion": "success"
+      },
+      {
+        "name": "Archive only guest-tested authenticated VM with pristine state",
+        "conclusion": "success"
+      },
+      {
+        "name": "Retain authenticated QEMU preview download",
+        "conclusion": "success"
+      },
+      {
+        "name": "Preserve native build evidence",
+        "conclusion": "success"
+      },
+      {
+        "name": "Post Check out Synveil",
+        "conclusion": "success"
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "id": 12020055563,
+      "name": "authenticated-qemu-preview-c97f554da6927c19e8651b7388444a3599cb8a2b",
+      "size_in_bytes": 23900745,
+      "digest": "sha256:2213ee2b3dbc913ce441853c1a91d982ea2a1539d90ba0c3b2e02c6c5505a59f",
+      "expires_at": "2026-10-23T01:50:28Z"
+    },
+    {
+      "id": 12019951224,
+      "name": "native-target-c97f554da6927c19e8651b7388444a3599cb8a2b",
+      "size_in_bytes": 15318649,
+      "digest": "sha256:34bc6fd647b502ea968acd27ace94d992cf4d6d1ad2a89a7c288335a5e698d02",
+      "expires_at": "2026-10-23T01:50:31Z"
+    }
+  ]
+}

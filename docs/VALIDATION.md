@@ -522,8 +522,9 @@ new active journal without changing the retained archive. Both originals and
 their exported snapshots must then survive the same verified emulator stop and
 independent reboot, checked against separate host-retained digests. Host tests
 execute the generated shell for both archive layouts, including corrupt history,
-wrong record counts and failed or changed archive exports. Native evidence for
-this new gate is pending. Constructing this layout does not prove interruption
+wrong record counts and failed or changed archive exports. This gate passed
+in the full [c97f554 run](validation/native-c97f554/README.md). Constructing
+this layout does not prove interruption
 of a live rename/fsync operation or physical power-loss recovery.
 
 Digest receipt parsing counts every exact-prefix candidate line, including
@@ -564,9 +565,9 @@ key allowlists and the single fixed VT target remain unchanged.
 
 Host regressions observe the full held chord during a simulated USB poll,
 require release after interrupted holds and uncertain key-down delivery, and
-validate both QMP commands over a mock socket. Native VT-switch and graphical
-session-revocation gates require exact-revision execution after integration;
-this change alone does not establish native graphical recovery.
+validate both QMP commands over a mock socket. Native VT-switch, graphical
+session-revocation and every existing guest gate passed in the full
+[c97f554 run](validation/native-c97f554/README.md).
 
 ## Audit I/O error boundaries
 
@@ -579,7 +580,9 @@ The ordinary append matrix must preserve prior history and propagate write or
 sync failure. A partial-write error must preserve the exact incomplete tail,
 leave retained archives unchanged, and refuse further append and inspection.
 Complete bytes may remain after sync failure; the tests must not assume an error
-means no mutation or claim exactly-once retries. Host CI for these new tests and
-native revalidation of the production adapter are pending. Simulated EIO returns
+means no mutation or claim exactly-once retries. All four new tests passed
+[host CI at 6e7d7ed](https://github.com/magicmantheace/Synveil/actions/runs/38837141454),
+with 111 workspace tests, formatting and clippy. Native revalidation of the
+production adapter is pending. Simulated EIO returns
 do not establish real block-device failure, interrupted rotation or power-loss
 durability; the durable-audit roadmap item remains open.

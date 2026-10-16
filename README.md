@@ -124,6 +124,8 @@ Acknowledged audit and snapshot bytes survived abrupt emulator loss and reboot
 at [00476e5](docs/validation/native-00476e5/README.md). Completed-rollover
 reboot verification, strict digest evidence and both previously failing graphical
 gates passed together at [1edc09e](docs/validation/native-1edc09e/README.md).
+Archive-only layout recovery and the held VT chord passed in the full
+[c97f554 run](docs/validation/native-c97f554/README.md).
 This remains an experimental VM, **not** a production desktop, signed release,
 owner-recovery system, or physical installer. The first hands-on test contract
 is in [ROADMAP.md](ROADMAP.md) and [docs/FIRST_INSTALL.md](docs/FIRST_INSTALL.md).
