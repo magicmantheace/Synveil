@@ -2,10 +2,11 @@ name: Graphics diagnostic host checks
 
 on:
   push:
-    branches: [phase2/native-core-bootstrap]
+    branches: [phase2/native-core-bootstrap, development/login-idle-keyboard]
     paths:
       - src/veil-display/**
       - tests/display-lifetime.c
+      - tests/display-keyboard-grab.c
       - tests/desktop-lifetime.py
       - tests/display-build.py
       - tests/auth-vm-bundle.py
