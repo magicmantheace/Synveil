@@ -733,6 +733,34 @@ mod tests {
     }
 
     #[test]
+    fn partial_write_after_rotation_preserves_archive_and_refuses_incomplete_active() {
+        let dir = test_dir("rotation-partial-io");
+        let journal = dir.join("journal");
+        let previous = seed_full_journal(&journal);
+        let archive = archive_path(&journal).unwrap();
+        let next = record("partial", json!({"padding": "y".repeat(8192)})).to_string();
+        let mut storage = FaultingIo::new(4);
+        storage.partial_write = true;
+        assert_eq!(
+            append_record_with_io(&journal, &next, &mut storage)
+                .unwrap_err()
+                .raw_os_error(),
+            Some(5)
+        );
+        assert_eq!(fs::read(&archive).unwrap(), previous);
+        assert_eq!(fs::read(&journal).unwrap(), next.as_bytes()[..17]);
+        assert_eq!(
+            append_record(&journal, "retry").unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+        assert_eq!(fs::read(&archive).unwrap(), previous);
+        assert_eq!(fs::read(&journal).unwrap(), next.as_bytes()[..17]);
+        assert!(super::super::audit_check::inspect(&archive).is_ok());
+        assert!(super::super::audit_check::inspect(&journal).is_err());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn unsafe_lock_objects_cannot_modify_journal_or_link_target() {
         let dir = test_dir("unsafe-lock");
         let journal = dir.join("journal");
