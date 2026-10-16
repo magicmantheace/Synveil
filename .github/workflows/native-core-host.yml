@@ -16,6 +16,7 @@ on:
       - development/audit-rollover-reboot
       - development/audit-crash-evidence
       - development/audit-archive-only
+      - development/audit-io-failures
       - development/qmp-chord-hold
       - development/archive-stream-integrity
     paths:

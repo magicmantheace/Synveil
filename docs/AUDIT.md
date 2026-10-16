@@ -53,6 +53,17 @@ chains and a history API. The durable-audit roadmap item remains open. Future
 privileged actions also require typed cause, parameters, result, authorization,
 and rollback evidence.
 
+Host fault-injection tests exercise write, file-sync, archive-rename and
+parent-directory-sync error returns through a private statically dispatched
+storage adapter. The production adapter directly performs the existing
+filesystem operations; there are no runtime fault flags or environment hooks.
+The tests require prior bytes and archive identity to survive failures, verify
+safe recovery from an archive-only or empty-active layout, and preserve/refuse
+further append after an injected partial write. A sync error can leave complete
+but unacknowledged bytes, so an error does not mean nothing was written or grant
+exactly-once retry semantics. Injected errors establish control-flow behavior,
+not real device EIO, interrupted filesystem operations or power-loss durability.
+
 The native two-boot QEMU persistence gate verifies that the versioned audit
 journal is present, root-owned, mode 0600 and singly linked. This gate and
 target structural inspection passed at

@@ -567,3 +567,19 @@ require release after interrupted holds and uncertain key-down delivery, and
 validate both QMP commands over a mock socket. Native VT-switch and graphical
 session-revocation gates require exact-revision execution after integration;
 this change alone does not establish native graphical recovery.
+
+## Audit I/O error boundaries
+
+A private storage adapter enables deterministic host tests of EIO returns at
+write, file synchronization, archive rename and parent-directory synchronization.
+The rotation matrix must stop at the failed operation, retain the full previous
+journal in either its active or archived location, preserve archive inode
+identity, and recover with independently inspected records on a later append.
+The ordinary append matrix must preserve prior history and propagate write or
+sync failure. A partial-write error must preserve the exact incomplete tail,
+leave retained archives unchanged, and refuse further append and inspection.
+Complete bytes may remain after sync failure; the tests must not assume an error
+means no mutation or claim exactly-once retries. Host CI for these new tests and
+native revalidation of the production adapter are pending. Simulated EIO returns
+do not establish real block-device failure, interrupted rotation or power-loss
+durability; the durable-audit roadmap item remains open.
