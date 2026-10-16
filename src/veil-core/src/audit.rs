@@ -474,10 +474,7 @@ mod tests {
         assert_eq!(fs::metadata(&archive).unwrap().mode() & 0o777, 0o600);
         inspect_fixture(&archive).unwrap();
         append_fixture(&journal, &record("restart", json!({})).to_string()).unwrap();
-        assert_eq!(
-            inspect_fixture(&journal).unwrap()["records"],
-            2
-        );
+        assert_eq!(inspect_fixture(&journal).unwrap()["records"], 2);
         assert_eq!(fs::read(&archive).unwrap(), previous);
         fs::remove_dir_all(dir).unwrap();
     }
