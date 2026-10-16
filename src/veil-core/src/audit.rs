@@ -179,7 +179,34 @@ fn sync_directory(parent: &Path, directory: &fs::Metadata) -> io::Result<()> {
     opened.sync_all()
 }
 
+// Keep storage operations statically dispatched so tests can inject I/O
+// errors at each boundary without adding runtime environment-driven failpoints.
+trait JournalIo {
+    fn write(&mut self, file: &mut fs::File, bytes: &[u8]) -> io::Result<()> {
+        file.write_all(bytes)
+    }
+
+    fn sync_file(&mut self, file: &fs::File) -> io::Result<()> {
+        file.sync_all()
+    }
+
+    fn archive(&mut self, path: &Path) -> io::Result<()> {
+        preserve_archive(path)
+    }
+
+    fn sync_parent(&mut self, parent: &Path, directory: &fs::Metadata) -> io::Result<()> {
+        sync_directory(parent, directory)
+    }
+}
+
+struct FilesystemIo;
+impl JournalIo for FilesystemIo {}
+
 fn append_record(path: &Path, line: &str) -> io::Result<()> {
+    append_record_with_io(path, line, &mut FilesystemIo)
+}
+
+fn append_record_with_io(path: &Path, line: &str, storage: &mut impl JournalIo) -> io::Result<()> {
     // A record must remain one bounded line even if an internal caller errs.
     if line.is_empty() || line.contains(['\n', '\r']) || line.len() >= MAX_AUDIT_RECORD_BYTES {
         return Err(io::Error::new(
@@ -230,18 +257,18 @@ fn append_record(path: &Path, line: &str) -> io::Result<()> {
         .checked_add(bytes.len() as u64)
         .is_none_or(|next| next > MAX_AUDIT_BYTES)
     {
-        file.sync_all()?;
-        preserve_archive(path)?;
+        storage.sync_file(&file)?;
+        storage.archive(path)?;
         // Commit the archive rename before creating the next active journal.
-        sync_directory(parent, &directory)?;
+        storage.sync_parent(parent, &directory)?;
         eprintln!("[synveil-audit] full journal preserved in .1 archive");
         file = open_journal(path, &directory)?;
     }
-    file.write_all(&bytes)?;
-    file.sync_all()?;
+    storage.write(&mut file, &bytes)?;
+    storage.sync_file(&file)?;
     // File synchronization alone does not persist a newly created directory
     // entry. Repeat this after every append, including retries after failure.
-    sync_directory(parent, &directory)
+    storage.sync_parent(parent, &directory)
 }
 
 #[cfg(test)]
@@ -534,6 +561,174 @@ mod tests {
         append_record(&journal, &next).unwrap();
         assert_eq!(fs::read(archive_path(&journal).unwrap()).unwrap(), previous);
         assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{next}\n"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    struct FaultingIo {
+        fail_at: usize,
+        calls: Vec<&'static str>,
+        partial_write: bool,
+    }
+
+    impl FaultingIo {
+        fn new(fail_at: usize) -> Self {
+            Self {
+                fail_at,
+                calls: Vec::new(),
+                partial_write: false,
+            }
+        }
+
+        fn step(&mut self, operation: &'static str) -> io::Result<()> {
+            self.calls.push(operation);
+            if self.calls.len() == self.fail_at {
+                return Err(io::Error::from_raw_os_error(5)); // Linux EIO
+            }
+            Ok(())
+        }
+    }
+
+    impl JournalIo for FaultingIo {
+        fn write(&mut self, file: &mut fs::File, bytes: &[u8]) -> io::Result<()> {
+            if let Err(error) = self.step("write") {
+                if self.partial_write {
+                    file.write_all(&bytes[..17])?;
+                }
+                return Err(error);
+            }
+            FilesystemIo.write(file, bytes)
+        }
+
+        fn sync_file(&mut self, file: &fs::File) -> io::Result<()> {
+            self.step("sync_file")?;
+            FilesystemIo.sync_file(file)
+        }
+
+        fn archive(&mut self, path: &Path) -> io::Result<()> {
+            self.step("archive")?;
+            FilesystemIo.archive(path)
+        }
+
+        fn sync_parent(&mut self, parent: &Path, directory: &fs::Metadata) -> io::Result<()> {
+            self.step("sync_parent")?;
+            FilesystemIo.sync_parent(parent, directory)
+        }
+    }
+
+    #[test]
+    fn append_io_errors_preserve_history_report_failure_and_allow_retry() {
+        let operations = ["write", "sync_file", "sync_parent"];
+        for fail_at in 1..=operations.len() {
+            let dir = test_dir("append-io");
+            let journal = dir.join("journal");
+            let original = record("original", json!({})).to_string();
+            append_record(&journal, &original).unwrap();
+            let next = record("unacknowledged", json!({})).to_string();
+            let mut storage = FaultingIo::new(fail_at);
+            let error = append_record_with_io(&journal, &next, &mut storage).unwrap_err();
+            assert_eq!(error.raw_os_error(), Some(5));
+            assert_eq!(storage.calls, operations[..fail_at]);
+            // A failed sync can leave a complete but unacknowledged record.
+            let expected = if fail_at == 1 {
+                format!("{original}\n")
+            } else {
+                format!("{original}\n{next}\n")
+            };
+            assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
+            assert!(!archive_path(&journal).unwrap().exists());
+            let retry = record("retry", json!({})).to_string();
+            append_record(&journal, &retry).unwrap();
+            assert_eq!(
+                fs::read_to_string(&journal).unwrap(),
+                format!("{expected}{retry}\n")
+            );
+            assert!(super::super::audit_check::inspect(&journal).is_ok());
+            fs::remove_dir_all(dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn rotation_io_errors_preserve_all_history_and_recover_without_overwrite() {
+        let operations = [
+            "sync_file",
+            "archive",
+            "sync_parent",
+            "write",
+            "sync_file",
+            "sync_parent",
+        ];
+        for fail_at in 1..=operations.len() {
+            let dir = test_dir("rotation-io");
+            let journal = dir.join("journal");
+            let previous = seed_full_journal(&journal);
+            let original_inode = fs::metadata(&journal).unwrap().ino();
+            let archive = archive_path(&journal).unwrap();
+            let next = record("next", json!({"padding": "y".repeat(8192)})).to_string();
+            let mut storage = FaultingIo::new(fail_at);
+            let error = append_record_with_io(&journal, &next, &mut storage).unwrap_err();
+            assert_eq!(error.raw_os_error(), Some(5));
+            assert_eq!(storage.calls, operations[..fail_at]);
+            if fail_at <= 2 {
+                assert_eq!(fs::read(&journal).unwrap(), previous);
+                assert!(!archive.exists());
+            } else {
+                assert_eq!(fs::read(&archive).unwrap(), previous);
+                if fail_at == 3 {
+                    assert!(!journal.exists());
+                } else {
+                    let expected = if fail_at == 4 {
+                        String::new()
+                    } else {
+                        format!("{next}\n")
+                    };
+                    assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
+                }
+            }
+            // Use a new event: a returned error does not imply zero bytes wrote
+            // and does not grant exactly-once semantics to an automatic retry.
+            let retry = record("retry", json!({"padding": "z".repeat(8192)})).to_string();
+            append_record(&journal, &retry).unwrap();
+            assert_eq!(fs::read(&archive).unwrap(), previous);
+            assert_eq!(fs::metadata(&archive).unwrap().ino(), original_inode);
+            let expected = if fail_at >= 5 {
+                format!("{next}\n{retry}\n")
+            } else {
+                format!("{retry}\n")
+            };
+            assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
+            assert!(super::super::audit_check::inspect(&archive).is_ok());
+            assert!(super::super::audit_check::inspect(&journal).is_ok());
+            fs::remove_dir_all(dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn partial_write_error_preserves_tail_and_refuses_retry_without_touching_archive() {
+        let dir = test_dir("partial-write-io");
+        let journal = dir.join("journal");
+        let original = record("original", json!({})).to_string();
+        append_record(&journal, &original).unwrap();
+        let archive = archive_path(&journal).unwrap();
+        fs::write(&archive, b"retained history\n").unwrap();
+        fs::set_permissions(&archive, fs::Permissions::from_mode(0o600)).unwrap();
+        let next = record("partial", json!({})).to_string();
+        let mut storage = FaultingIo::new(1);
+        storage.partial_write = true;
+        assert_eq!(
+            append_record_with_io(&journal, &next, &mut storage)
+                .unwrap_err()
+                .raw_os_error(),
+            Some(5)
+        );
+        let expected = format!("{original}\n{}", &next[..17]);
+        assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
+        assert_eq!(
+            append_record(&journal, "retry").unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+        assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
+        assert_eq!(fs::read(&archive).unwrap(), b"retained history\n");
+        assert!(super::super::audit_check::inspect(&journal).is_err());
         fs::remove_dir_all(dir).unwrap();
     }
 
