@@ -919,6 +919,172 @@ mod tests {
         }
     }
 
+    fn kill_crash_worker() -> ! {
+        unsafe extern "C" {
+            fn raise(signal: i32) -> i32;
+        }
+        // SIGKILL runs no Rust destructors or graceful audit shutdown.
+        unsafe { raise(9) };
+        panic!("crash worker survived SIGKILL");
+    }
+
+    struct ProcessCrashIo {
+        phase: String,
+        parent_syncs: usize,
+    }
+
+    impl JournalIo for ProcessCrashIo {
+        fn archive(&mut self, path: &Path) -> io::Result<()> {
+            FilesystemIo.archive(path)?;
+            if self.phase == "renamed" {
+                kill_crash_worker();
+            }
+            Ok(())
+        }
+
+        fn sync_parent(&mut self, parent: &Path, directory: &fs::Metadata) -> io::Result<()> {
+            FilesystemIo.sync_parent(parent, directory)?;
+            self.parent_syncs += 1;
+            if self.parent_syncs == 1 && self.phase == "directory-synced" {
+                kill_crash_worker();
+            }
+            Ok(())
+        }
+
+        fn write(&mut self, file: &mut fs::File, bytes: &[u8]) -> io::Result<()> {
+            if self.phase == "empty-active" {
+                kill_crash_worker();
+            }
+            if self.phase == "partial-active" {
+                file.write_all(&bytes[..17])?;
+                kill_crash_worker();
+            }
+            FilesystemIo.write(file, bytes)
+        }
+    }
+
+    #[test]
+    fn process_crash_worker() {
+        // Entry point only in the test executable; no production fault flags.
+        let Some(root) = std::env::var_os("SYNVEIL_TEST_CRASH_ROOT") else {
+            return;
+        };
+        let root = PathBuf::from(root);
+        assert_eq!(root.parent().unwrap(), std::env::temp_dir());
+        assert!(
+            root.file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .starts_with("synveil-audit-process-crash-")
+        );
+        let metadata = fs::symlink_metadata(&root).unwrap();
+        assert!(metadata.is_dir());
+        assert_eq!(metadata.mode() & 0o777, 0o700);
+        let phase = std::env::var("SYNVEIL_TEST_CRASH_PHASE").unwrap();
+        assert!(
+            [
+                "renamed",
+                "directory-synced",
+                "empty-active",
+                "partial-active"
+            ]
+            .contains(&phase.as_str())
+        );
+        let next = std::env::var("SYNVEIL_TEST_CRASH_RECORD").unwrap();
+        let mut storage = ProcessCrashIo {
+            phase,
+            parent_syncs: 0,
+        };
+        append_record_with_io(&root.join("journal"), &next, &mut storage).unwrap();
+        panic!("crash boundary was not reached");
+    }
+
+    #[test]
+    fn process_loss_during_rotation_preserves_history_and_releases_locks() {
+        use std::os::unix::process::ExitStatusExt;
+        use std::process::{Command, Stdio};
+        use std::time::{Duration, Instant};
+
+        for phase in [
+            "renamed",
+            "directory-synced",
+            "empty-active",
+            "partial-active",
+        ] {
+            let dir = test_dir("process-crash");
+            fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
+            let journal = dir.join("journal");
+            let previous = seed_full_journal(&journal);
+            let original_inode = fs::metadata(&journal).unwrap().ino();
+            // Establish a synchronized seed before the child starts. No sync
+            // or cleanup follows the child's interrupted operations.
+            fs::File::open(&journal).unwrap().sync_all().unwrap();
+            sync_directory(&dir, &fs::metadata(&dir).unwrap()).unwrap();
+            let next = record("interrupted", json!({"padding": "y".repeat(8192)})).to_string();
+            let mut child = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "audit::tests::process_crash_worker",
+                    "--test-threads=1",
+                ])
+                .env("SYNVEIL_TEST_CRASH_ROOT", &dir)
+                .env("SYNVEIL_TEST_CRASH_PHASE", phase)
+                .env("SYNVEIL_TEST_CRASH_RECORD", &next)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let status = loop {
+                if let Some(status) = child.try_wait().unwrap() {
+                    break status;
+                }
+                if Instant::now() >= deadline {
+                    child.kill().unwrap();
+                    child.wait().unwrap();
+                    panic!("crash worker timed out at {phase}");
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            };
+            let mut diagnostic = String::new();
+            child
+                .stderr
+                .take()
+                .unwrap()
+                .read_to_string(&mut diagnostic)
+                .unwrap();
+            assert_eq!(status.signal(), Some(9), "{phase}: {diagnostic}");
+            let archive = archive_path(&journal).unwrap();
+            assert_eq!(fs::read(&archive).unwrap(), previous);
+            assert_eq!(fs::metadata(&archive).unwrap().ino(), original_inode);
+            // A killed child must not leave either advisory lock held.
+            inspect_fixture(&archive).unwrap();
+            if phase == "renamed" || phase == "directory-synced" {
+                assert!(!journal.exists());
+            } else if phase == "empty-active" {
+                assert!(fs::read(&journal).unwrap().is_empty());
+            } else {
+                assert_eq!(fs::read(&journal).unwrap(), next.as_bytes()[..17]);
+            }
+            let retry = record("restart", json!({})).to_string();
+            if phase == "partial-active" {
+                assert_eq!(
+                    append_record(&journal, &retry).unwrap_err().kind(),
+                    io::ErrorKind::InvalidData
+                );
+                assert_eq!(fs::read(&journal).unwrap(), next.as_bytes()[..17]);
+            } else {
+                append_record(&journal, &retry).unwrap();
+                assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{retry}\n"));
+                inspect_fixture(&journal).unwrap();
+            }
+            assert_eq!(fs::read(&archive).unwrap(), previous);
+            fs::remove_dir_all(dir).unwrap();
+        }
+    }
+
     #[test]
     fn unsafe_lock_objects_cannot_modify_journal_or_link_target() {
         let dir = test_dir("unsafe-lock");

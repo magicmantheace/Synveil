@@ -582,8 +582,8 @@ leave retained archives unchanged, and refuse further append and inspection.
 Complete bytes may remain after sync failure; the tests must not assume an error
 means no mutation or claim exactly-once retries. All four new tests passed
 [host CI at 6e7d7ed](https://github.com/magicmantheace/Synveil/actions/runs/38837141454),
-with 111 workspace tests, formatting and clippy. Native revalidation of the
-production adapter is pending. Simulated EIO returns
+with 111 workspace tests, formatting and clippy. Full native revalidation of the
+production adapter passed at [4390a8c](validation/native-4390a8c/README.md). Simulated EIO returns
 do not establish real block-device failure, interrupted rotation or power-loss
 durability; the durable-audit roadmap item remains open.
 
@@ -633,7 +633,10 @@ allowing the console modifier handler to process releases before the grab.
 tty1 and authorization rules remain unchanged. Host C tests model immediate
 idle, held release, a query/grab race, persistent held input, ioctl/read/poll
 failure, truncated events and event flooding. Full native graphical and all
-existing guest gates must pass before claiming the missed-exit issue resolved.
+existing guest gates passed together at
+[4390a8c](validation/native-4390a8c/README.md), including terminal-return and
+graphical cleanup markers in the downloaded, digest-verified guest log. This
+validates the configured QEMU target without proving the earlier exact root cause.
 
 ## Active-path replacement after rotation
 
@@ -644,6 +647,26 @@ reaching the record-write operation. The retained archive must keep its exact
 bytes and inode, unrelated target data must stay unchanged, and the writer must
 leave the substituted object in place. After the fixture explicitly removes
 its own object, a normal append must recover with a valid active journal and
-the same retained archive. Host CI for this new regression is pending. The
+the same retained archive. Host CI at `d70c745` passed all four cases,
+113 Rust tests, formatting and clippy. The
 production writer is unchanged; this adds neither runtime fault hooks nor
 automatic repair, retention release, device-error or power-loss evidence.
+
+## Process loss at audit rotation boundaries
+
+The test executable launches an exact-filtered worker that kills itself with
+SIGKILL after rename, after directory synchronization, before new-active write,
+or after a 17-byte partial write. The parent verifies signal 9, archived bytes
+and inode, lock release and independently inspected restart records. A partial
+tail must remain exact and further appends must fail with InvalidData. The seed
+is synchronized before the child starts; no sync or cleanup precedes inspecting
+the interrupted state. A five-second timeout kills/reaps the child and fails
+instead of accepting a watchdog kill as evidence.
+
+Host CI at `f75de2bec42834c27688359c82039ad890d809fb` passed all four cases,
+115 Rust tests, formatting and clippy
+([run 38907418988](https://github.com/magicmantheace/Synveil/actions/runs/38907418988)).
+There are no production crash flags. These are userspace
+process cuts at known operation boundaries while the host kernel and cache
+survive; interrupted kernel operations, guest reboot during rotation, real
+device errors and volatile-cache/physical power loss remain unproven.
