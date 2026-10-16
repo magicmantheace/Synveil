@@ -63,6 +63,8 @@ further append after an injected partial write. A sync error can leave complete
 but unacknowledged bytes, so an error does not mean nothing was written or grant
 exactly-once retry semantics. Injected errors establish control-flow behavior,
 not real device EIO, interrupted filesystem operations or power-loss durability.
+All four fault-injection tests passed host CI at `6e7d7ed`; native revalidation
+of the production storage adapter remains pending.
 
 The native two-boot QEMU persistence gate verifies that the versioned audit
 journal is present, root-owned, mode 0600 and singly linked. This gate and
@@ -368,5 +370,5 @@ appends or exports. Failed preparation sync prevents helper startup and success
 evidence. The helper must create a valid active journal without changing the
 archive. Independent exports and host-retained digests then cover both originals
 and both snapshots across verified emulator SIGKILL and reboot. This gate is
-implemented and host-tested; native guest evidence is pending. A constructed
-post-rename layout is not a timed interruption of a live rotation.
+validated in the full [c97f554 native run](validation/native-c97f554/README.md).
+A constructed post-rename layout is not a timed interruption of a live rotation.
