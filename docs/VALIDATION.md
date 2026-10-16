@@ -593,7 +593,9 @@ process launches can transiently inherit an audit flock until exec. The fault
 fixtures now use bounded WouldBlock-only inspection retries with error output;
 all other inspection errors fail immediately, and partial-tail assertions
 require InvalidData rather than accepting any error. Production lock handling
-remains nonblocking. Fresh host validation of this fixture correction is pending.
+remains nonblocking. The combined fixture correction and terminal-return
+diagnostics passed [host CI at 29e9504](https://github.com/magicmantheace/Synveil/actions/runs/38844827501),
+including 112 Rust tests, 14 graphical-login fixtures, formatting and clippy.
 
 ## Terminal-return failure diagnostics
 
@@ -610,5 +612,5 @@ on any exact failure marker before considering later success text, including
 after the user-desktop crash/relogin sequence. Host fixtures execute the generated
 shell against synthetic process metadata for all outcomes and reject contradictory
 late success. These diagnostics preserve the same return-success requirements;
-they do not establish a fix for the native graphical failure. Fresh native
-validation is required.
+they do not establish a fix for the native graphical failure. The host fixtures
+passed at `29e9504`; fresh native validation is required.
