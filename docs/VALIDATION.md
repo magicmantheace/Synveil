@@ -586,3 +586,29 @@ with 111 workspace tests, formatting and clippy. Native revalidation of the
 production adapter is pending. Simulated EIO returns
 do not establish real block-device failure, interrupted rotation or power-loss
 durability; the durable-audit roadmap item remains open.
+
+Post-merge host CI at `200f903` exposed a failure at the new rotation fixture's
+boolean archive-inspection assertion after the earlier run passed. Parallel
+process launches can transiently inherit an audit flock until exec. The fault
+fixtures now use bounded WouldBlock-only inspection retries with error output;
+all other inspection errors fail immediately, and partial-tail assertions
+require InvalidData rather than accepting any error. Production lock handling
+remains nonblocking. Fresh host validation of this fixture correction is pending.
+
+## Terminal-return failure diagnostics
+
+The [partial 200f903 run](validation/native-200f903/README.md) passed all audit
+and recovery gates, but graphical login stopped at `checking-user-return`
+after successful authentication and confirmed UID1000 terminal creation. No
+return-to-dashboard marker arrived; the log does not identify whether the shell
+remained alive or its dashboard became unavailable. This is a failed pipeline,
+not full native validation of the storage adapter.
+
+The guest return check now emits one of three fixed failure reasons: missing
+identity, a living non-zombie shell, or unavailable dashboard. The host stops
+on any exact failure marker before considering later success text, including
+after the user-desktop crash/relogin sequence. Host fixtures execute the generated
+shell against synthetic process metadata for all outcomes and reject contradictory
+late success. These diagnostics preserve the same return-success requirements;
+they do not establish a fix for the native graphical failure. Fresh native
+validation is required.

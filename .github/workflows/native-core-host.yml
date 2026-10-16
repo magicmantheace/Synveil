@@ -17,6 +17,7 @@ on:
       - development/audit-crash-evidence
       - development/audit-archive-only
       - development/audit-io-failures
+      - development/audit-fixture-contention
       - development/qmp-chord-hold
       - development/archive-stream-integrity
     paths:

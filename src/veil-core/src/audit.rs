@@ -615,6 +615,49 @@ mod tests {
         }
     }
 
+    fn inspect_fixture(path: &Path) -> io::Result<Value> {
+        // Parallel seat tests fork while audit descriptors can be open. A
+        // child can briefly inherit their flock until exec closes the fd.
+        // Wait only for WouldBlock; malformed data and all other errors fail
+        // immediately. Production inspection remains strictly nonblocking.
+        for _ in 0..100 {
+            match super::super::audit_check::inspect(path) {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    eprintln!("[audit-fixture] waiting for inherited lock: {error}");
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                result => return result,
+            }
+        }
+        super::super::audit_check::inspect(path)
+    }
+
+    #[test]
+    fn fixture_inspection_waits_for_contention_but_rejects_invalid_data() {
+        let dir = test_dir("fixture-inspection");
+        let journal = dir.join("journal");
+        append_record(&journal, &record("original", json!({})).to_string()).unwrap();
+        let held = directory_lock(&journal, true).unwrap().unwrap();
+        assert_eq!(
+            super::super::audit_check::inspect(&journal)
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::WouldBlock
+        );
+        let release = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(30));
+            assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
+        });
+        assert_eq!(inspect_fixture(&journal).unwrap()["records"], 1);
+        release.join().unwrap();
+        fs::write(&journal, b"partial").unwrap();
+        assert_eq!(
+            inspect_fixture(&journal).unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
     #[test]
     fn append_io_errors_preserve_history_report_failure_and_allow_retry() {
         let operations = ["write", "sync_file", "sync_parent"];
@@ -642,7 +685,7 @@ mod tests {
                 fs::read_to_string(&journal).unwrap(),
                 format!("{expected}{retry}\n")
             );
-            assert!(super::super::audit_check::inspect(&journal).is_ok());
+            inspect_fixture(&journal).unwrap();
             fs::remove_dir_all(dir).unwrap();
         }
     }
@@ -696,8 +739,8 @@ mod tests {
                 format!("{retry}\n")
             };
             assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
-            assert!(super::super::audit_check::inspect(&archive).is_ok());
-            assert!(super::super::audit_check::inspect(&journal).is_ok());
+            inspect_fixture(&archive).unwrap();
+            inspect_fixture(&journal).unwrap();
             fs::remove_dir_all(dir).unwrap();
         }
     }
@@ -728,7 +771,10 @@ mod tests {
         );
         assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
         assert_eq!(fs::read(&archive).unwrap(), b"retained history\n");
-        assert!(super::super::audit_check::inspect(&journal).is_err());
+        assert_eq!(
+            inspect_fixture(&journal).unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 
@@ -755,8 +801,11 @@ mod tests {
         );
         assert_eq!(fs::read(&archive).unwrap(), previous);
         assert_eq!(fs::read(&journal).unwrap(), next.as_bytes()[..17]);
-        assert!(super::super::audit_check::inspect(&archive).is_ok());
-        assert!(super::super::audit_check::inspect(&journal).is_err());
+        inspect_fixture(&archive).unwrap();
+        assert_eq!(
+            inspect_fixture(&journal).unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 

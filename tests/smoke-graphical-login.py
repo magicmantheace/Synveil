@@ -28,6 +28,11 @@ REQUIRED = {
     b"SYNVEIL_STATE_READY", b"SYNVEIL_SEAT_READY", b"SYNVEIL_LOGIN_READY",
     b"SYNVEIL_SERIAL_RECOVERY_DEVELOPER",
 }
+RETURN_FAILURES = {
+    b"SYNVEIL_USER_RETURN_FAILED_IDENTITY_MISSING",
+    b"SYNVEIL_USER_RETURN_FAILED_SHELL_ALIVE",
+    b"SYNVEIL_USER_RETURN_FAILED_DASHBOARD_UNAVAILABLE",
+}
 
 # Pure guest-side process, privilege, VT and crash-cleanup checks. No
 # password strings or hashes are ever copied back through these assertions.
@@ -123,6 +128,7 @@ CHECK_USER_TERMINAL = (
 
 # A foreground shell exit must return to the SAME graphical user process.
 CHECK_USER_RETURNED = (
+    "returned=; "
     "if [ -n \"$user_session\" ] && [ -n \"$shell_pid\" ]; then "
     "for retry in $(seq 1 100); do "
     "if ! kill -0 \"$shell_pid\" 2>/dev/null || "
@@ -131,8 +137,14 @@ CHECK_USER_RETURNED = (
     "! grep -q '^State:.*Z' /proc/$user_session/status 2>/dev/null && "
     "tr '\\000' ' ' < /proc/$user_session/cmdline | "
     "grep -Fq -- 'synveil-display --session'; then "
-    "printf '\\n%s\\n' SYNVEIL_USER_TERMINAL_RETURNED; fi; break; fi; "
-    "sleep 0.1; done; fi\n"
+    "returned=1; printf '\\n%s\\n' SYNVEIL_USER_TERMINAL_RETURNED; fi; break; fi; "
+    "sleep 0.1; done; fi; "
+    "if [ \"$returned\" != 1 ]; then "
+    "reason=DASHBOARD_UNAVAILABLE; "
+    "if [ -z \"$user_session\" ] || [ -z \"$shell_pid\" ]; then reason=IDENTITY_MISSING; "
+    "elif kill -0 \"$shell_pid\" 2>/dev/null && "
+    "! grep -q '^State:.*Z' /proc/$shell_pid/status 2>/dev/null; then reason=SHELL_ALIVE; fi; "
+    "printf '\\n%s%s%s\\n' SYNVEIL_ USER_RETURN_FAILED_ \"$reason\"; fi\n"
 )
 
 # A terminated session must not leave any *living* UID1000 terminal.
@@ -193,6 +205,10 @@ def smoke(timeout_seconds: float) -> bool:
                         evidence.flush()
                         if line.startswith(b"SYNVEIL_"):
                             seen.add(line)
+                    if RETURN_FAILURES & seen:
+                        evidence.write(("[synveil] terminal return failed in phase: " +
+                                        phase + "\n").encode())
+                        return False
                     if phase == "boot" and REQUIRED <= seen:
                         # Guest confirms echo is disabled *before* the host
                         # sends any test credential bytes to serial.
