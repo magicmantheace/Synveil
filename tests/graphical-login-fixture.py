@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 """No-QEMU fixture for the staged graphical password/lease smoke protocol."""
 import os
+import importlib.util
 from pathlib import Path
 import re
 import shutil
@@ -13,6 +14,33 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class GraphicalLoginFixtureTests(unittest.TestCase):
+    def test_return_shell_classifies_live_shell_missing_identity_and_lost_dashboard(self):
+        spec = importlib.util.spec_from_file_location("graphical_return", ROOT / "tests/smoke-graphical-login.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for mode, marker in (
+            ('missing', 'SYNVEIL_USER_RETURN_FAILED_IDENTITY_MISSING'),
+            ('alive', 'SYNVEIL_USER_RETURN_FAILED_SHELL_ALIVE'),
+            ('lost', 'SYNVEIL_USER_RETURN_FAILED_DASHBOARD_UNAVAILABLE'),
+            ('returned', 'SYNVEIL_USER_TERMINAL_RETURNED'),
+        ):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for pid in ('123', '456'):
+                    (root / pid).mkdir()
+                    (root / pid / 'status').write_text('State: S\n')
+                    (root / pid / 'cmdline').write_bytes(b'synveil-display\x00--session\x00')
+                variables = 'user_session=123; shell_pid=456; '
+                if mode == 'missing':
+                    variables = 'user_session=; shell_pid=; '
+                # Model process liveness only; parsing reads actual fixture files.
+                live = '123|456' if mode == 'alive' else '123' if mode == 'returned' else 'never'
+                command = ('kill() { case "$2" in ' + live + ') return 0;; *) return 1;; esac; }; ' + variables +
+                           module.CHECK_USER_RETURNED.replace('/proc/', str(root) + '/').replace('$(seq 1 100)', '1'))
+                result = subprocess.run(['sh'], input=command, text=True, capture_output=True, timeout=3)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), marker)
+
     def simulate(self, mode):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -108,6 +136,13 @@ check_return = sys.stdin.readline()
 assert 'SYNVEIL_USER_TERMINAL_RETURNED' in check_return
 if mode == 'no-user-return':
     sys.exit(0)
+if mode in ('return-shell-alive', 'return-dashboard-unavailable', 'return-identity-missing'):
+    reason = mode.removeprefix('return-').replace('-', '_').upper()
+    print('SYNVEIL_USER_RETURN_FAILED_' + reason, flush=True)
+    # Later success text cannot override an explicit failed check.
+    print('SYNVEIL_USER_TERMINAL_RETURNED', flush=True)
+    time.sleep(5)
+    sys.exit(1)
 print('SYNVEIL_USER_TERMINAL_RETURNED', flush=True)
 wait_for(7)
 assert signal.read_text().splitlines()[6] == 'ESC_LOGOUT'
@@ -153,6 +188,11 @@ returned = sys.stdin.readline()
 assert 'SYNVEIL_USER_TERMINAL_RETURNED' in returned
 if mode == 'no-post-crash-return':
     sys.exit(0)
+if mode == 'post-crash-return-failed':
+    print('SYNVEIL_USER_RETURN_FAILED_SHELL_ALIVE', flush=True)
+    print('SYNVEIL_USER_TERMINAL_RETURNED', flush=True)
+    time.sleep(5)
+    sys.exit(1)
 print('SYNVEIL_USER_TERMINAL_RETURNED', flush=True)
 script = ''
 while not script.endswith('# SYNVEIL_TEST_COMMAND_END\\n'):
@@ -222,6 +262,20 @@ if mode != 'no-gui-restart':
 
     def test_missing_return_to_same_dashboard_evidence_fails(self):
         self.assertNotEqual(self.simulate("no-user-return")[0], 0)
+
+    def test_explicit_return_failures_stop_before_later_success_or_logout(self):
+        for reason in ('shell-alive', 'dashboard-unavailable', 'identity-missing'):
+            with self.subTest(reason=reason):
+                code, log, signals = self.simulate('return-' + reason)
+                self.assertNotEqual(code, 0)
+                self.assertIn('terminal return failed in phase: checking-user-return', log)
+                self.assertEqual(len(signals), 6)
+
+    def test_post_crash_return_failure_stops_before_cleanup(self):
+        code, log, signals = self.simulate('post-crash-return-failed')
+        self.assertNotEqual(code, 0)
+        self.assertIn('terminal return failed in phase: checking-post-crash-return', log)
+        self.assertEqual(len(signals), 11)
 
     def test_root_login_gui_restart_is_required_after_crash(self):
         self.assertNotEqual(self.simulate("no-gui-restart")[0], 0)

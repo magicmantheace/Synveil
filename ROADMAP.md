@@ -166,8 +166,10 @@ native active-journal recovery, archive preservation, and verification of both
 originals and snapshots after abrupt stop/reboot. This passed in the full
 [c97f554 run](docs/validation/native-c97f554/README.md); the constructed layout
 does not establish interrupted-rotation durability. Deterministic host error
-injection at append/rotation I/O boundaries passed at `6e7d7ed`; real device
-failure and native revalidation of the storage adapter remain open.
+injection at append/rotation I/O boundaries passed at `6e7d7ed`. Native audit
+gates with the storage adapter passed in the
+[partial 200f903 run](docs/validation/native-200f903/README.md), whose graphical
+terminal-return gate failed. Full revalidation and real device failure remain open.
 Exports preserve source history and do not release the archive slot. Explicit retention release,
 independent integrity anchoring and power-loss testing remain open.
 
