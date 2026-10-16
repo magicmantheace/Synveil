@@ -71,11 +71,12 @@ if mode == 'echo':
 if first:
     assert 'veil-core --once' in command and 'wait "$helper"' in command
     assert 'persistent write failed' in command and 'veil-audit export' in command
-    assert 'sync &&' not in command
+    assert 'sync &&' not in command.split('SYNVEIL_AUDIT_PATH=', 1)[1]
     if rollover or archive_only:
         if archive_only:
             assert '[ ! -e "$journal" ]' in command and '[ ! -L "$journal" ]' in command
             assert ' > "$journal.1"' in command
+            assert 'sync &&' in command.split('SYNVEIL_AUDIT_PATH=', 1)[0]
         assert '4194304' in command and '"records":512,' in command
         assert 'sha256sum "$journal.1"' in command and 'copies/archive' in command
         if mode != 'no-archive-digest':
@@ -172,8 +173,10 @@ else:
         spec = importlib.util.spec_from_file_location("rollover_execution", ROOT / "tests/smoke-audit-crash.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        for archive_only, mode in ((a, m) for a in (False, True) for m in
-                                   ("pass", "archive-corrupt", "wrong-count", "archive-export-failed", "archive-copy-differs")):
+        cases = [(a, m) for a in (False, True) for m in
+                 ("pass", "archive-corrupt", "wrong-count", "archive-export-failed", "archive-copy-differs")]
+        cases.append((True, "seed-sync-failed"))
+        for archive_only, mode in cases:
             with self.subTest(mode=mode, archive_only=archive_only), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 scripts = {
@@ -184,6 +187,7 @@ archive = path.with_name(path.name + '.1')
 if os.environ['ARCHIVE_ONLY'] == '1':
     assert not path.exists() and not path.is_symlink()
     assert archive.exists()
+    assert (path.parent / 'seed-synced').exists()
 else:
     path.rename(archive)
 original = archive.read_bytes()
@@ -193,6 +197,16 @@ path.chmod(0o600)
 for event in ('request', 'shutdown'): print(json.dumps({'event': event}, separators=(',', ':')))
 ''',
                     "client": "#!/bin/sh\nexit 0\n",
+                    "sync": '''#!/usr/bin/env python3
+import os, pathlib, sys
+if os.environ['ROLLOVER_MODE'] == 'seed-sync-failed': sys.exit(1)
+store = pathlib.Path(os.environ['SYNC_STORE'])
+for path in (store / 'journal.1', store):
+    fd = os.open(path, os.O_RDONLY)
+    try: os.fsync(fd)
+    finally: os.close(fd)
+(store / 'seed-synced').touch()
+''',
                     "inspector": '''#!/usr/bin/env python3
 import hashlib, json, os, pathlib, sys
 mode = os.environ['ROLLOVER_MODE']
@@ -226,9 +240,13 @@ print(json.dumps(report, separators=(',', ':')))
                     "/usr/bin/synctl", str(root / "client")
                 ).replace("600:0:1:4194304", f"600:{os.getuid()}:1:4194304").replace('; ', ';\n')
                 result = subprocess.run(['sh'], input=command, text=True, capture_output=True,
-                                        env={**os.environ, "ROLLOVER_MODE": mode, "ARCHIVE_ONLY": str(int(archive_only))}, timeout=15)
+                                        env={**os.environ, "ROLLOVER_MODE": mode, "ARCHIVE_ONLY": str(int(archive_only)),
+                                             "PATH": str(root) + os.pathsep + os.environ['PATH'],
+                                             "SYNC_STORE": str(root / "store")}, timeout=15)
                 self.assertEqual('SYNVEIL_AUDIT_CRASH_WRITE_OK' in result.stdout,
                                  mode == "pass", result.stderr)
+                if mode == "seed-sync-failed":
+                    self.assertFalse((root / 'store/journal').exists())
 
     def test_retained_digest_rejects_malformed_conflicting_receipts(self):
         spec = importlib.util.spec_from_file_location("receipt_execution", ROOT / "tests/smoke-audit-crash.py")

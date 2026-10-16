@@ -53,7 +53,9 @@ def write_command(rollover=False, archive_only=False):
     seed = (
         "if awk '" + AUDIT_SEED_AWK + f"' > \"{seed_path}\" &&\n"
         f'chmod 600 "{seed_path}" && [ "$(stat -c %s "{seed_path}")" = 4194304 ] &&\n'
-        + ('[ ! -e "$journal" ] && [ ! -L "$journal" ] &&\n' if archive_only else '')
+        # Only fixture preparation is globally synchronized. Every native
+        # recovery append/export still happens afterwards without global sync.
+        + ('[ ! -e "$journal" ] && [ ! -L "$journal" ] && sync &&\n' if archive_only else '')
         + f'old=$(sha256sum "{seed_path}" | cut -d " " -f1); then\n'
     )
     archive_checks = (

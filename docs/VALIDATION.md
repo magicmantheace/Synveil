@@ -512,7 +512,10 @@ interrupted rotation or a completely successful native pipeline.
 
 The `audit-crash-smoke --archive-only` gate constructs a valid 4 MiB archive
 with no active journal, representing the layout after archival rename and
-before active-file creation. The native helper must create and acknowledge a
+before active-file creation. Fixture preparation synchronizes the seed and its
+directory before starting the helper; no global sync follows native recovery
+appends or exports. A failed seed sync must prevent helper startup and success
+evidence. The native helper must create and acknowledge a
 new active journal without changing the retained archive. Both originals and
 their exported snapshots must then survive the same verified emulator stop and
 independent reboot, checked against separate host-retained digests. Host tests
