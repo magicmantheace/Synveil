@@ -507,16 +507,33 @@ on the host, and verify both originals and both exported snapshots after reboot.
 Host fixtures must reject lost/ambiguous archive evidence and execute the shell
 under corruption, count and export/copy failures. This gate passed in the
 [partial c8a759b run](validation/native-c8a759b/README.md), which failed two
-graphical gates. Completed-rollover survival does not prove recovery from an
-interrupted rotation or a completely successful native pipeline.
+graphical gates. The later full
+[1edc09e run](validation/native-1edc09e/README.md) passed all gates, including
+both graphical regressions and completed-rollover recovery. Completed-rollover
+survival does not prove recovery from an interrupted rotation.
+
+The `audit-crash-smoke --archive-only` gate constructs a valid 4 MiB archive
+with no active journal, representing the layout after archival rename and
+before active-file creation. Fixture preparation synchronizes the seed and its
+directory before starting the helper; no global sync follows native recovery
+appends or exports. A failed seed sync must prevent helper startup and success
+evidence. The native helper must create and acknowledge a
+new active journal without changing the retained archive. Both originals and
+their exported snapshots must then survive the same verified emulator stop and
+independent reboot, checked against separate host-retained digests. Host tests
+execute the generated shell for both archive layouts, including corrupt history,
+wrong record counts and failed or changed archive exports. Native evidence for
+this new gate is pending. Constructing this layout does not prove interruption
+of a live rename/fsync operation or physical power-loss recovery.
 
 Digest receipt parsing counts every exact-prefix candidate line, including
 malformed values. A valid receipt accompanied by a truncated, invalid or
 conflicting second receipt must fail for both active and archived evidence.
 Do not filter to well-formed values before deciding whether the evidence is
 unique. Host regressions cover both receipt orders, CRLF, incorrect lengths,
-uppercase values, trailing whitespace and embedded NUL bytes. This later parser
-hardening requires fresh CI validation; native rollover evidence remains pending.
+uppercase values, trailing whitespace and embedded NUL bytes. This parser
+hardening passed host CI and the full
+[1edc09e native run](validation/native-1edc09e/README.md).
 
 ## Single-keyboard graphical QEMU target
 
@@ -525,16 +542,16 @@ configured USB keyboard and tablet. Serial-only launches keep the plain Q35
 machine. Q35's otherwise implicit PS/2 keyboard can leave the guest's first
 evdev choice different from QMP's input target. The c8a759b failures are
 consistent with that ambiguity, but do not identify the selected device.
-This launcher change is a candidate fix requiring fresh native confirmation;
-keyboard timing and guest authentication policy are unchanged.
+Both previously failing graphical scenarios and every existing native gate
+passed at [1edc09e](validation/native-1edc09e/README.md). That establishes
+this QEMU configuration, without proving which device caused the earlier
+failures; guest authentication policy is unchanged.
 
 Host argument tests require one explicit USB keyboard and the disabled i8042
 controller for both GUI and headless-video launches, and ordinary Q35 for
 serial-only launches. Native preflight requires QEMU to advertise its i8042
-machine property before spending time building the toolchain/image. Both failed
-graphical scenarios and all existing guest gates must pass before claiming the
-failures resolved. Physical multiple-keyboard handling is outside this QEMU
-hardware target.
+machine property before spending time building the toolchain/image. Physical
+multiple-keyboard handling is outside this QEMU hardware target.
 
 ## Observable QMP VT-switch chord
 

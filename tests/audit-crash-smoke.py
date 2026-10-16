@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AuditCrashTests(unittest.TestCase):
-    def fixture(self, mode, *, real_cut=False, rollover=False):
+    def fixture(self, mode, *, real_cut=False, rollover=False, archive_only=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "tests").mkdir()
@@ -48,6 +48,7 @@ exit "$status"
             (root / "build/scripts/console.py").write_text('''import os, pathlib, sys, time
 mode = os.environ['CRASH_MODE']
 rollover = os.environ['CRASH_ROLLOVER'] == '1'
+archive_only = os.environ['CRASH_ARCHIVE_ONLY'] == '1'
 disk = pathlib.Path(os.environ['SYNVEIL_QEMU_STATE_DISK'])
 assert 'synveil-audit-crash-' in str(disk)
 round_path = disk.with_suffix('.round')
@@ -70,8 +71,12 @@ if mode == 'echo':
 if first:
     assert 'veil-core --once' in command and 'wait "$helper"' in command
     assert 'persistent write failed' in command and 'veil-audit export' in command
-    assert 'sync &&' not in command
-    if rollover:
+    assert 'sync &&' not in command.split('SYNVEIL_AUDIT_PATH=', 1)[1]
+    if rollover or archive_only:
+        if archive_only:
+            assert '[ ! -e "$journal" ]' in command and '[ ! -L "$journal" ]' in command
+            assert ' > "$journal.1"' in command
+            assert 'sync &&' in command.split('SYNVEIL_AUDIT_PATH=', 1)[0]
         assert '4194304' in command and '"records":512,' in command
         assert 'sha256sum "$journal.1"' in command and 'copies/archive' in command
         if mode != 'no-archive-digest':
@@ -92,7 +97,7 @@ else:
     assert command.count('--digest ' + 'a' * 128) == 2
     assert '/journal' in command and '/copies/snapshot' in command
     assert 'synctl --json status' in command
-    if rollover:
+    if rollover or archive_only:
         assert command.count('--digest ' + 'b' * 128) == 2
         assert '/journal.1' in command and '/copies/archive' in command
     if mode in ('lost-data', 'lost-archive'): sys.exit(1)
@@ -102,9 +107,12 @@ else:
             arguments = ["python3", str(root / "tests/smoke-audit-crash.py"), "--timeout", "0.8"]
             if rollover:
                 arguments.append("--rollover")
+            if archive_only:
+                arguments.append("--archive-only")
             run = subprocess.run(
                 arguments,
-                env={**os.environ, "CRASH_MODE": mode, "CRASH_ROLLOVER": str(int(rollover)), "SYNVEIL_OUT_DIR": str(root / "out"),
+                env={**os.environ, "CRASH_MODE": mode, "CRASH_ROLLOVER": str(int(rollover)),
+                     "CRASH_ARCHIVE_ONLY": str(int(archive_only)), "SYNVEIL_OUT_DIR": str(root / "out"),
                      "SYNVEIL_QEMU_STATE_DISK": str(caller)},
                 capture_output=True, text=True, timeout=20,
             )
@@ -119,9 +127,9 @@ else:
     @unittest.skipUnless(os.environ.get("GITHUB_ACTIONS") == "true",
                          "real process identity/signals run in CI; local executor proxies processes")
     def test_actual_emulator_child_is_killed_and_reaped_before_second_boot(self):
-        for rollover in (False, True):
-            with self.subTest(rollover=rollover):
-                code, log, error = self.fixture("pass", real_cut=True, rollover=rollover)
+        for rollover, archive_only in ((False, False), (True, False), (False, True)):
+            with self.subTest(rollover=rollover, archive_only=archive_only):
+                code, log, error = self.fixture("pass", real_cut=True, rollover=rollover, archive_only=archive_only)
                 self.assertEqual(code, 0, log + error)
                 self.assertIn('emulator SIGKILL and wrapper reap confirmed', log)
                 self.assertIn('SYNVEIL_AUDIT_CRASH_READ_OK', log)
@@ -137,10 +145,17 @@ else:
         self.assertIn('SYNVEIL_AUDIT_CRASH_ARCHIVE_DIGEST=', log)
         self.assertIn('SYNVEIL_AUDIT_CRASH_READ_OK', log)
 
+    def test_archive_only_requires_absent_active_and_retains_both_digests(self):
+        code, log, error = self.fixture("pass", archive_only=True)
+        self.assertEqual(code, 0, log + error)
+        self.assertIn('SYNVEIL_AUDIT_CRASH_ARCHIVE_DIGEST=', log)
+        self.assertIn('SYNVEIL_AUDIT_CRASH_READ_OK', log)
+
     def test_rollover_refuses_missing_ambiguous_or_lost_archive(self):
         for mode in ("no-archive-digest", "bad-archive-digest", "duplicate-archive-digest", "mixed-archive-digest", "lost-archive"):
-            with self.subTest(mode=mode):
-                self.assertNotEqual(self.fixture(mode, rollover=True)[0], 0)
+            for archive_only in (False, True):
+                with self.subTest(mode=mode, archive_only=archive_only):
+                    self.assertNotEqual(self.fixture(mode, rollover=not archive_only, archive_only=archive_only)[0], 0)
 
     def test_missing_or_ambiguous_evidence_and_failed_second_boot_are_refused(self):
         for mode in ("no-state", "echo", "no-digest", "bad-digest", "duplicate-digest", "mixed-digest", "lost-data"):
@@ -158,15 +173,23 @@ else:
         spec = importlib.util.spec_from_file_location("rollover_execution", ROOT / "tests/smoke-audit-crash.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        for mode in ("pass", "archive-corrupt", "wrong-count", "archive-export-failed", "archive-copy-differs"):
-            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+        cases = [(a, m) for a in (False, True) for m in
+                 ("pass", "archive-corrupt", "wrong-count", "archive-export-failed", "archive-copy-differs")]
+        cases.append((True, "seed-sync-failed"))
+        for archive_only, mode in cases:
+            with self.subTest(mode=mode, archive_only=archive_only), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 scripts = {
                     "core": '''#!/usr/bin/env python3
 import json, os, pathlib
 path = pathlib.Path(os.environ['SYNVEIL_AUDIT_PATH'])
 archive = path.with_name(path.name + '.1')
-path.rename(archive)
+if os.environ['ARCHIVE_ONLY'] == '1':
+    assert not path.exists() and not path.is_symlink()
+    assert archive.exists()
+    assert (path.parent / 'seed-synced').exists()
+else:
+    path.rename(archive)
 original = archive.read_bytes()
 if os.environ['ROLLOVER_MODE'] == 'archive-corrupt': archive.write_bytes(b'changed')
 path.write_bytes(original.splitlines(keepends=True)[0])
@@ -174,6 +197,16 @@ path.chmod(0o600)
 for event in ('request', 'shutdown'): print(json.dumps({'event': event}, separators=(',', ':')))
 ''',
                     "client": "#!/bin/sh\nexit 0\n",
+                    "sync": '''#!/usr/bin/env python3
+import os, pathlib, sys
+if os.environ['ROLLOVER_MODE'] == 'seed-sync-failed': sys.exit(1)
+store = pathlib.Path(os.environ['SYNC_STORE'])
+for path in (store / 'journal.1', store):
+    fd = os.open(path, os.O_RDONLY)
+    try: os.fsync(fd)
+    finally: os.close(fd)
+(store / 'seed-synced').touch()
+''',
                     "inspector": '''#!/usr/bin/env python3
 import hashlib, json, os, pathlib, sys
 mode = os.environ['ROLLOVER_MODE']
@@ -199,7 +232,7 @@ print(json.dumps(report, separators=(',', ':')))
                 for name, content in scripts.items():
                     (root / name).write_text(content)
                     (root / name).chmod(0o700)
-                command = module.write_command(True).replace(
+                command = module.write_command(not archive_only, archive_only).replace(
                     "/run/synveil-audit-crash-test", str(root / "logs")
                 ).replace("/var/lib/synveil/audit-crash-test", str(root / "store")).replace(
                     "/usr/sbin/veil-core", str(root / "core")
@@ -207,9 +240,13 @@ print(json.dumps(report, separators=(',', ':')))
                     "/usr/bin/synctl", str(root / "client")
                 ).replace("600:0:1:4194304", f"600:{os.getuid()}:1:4194304").replace('; ', ';\n')
                 result = subprocess.run(['sh'], input=command, text=True, capture_output=True,
-                                        env={**os.environ, "ROLLOVER_MODE": mode}, timeout=15)
+                                        env={**os.environ, "ROLLOVER_MODE": mode, "ARCHIVE_ONLY": str(int(archive_only)),
+                                             "PATH": str(root) + os.pathsep + os.environ['PATH'],
+                                             "SYNC_STORE": str(root / "store")}, timeout=15)
                 self.assertEqual('SYNVEIL_AUDIT_CRASH_WRITE_OK' in result.stdout,
                                  mode == "pass", result.stderr)
+                if mode == "seed-sync-failed":
+                    self.assertFalse((root / 'store/journal').exists())
 
     def test_retained_digest_rejects_malformed_conflicting_receipts(self):
         spec = importlib.util.spec_from_file_location("receipt_execution", ROOT / "tests/smoke-audit-crash.py")
@@ -237,7 +274,10 @@ print(json.dumps(report, separators=(',', ':')))
                 module.read_command(digest)
             with self.assertRaises(ValueError):
                 module.read_command('a' * 128, digest)
-        for command in (module.write_command().replace('; ', ';\n'),
+        with self.assertRaises(ValueError):
+            module.write_command(True, True)
+        for command in (module.write_command(archive_only=True).replace('; ', ';\n'),
+                        module.write_command().replace('; ', ';\n'),
                         module.write_command(True).replace('; ', ';\n'),
                         module.read_command('a' * 128),
                         module.read_command('a' * 128, 'b' * 128)):
