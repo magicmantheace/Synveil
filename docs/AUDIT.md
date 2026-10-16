@@ -337,12 +337,25 @@ snapshots must match their respective host-retained digests. Missing or duplicat
 archive digest evidence, archive corruption, wrong counts, failed archive
 export and changed copy bytes are rejected by host fixtures, including execution
 of the generated shell. This gate passed in the
-[partial c8a759b run](validation/native-c8a759b/README.md), whose two graphical
-failures still require full revalidation. This tests completed rollover; it does not cut power between rename, directory sync and creation of
-the next active file.
+[partial c8a759b run](validation/native-c8a759b/README.md). Full revalidation,
+including both previously failing graphical scenarios, passed at
+[1edc09e](validation/native-1edc09e/README.md). This tests completed rollover;
+it does not cut power between rename, directory sync and creation of the next
+active file.
 
 The crash harness now rejects a valid active/archive digest receipt accompanied
 by any malformed receipt with the same prefix. Counting only regex-valid lines
 could otherwise hide truncated or conflicting evidence. This changes host-side
 test gating, not the audit runtime or its on-disk format. Candidate-count and
-control-flow regressions require CI validation before integration.
+control-flow regressions passed host CI, and the strict parser passed the full
+[1edc09e native run](validation/native-1edc09e/README.md).
+
+The later `--archive-only` gate constructs a valid 4 MiB retained archive with
+no active journal. Preparation runs `sync` before the native helper starts,
+establishing the seed as a disk baseline; no global sync follows native recovery
+appends or exports. Failed preparation sync prevents helper startup and success
+evidence. The helper must create a valid active journal without changing the
+archive. Independent exports and host-retained digests then cover both originals
+and both snapshots across verified emulator SIGKILL and reboot. This gate is
+implemented and host-tested; native guest evidence is pending. A constructed
+post-rename layout is not a timed interruption of a live rotation.

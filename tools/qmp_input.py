@@ -51,21 +51,27 @@ def emit_command(sock, reader, command):
     return _read_reply(reader)
 
 
+def _hold_keys(sock, reader, keys):
+    def edge(down):
+        ordered = keys if down else reversed(keys)
+        events = [{"type": "key", "data": {"down": down,
+                   "key": {"type": "qcode", "data": key}}} for key in ordered]
+        return {"execute": "input-send-event", "arguments": {"events": events}}
+
+    try:
+        emit_command(sock, reader, edge(True))
+        # A QMP reply does not mean the USB keyboard has polled its report.
+        # Keep the full chord down until at least one guest poll can observe it.
+        time.sleep(0.075)
+    finally:
+        # Attempt release even if the hold or key-down acknowledgement failed.
+        emit_command(sock, reader, edge(False))
+
+
 def press(sock, reader, key, allowed=ALLOWED_KEYS):
     if key not in allowed:
         raise ValueError("unsupported QMP test key")
-    event = {
-        "type": "key",
-        "data": {"down": True, "key": {"type": "qcode", "data": key}}
-    }
-    emit_command(sock, reader, {"execute": "input-send-event",
-                                "arguments": {"events": [event]}})
-    # A QMP acknowledgement does not mean the guest USB keyboard has polled
-    # its report. Immediate down/up can coalesce into an unpressed report.
-    time.sleep(0.075)
-    event["data"]["down"] = False
-    emit_command(sock, reader, {"execute": "input-send-event",
-                                "arguments": {"events": [event]}})
+    _hold_keys(sock, reader, (key,))
 
 
 def send_keys(socket_path: Path, keys: tuple[str, ...], *, timeout=5.0,
@@ -144,19 +150,8 @@ def switch_to_login_vt(socket_path: Path, *, timeout=5.0):
         with sock.makefile("rb") as reader:
             _read_reply(reader, greeting=True)
             emit_command(sock, reader, {"execute": "qmp_capabilities"})
-            keys = ("ctrl", "alt", "f2")
-            events = [
-                {"type": "key",
-                 "data": {"down": True, "key": {"type": "qcode", "data": key}}}
-                for key in keys
-            ]
-            events.extend(
-                {"type": "key",
-                 "data": {"down": False, "key": {"type": "qcode", "data": key}}}
-                for key in reversed(keys)
-            )
-            emit_command(sock, reader, {"execute": "input-send-event",
-                                        "arguments": {"events": events}})
+            _hold_keys(sock, reader, ("ctrl", "alt", "f2"))
+
 
 def open_user_terminal(socket_path: Path, *, timeout=5.0):
     """Navigate to the fixed non-root terminal tile inside an active desktop."""
