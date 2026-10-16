@@ -686,8 +686,10 @@ restart event, with independently inspected record counts and no truncation or
 deduplication. Partial tails must be refused by both inspection and append.
 Existing active and archived inodes remain stable; ordinary appends must not
 create an archive. The shared worker requires signal 9 and a bounded timeout.
-Host CI for the extension is pending; kernel/cache survival still limits these
-results to process failure.
+Host CI at `72df7894ab8d1684ee49c391bf0ed7436f50d956` passed all 17 cases,
+the held-lock fixture regression, all 117 Rust tests, formatting and clippy
+([run 38914789468](https://github.com/magicmantheace/Synveil/actions/runs/38914789468)).
+Kernel/cache survival still limits these results to process failure.
 
 The full [aa17982 native run](validation/native-aa17982/README.md) passed all
 43 steps before the process-loss fixtures were merged. It includes the unsafe
@@ -700,4 +702,5 @@ appends now retry only WouldBlock for a bounded interval, as inspection already
 does; production append and deliberate contention/error assertions are direct
 and nonblocking. A regression holds/releases a real lock, requires exactly one
 new record, and verifies that an incomplete tail returns InvalidData unchanged.
-This correction requires fresh host CI; the first run is not an overall pass.
+The corrected source passed the fresh `72df789` host run above; the first
+run remains a failed pipeline.
