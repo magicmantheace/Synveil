@@ -354,8 +354,8 @@ mod tests {
     fn private_append_succeeds_but_unsafe_parent_refuses_write() {
         let dir = test_dir("parent");
         let journal = dir.join("journal");
-        append_record(&journal, "first").unwrap();
-        append_record(&journal, "second").unwrap();
+        append_fixture(&journal, "first").unwrap();
+        append_fixture(&journal, "second").unwrap();
         assert_eq!(fs::read_to_string(&journal).unwrap(), "first\nsecond\n");
         fs::set_permissions(&dir, fs::Permissions::from_mode(0o777)).unwrap();
         assert_eq!(
@@ -376,7 +376,7 @@ mod tests {
         let mut file = OpenOptions::new().append(true).open(&journal).unwrap();
         file.write_all(b"\n").unwrap();
         fs::set_permissions(&journal, fs::Permissions::from_mode(0o600)).unwrap();
-        append_record(&journal, "x").unwrap();
+        append_fixture(&journal, "x").unwrap();
         assert_eq!(fs::metadata(&journal).unwrap().len(), MAX_AUDIT_BYTES);
         // Exhausted retention never overwrites an existing archive.
         fs::write(archive_path(&journal).unwrap(), b"retained archive").unwrap();
@@ -390,7 +390,7 @@ mod tests {
     fn incomplete_tail_is_preserved_and_refuses_future_appends() {
         let dir = test_dir("torn-tail");
         let journal = dir.join("journal");
-        append_record(&journal, "complete").unwrap();
+        append_fixture(&journal, "complete").unwrap();
         let mut file = OpenOptions::new().append(true).open(&journal).unwrap();
         file.write_all(b"partial").unwrap();
         assert_eq!(
@@ -405,7 +405,7 @@ mod tests {
     fn malformed_or_oversized_events_leave_journal_unchanged() {
         let dir = test_dir("invalid-event");
         let journal = dir.join("journal");
-        append_record(&journal, "original").unwrap();
+        append_fixture(&journal, "original").unwrap();
         for line in [
             "",
             "one\ntwo",
@@ -443,7 +443,7 @@ mod tests {
         // fork briefly inherited this descriptor before its close-on-exec.
         assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
         drop(held);
-        append_record(&journal, "recovered").unwrap();
+        append_fixture(&journal, "recovered").unwrap();
         assert_eq!(fs::read(&journal).unwrap(), b"original\nrecovered\n");
         fs::remove_dir_all(dir).unwrap();
     }
@@ -467,15 +467,15 @@ mod tests {
         let journal = dir.join("journal");
         let previous = seed_full_journal(&journal);
         let next = record("after_rotation", json!({"padding": "y".repeat(8192)})).to_string();
-        append_record(&journal, &next).unwrap();
+        append_fixture(&journal, &next).unwrap();
         let archive = archive_path(&journal).unwrap();
         assert_eq!(fs::read(&archive).unwrap(), previous);
         assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{next}\n"));
         assert_eq!(fs::metadata(&archive).unwrap().mode() & 0o777, 0o600);
-        assert!(super::super::audit_check::inspect(&archive).is_ok());
-        append_record(&journal, &record("restart", json!({})).to_string()).unwrap();
+        inspect_fixture(&archive).unwrap();
+        append_fixture(&journal, &record("restart", json!({})).to_string()).unwrap();
         assert_eq!(
-            super::super::audit_check::inspect(&journal).unwrap()["records"],
+            inspect_fixture(&journal).unwrap()["records"],
             2
         );
         assert_eq!(fs::read(&archive).unwrap(), previous);
@@ -514,7 +514,7 @@ mod tests {
         let dir = test_dir("stable-lock");
         let journal = dir.join("journal");
         let original = record("start", json!({})).to_string();
-        append_record(&journal, &original).unwrap();
+        append_fixture(&journal, &original).unwrap();
         let held = directory_lock(&journal, true).unwrap();
         assert_eq!(
             append_record(&journal, "blocked").unwrap_err().kind(),
@@ -531,7 +531,7 @@ mod tests {
             format!("{original}\n")
         );
         drop(held);
-        assert!(super::super::audit_check::inspect(&journal).is_ok());
+        inspect_fixture(&journal).unwrap();
         let reader = directory_lock(&journal, false).unwrap();
         assert_eq!(
             append_record(&journal, "blocked").unwrap_err().kind(),
@@ -558,7 +558,7 @@ mod tests {
         let previous = seed_full_journal(&journal);
         preserve_archive(&journal).unwrap();
         let next = record("restart", json!({})).to_string();
-        append_record(&journal, &next).unwrap();
+        append_fixture(&journal, &next).unwrap();
         assert_eq!(fs::read(archive_path(&journal).unwrap()).unwrap(), previous);
         assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{next}\n"));
         fs::remove_dir_all(dir).unwrap();
@@ -615,6 +615,21 @@ mod tests {
         }
     }
 
+    // Forked test processes can inherit an open flock until exec. Retry only
+    // that pre-write contention for fixtures expecting a successful append.
+    // Production callers and tests asserting contention still fail immediately.
+    fn append_fixture(path: &Path, line: &str) -> io::Result<()> {
+        for _ in 0..100 {
+            match append_record(path, line) {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                result => return result,
+            }
+        }
+        append_record(path, line)
+    }
+
     fn inspect_fixture(path: &Path) -> io::Result<Value> {
         // Parallel seat tests fork while audit descriptors can be open. A
         // child can briefly inherit their flock until exec closes the fd.
@@ -633,10 +648,42 @@ mod tests {
     }
 
     #[test]
+    fn fixture_append_waits_for_contention_without_repeating_records() {
+        let dir = test_dir("fixture-append");
+        let journal = dir.join("journal");
+        let first = record("original", json!({})).to_string();
+        append_fixture(&journal, &first).unwrap();
+        let held = directory_lock(&journal, true).unwrap().unwrap();
+        let next = record("after_lock", json!({})).to_string();
+        assert_eq!(
+            append_record(&journal, &next).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+        let release = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(30));
+            assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
+        });
+        append_fixture(&journal, &next).unwrap();
+        release.join().unwrap();
+        assert_eq!(
+            fs::read_to_string(&journal).unwrap(),
+            format!("{first}\n{next}\n")
+        );
+        assert_eq!(inspect_fixture(&journal).unwrap()["records"], 2);
+        fs::write(&journal, b"partial").unwrap();
+        assert_eq!(
+            append_fixture(&journal, &next).unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
+        assert_eq!(fs::read(&journal).unwrap(), b"partial");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn fixture_inspection_waits_for_contention_but_rejects_invalid_data() {
         let dir = test_dir("fixture-inspection");
         let journal = dir.join("journal");
-        append_record(&journal, &record("original", json!({})).to_string()).unwrap();
+        append_fixture(&journal, &record("original", json!({})).to_string()).unwrap();
         let held = directory_lock(&journal, true).unwrap().unwrap();
         assert_eq!(
             super::super::audit_check::inspect(&journal)
@@ -665,7 +712,7 @@ mod tests {
             let dir = test_dir("append-io");
             let journal = dir.join("journal");
             let original = record("original", json!({})).to_string();
-            append_record(&journal, &original).unwrap();
+            append_fixture(&journal, &original).unwrap();
             let next = record("unacknowledged", json!({})).to_string();
             let mut storage = FaultingIo::new(fail_at);
             let error = append_record_with_io(&journal, &next, &mut storage).unwrap_err();
@@ -680,7 +727,7 @@ mod tests {
             assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
             assert!(!archive_path(&journal).unwrap().exists());
             let retry = record("retry", json!({})).to_string();
-            append_record(&journal, &retry).unwrap();
+            append_fixture(&journal, &retry).unwrap();
             assert_eq!(
                 fs::read_to_string(&journal).unwrap(),
                 format!("{expected}{retry}\n")
@@ -730,7 +777,7 @@ mod tests {
             // Use a new event: a returned error does not imply zero bytes wrote
             // and does not grant exactly-once semantics to an automatic retry.
             let retry = record("retry", json!({"padding": "z".repeat(8192)})).to_string();
-            append_record(&journal, &retry).unwrap();
+            append_fixture(&journal, &retry).unwrap();
             assert_eq!(fs::read(&archive).unwrap(), previous);
             assert_eq!(fs::metadata(&archive).unwrap().ino(), original_inode);
             let expected = if fail_at >= 5 {
@@ -750,7 +797,7 @@ mod tests {
         let dir = test_dir("partial-write-io");
         let journal = dir.join("journal");
         let original = record("original", json!({})).to_string();
-        append_record(&journal, &original).unwrap();
+        append_fixture(&journal, &original).unwrap();
         let archive = archive_path(&journal).unwrap();
         fs::write(&archive, b"retained history\n").unwrap();
         fs::set_permissions(&archive, fs::Permissions::from_mode(0o600)).unwrap();
@@ -908,7 +955,7 @@ mod tests {
             } else {
                 fs::remove_file(&journal).unwrap();
             }
-            append_record(&journal, &next).unwrap();
+            append_fixture(&journal, &next).unwrap();
             assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{next}\n"));
             assert_eq!(fs::read(&archive).unwrap(), previous);
             assert_eq!(fs::metadata(&archive).unwrap().ino(), original_inode);
@@ -1102,7 +1149,7 @@ mod tests {
                 );
                 assert_eq!(fs::read(&journal).unwrap(), next.as_bytes()[..17]);
             } else {
-                append_record(&journal, &retry).unwrap();
+                append_fixture(&journal, &retry).unwrap();
                 let expected = if ["written", "file-synced", "append-synced"].contains(&phase) {
                     format!("{next}\n{retry}\n")
                 } else {
@@ -1126,7 +1173,7 @@ mod tests {
                 let journal = dir.join("journal");
                 let original = record("original", json!({})).to_string();
                 let previous = if existing {
-                    append_record(&journal, &original).unwrap();
+                    append_fixture(&journal, &original).unwrap();
                     format!("{original}\n")
                 } else {
                     String::new()
@@ -1163,7 +1210,7 @@ mod tests {
                 } else {
                     // A distinct restart event preserves a complete record
                     // even though its caller never received acknowledgement.
-                    append_record(&journal, &retry).unwrap();
+                    append_fixture(&journal, &retry).unwrap();
                     assert_eq!(
                         fs::read_to_string(&journal).unwrap(),
                         format!("{expected}{retry}\n")
@@ -1182,7 +1229,7 @@ mod tests {
     fn unsafe_lock_objects_cannot_modify_journal_or_link_target() {
         let dir = test_dir("unsafe-lock");
         let journal = dir.join("journal");
-        append_record(&journal, "original").unwrap();
+        append_fixture(&journal, "original").unwrap();
         let lock = dir.join(".audit-lock");
         fs::remove_file(&lock).unwrap();
         let target = dir.join("target");

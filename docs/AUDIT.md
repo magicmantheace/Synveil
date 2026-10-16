@@ -92,7 +92,11 @@ file sync and after final directory sync. It also exercises first creation and
 ordinary append at five cuts each, for 17 cases including rotation. A restart
 must preserve full records before a new event, retain inode identity and valid
 record counts, and refuse partial tails without repair. Host validation of this
-extension is pending. Process death after sync is still not evidence that a
+extension is pending. Successful host fixture appends use bounded WouldBlock-only
+retries for descriptors briefly inherited by parallel fork/exec tests; production
+append and explicit contention/error assertions remain nonblocking. A held-lock
+regression checks a single append without duplicate records or tail repair.
+Process death after sync is still not evidence that a
 volatile device cache survives power loss.
 
 

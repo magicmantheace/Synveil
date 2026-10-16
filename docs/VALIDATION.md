@@ -692,3 +692,12 @@ results to process failure.
 The full [aa17982 native run](validation/native-aa17982/README.md) passed all
 43 steps before the process-loss fixtures were merged. It includes the unsafe
 active-path regression source, but does not include these later SIGKILL tests.
+
+The first extension CI run at `27f89ec` passed all 17 process-cut cases but
+failed two older successful-append fixtures with WouldBlock. More concurrent
+fork/exec activity can inherit open flocks until exec. Successful fixture
+appends now retry only WouldBlock for a bounded interval, as inspection already
+does; production append and deliberate contention/error assertions are direct
+and nonblocking. A regression holds/releases a real lock, requires exactly one
+new record, and verifies that an incomplete tail returns InvalidData unchanged.
+This correction requires fresh host CI; the first run is not an overall pass.
