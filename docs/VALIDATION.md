@@ -634,3 +634,16 @@ tty1 and authorization rules remain unchanged. Host C tests model immediate
 idle, held release, a query/grab race, persistent held input, ioctl/read/poll
 failure, truncated events and event flooding. Full native graphical and all
 existing guest gates must pass before claiming the missed-exit issue resolved.
+
+## Active-path replacement after rotation
+
+A test-only storage adapter substitutes unsafe objects after successful archive
+rename and parent-directory sync, before reopening the next active journal.
+The symlink, hardlink, directory and FIFO cases must all return failure without
+reaching the record-write operation. The retained archive must keep its exact
+bytes and inode, unrelated target data must stay unchanged, and the writer must
+leave the substituted object in place. After the fixture explicitly removes
+its own object, a normal append must recover with a valid active journal and
+the same retained archive. Host CI for this new regression is pending. The
+production writer is unchanged; this adds neither runtime fault hooks nor
+automatic repair, retention release, device-error or power-loss evidence.

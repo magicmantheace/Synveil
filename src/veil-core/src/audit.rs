@@ -809,6 +809,116 @@ mod tests {
         fs::remove_dir_all(dir).unwrap();
     }
 
+    struct ReplacedActiveIo {
+        journal: PathBuf,
+        target: PathBuf,
+        kind: &'static str,
+        installed: bool,
+        installed_inode: Option<u64>,
+        writes: usize,
+    }
+
+    impl JournalIo for ReplacedActiveIo {
+        fn sync_parent(&mut self, parent: &Path, directory: &fs::Metadata) -> io::Result<()> {
+            FilesystemIo.sync_parent(parent, directory)?;
+            assert!(!self.installed);
+            assert!(archive_path(&self.journal)?.exists());
+            assert!(!self.journal.exists());
+            match self.kind {
+                "symlink" => std::os::unix::fs::symlink(&self.target, &self.journal)?,
+                "hardlink" => fs::hard_link(&self.target, &self.journal)?,
+                "directory" => fs::create_dir(&self.journal)?,
+                "fifo" => {
+                    unsafe extern "C" {
+                        fn mkfifo(path: *const c_char, mode: u32) -> i32;
+                    }
+                    let path = CString::new(self.journal.as_os_str().as_bytes()).unwrap();
+                    if unsafe { mkfifo(path.as_ptr(), 0o600) } != 0 {
+                        return Err(io::Error::last_os_error());
+                    }
+                }
+                _ => unreachable!(),
+            }
+            self.installed_inode = Some(fs::symlink_metadata(&self.journal)?.ino());
+            self.installed = true;
+            Ok(())
+        }
+
+        fn write(&mut self, file: &mut fs::File, bytes: &[u8]) -> io::Result<()> {
+            self.writes += 1;
+            FilesystemIo.write(file, bytes)
+        }
+    }
+
+    #[test]
+    fn unsafe_active_replacement_after_rotation_preserves_archive_and_other_file() {
+        for kind in ["symlink", "hardlink", "directory", "fifo"] {
+            let dir = test_dir("rotation-replacement");
+            let journal = dir.join("journal");
+            let previous = seed_full_journal(&journal);
+            let original_inode = fs::metadata(&journal).unwrap().ino();
+            let archive = archive_path(&journal).unwrap();
+            let target = dir.join("unrelated");
+            fs::write(&target, b"unrelated private data\n").unwrap();
+            fs::set_permissions(&target, fs::Permissions::from_mode(0o600)).unwrap();
+            let target_inode = fs::metadata(&target).unwrap().ino();
+            let mut storage = ReplacedActiveIo {
+                journal: journal.clone(),
+                target: target.clone(),
+                kind,
+                installed: false,
+                installed_inode: None,
+                writes: 0,
+            };
+            let next = record("next", json!({"padding": "y".repeat(8192)})).to_string();
+            assert!(append_record_with_io(&journal, &next, &mut storage).is_err());
+            assert!(
+                storage.installed,
+                "replacement boundary was not reached: {kind}"
+            );
+            assert_eq!(storage.writes, 0, "attempted write through {kind}");
+            let refused = fs::symlink_metadata(&journal).unwrap();
+            assert_eq!(refused.ino(), storage.installed_inode.unwrap());
+            match kind {
+                "symlink" => {
+                    assert!(refused.file_type().is_symlink());
+                    assert_eq!(fs::read_link(&journal).unwrap(), target);
+                }
+                "hardlink" => {
+                    assert!(refused.is_file());
+                    assert_eq!(refused.ino(), target_inode);
+                    assert_eq!(refused.nlink(), 2);
+                }
+                "directory" => assert!(refused.is_dir()),
+                "fifo" => {
+                    use std::os::unix::fs::FileTypeExt;
+                    assert!(refused.file_type().is_fifo());
+                }
+                _ => unreachable!(),
+            }
+            assert_eq!(fs::read(&target).unwrap(), b"unrelated private data\n");
+            assert_eq!(fs::metadata(&target).unwrap().ino(), target_inode);
+            assert_eq!(fs::read(&archive).unwrap(), previous);
+            assert_eq!(fs::metadata(&archive).unwrap().ino(), original_inode);
+            inspect_fixture(&archive).unwrap();
+            // Only the fixture operator removes its injected object. The
+            // audit writer itself must never unlink or repair that path.
+            if kind == "directory" {
+                fs::remove_dir(&journal).unwrap();
+            } else {
+                fs::remove_file(&journal).unwrap();
+            }
+            append_record(&journal, &next).unwrap();
+            assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{next}\n"));
+            assert_eq!(fs::read(&archive).unwrap(), previous);
+            assert_eq!(fs::metadata(&archive).unwrap().ino(), original_inode);
+            assert_eq!(fs::read(&target).unwrap(), b"unrelated private data\n");
+            assert_eq!(fs::metadata(&target).unwrap().nlink(), 1);
+            inspect_fixture(&journal).unwrap();
+            fs::remove_dir_all(dir).unwrap();
+        }
+    }
+
     #[test]
     fn unsafe_lock_objects_cannot_modify_journal_or_link_target() {
         let dir = test_dir("unsafe-lock");
