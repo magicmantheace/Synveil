@@ -928,9 +928,20 @@ mod tests {
         panic!("crash worker survived SIGKILL");
     }
 
+    const CRASH_PHASES: [&str; 7] = [
+        "renamed",
+        "directory-synced",
+        "empty-active",
+        "partial-active",
+        "written",
+        "file-synced",
+        "append-synced",
+    ];
+
     struct ProcessCrashIo {
         phase: String,
         parent_syncs: usize,
+        wrote: bool,
     }
 
     impl JournalIo for ProcessCrashIo {
@@ -948,6 +959,17 @@ mod tests {
             if self.parent_syncs == 1 && self.phase == "directory-synced" {
                 kill_crash_worker();
             }
+            if self.wrote && self.phase == "append-synced" {
+                kill_crash_worker();
+            }
+            Ok(())
+        }
+
+        fn sync_file(&mut self, file: &fs::File) -> io::Result<()> {
+            FilesystemIo.sync_file(file)?;
+            if self.wrote && self.phase == "file-synced" {
+                kill_crash_worker();
+            }
             Ok(())
         }
 
@@ -959,7 +981,12 @@ mod tests {
                 file.write_all(&bytes[..17])?;
                 kill_crash_worker();
             }
-            FilesystemIo.write(file, bytes)
+            FilesystemIo.write(file, bytes)?;
+            self.wrote = true;
+            if self.phase == "written" {
+                kill_crash_worker();
+            }
+            Ok(())
         }
     }
 
@@ -982,36 +1009,61 @@ mod tests {
         assert!(metadata.is_dir());
         assert_eq!(metadata.mode() & 0o777, 0o700);
         let phase = std::env::var("SYNVEIL_TEST_CRASH_PHASE").unwrap();
-        assert!(
-            [
-                "renamed",
-                "directory-synced",
-                "empty-active",
-                "partial-active"
-            ]
-            .contains(&phase.as_str())
-        );
+        assert!(CRASH_PHASES.contains(&phase.as_str()));
         let next = std::env::var("SYNVEIL_TEST_CRASH_RECORD").unwrap();
         let mut storage = ProcessCrashIo {
             phase,
             parent_syncs: 0,
+            wrote: false,
         };
         append_record_with_io(&root.join("journal"), &next, &mut storage).unwrap();
         panic!("crash boundary was not reached");
     }
 
-    #[test]
-    fn process_loss_during_rotation_preserves_history_and_releases_locks() {
+    fn run_crash_worker(dir: &Path, phase: &str, next: &str) {
         use std::os::unix::process::ExitStatusExt;
         use std::process::{Command, Stdio};
         use std::time::{Duration, Instant};
 
-        for phase in [
-            "renamed",
-            "directory-synced",
-            "empty-active",
-            "partial-active",
-        ] {
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "audit::tests::process_crash_worker",
+                "--test-threads=1",
+            ])
+            .env("SYNVEIL_TEST_CRASH_ROOT", dir)
+            .env("SYNVEIL_TEST_CRASH_PHASE", phase)
+            .env("SYNVEIL_TEST_CRASH_RECORD", next)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break status;
+            }
+            if Instant::now() >= deadline {
+                child.kill().unwrap();
+                child.wait().unwrap();
+                panic!("crash worker timed out at {phase}");
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        let mut diagnostic = String::new();
+        child
+            .stderr
+            .take()
+            .unwrap()
+            .read_to_string(&mut diagnostic)
+            .unwrap();
+        assert_eq!(status.signal(), Some(9), "{phase}: {diagnostic}");
+    }
+
+    #[test]
+    fn process_loss_during_rotation_preserves_history_and_releases_locks() {
+        for phase in CRASH_PHASES {
             let dir = test_dir("process-crash");
             fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
             let journal = dir.join("journal");
@@ -1022,40 +1074,7 @@ mod tests {
             fs::File::open(&journal).unwrap().sync_all().unwrap();
             sync_directory(&dir, &fs::metadata(&dir).unwrap()).unwrap();
             let next = record("interrupted", json!({"padding": "y".repeat(8192)})).to_string();
-            let mut child = Command::new(std::env::current_exe().unwrap())
-                .args([
-                    "--exact",
-                    "audit::tests::process_crash_worker",
-                    "--test-threads=1",
-                ])
-                .env("SYNVEIL_TEST_CRASH_ROOT", &dir)
-                .env("SYNVEIL_TEST_CRASH_PHASE", phase)
-                .env("SYNVEIL_TEST_CRASH_RECORD", &next)
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::piped())
-                .spawn()
-                .unwrap();
-            let deadline = Instant::now() + Duration::from_secs(5);
-            let status = loop {
-                if let Some(status) = child.try_wait().unwrap() {
-                    break status;
-                }
-                if Instant::now() >= deadline {
-                    child.kill().unwrap();
-                    child.wait().unwrap();
-                    panic!("crash worker timed out at {phase}");
-                }
-                std::thread::sleep(Duration::from_millis(10));
-            };
-            let mut diagnostic = String::new();
-            child
-                .stderr
-                .take()
-                .unwrap()
-                .read_to_string(&mut diagnostic)
-                .unwrap();
-            assert_eq!(status.signal(), Some(9), "{phase}: {diagnostic}");
+            run_crash_worker(&dir, phase, &next);
             let archive = archive_path(&journal).unwrap();
             assert_eq!(fs::read(&archive).unwrap(), previous);
             assert_eq!(fs::metadata(&archive).unwrap().ino(), original_inode);
@@ -1065,8 +1084,15 @@ mod tests {
                 assert!(!journal.exists());
             } else if phase == "empty-active" {
                 assert!(fs::read(&journal).unwrap().is_empty());
-            } else {
+            } else if phase == "partial-active" {
                 assert_eq!(fs::read(&journal).unwrap(), next.as_bytes()[..17]);
+                assert_eq!(
+                    inspect_fixture(&journal).unwrap_err().kind(),
+                    io::ErrorKind::InvalidData
+                );
+            } else {
+                assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{next}\n"));
+                assert_eq!(inspect_fixture(&journal).unwrap()["records"], 1);
             }
             let retry = record("restart", json!({})).to_string();
             if phase == "partial-active" {
@@ -1077,11 +1103,78 @@ mod tests {
                 assert_eq!(fs::read(&journal).unwrap(), next.as_bytes()[..17]);
             } else {
                 append_record(&journal, &retry).unwrap();
-                assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{retry}\n"));
+                let expected = if ["written", "file-synced", "append-synced"].contains(&phase) {
+                    format!("{next}\n{retry}\n")
+                } else {
+                    format!("{retry}\n")
+                };
+                assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
                 inspect_fixture(&journal).unwrap();
             }
             assert_eq!(fs::read(&archive).unwrap(), previous);
+            assert_eq!(fs::metadata(&archive).unwrap().ino(), original_inode);
             fs::remove_dir_all(dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn process_loss_during_first_or_existing_append_preserves_unacknowledged_bytes() {
+        for existing in [false, true] {
+            for phase in &CRASH_PHASES[2..] {
+                let dir = test_dir("process-crash");
+                fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
+                let journal = dir.join("journal");
+                let original = record("original", json!({})).to_string();
+                let previous = if existing {
+                    append_record(&journal, &original).unwrap();
+                    format!("{original}\n")
+                } else {
+                    String::new()
+                };
+                let original_inode = fs::metadata(&journal).ok().map(|meta| meta.ino());
+                sync_directory(&dir, &fs::metadata(&dir).unwrap()).unwrap();
+                let next = record("unacknowledged", json!({})).to_string();
+                run_crash_worker(&dir, phase, &next);
+                let suffix = match *phase {
+                    "empty-active" => String::new(),
+                    "partial-active" => next[..17].to_string(),
+                    _ => format!("{next}\n"),
+                };
+                let expected = format!("{previous}{suffix}");
+                assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
+                assert!(!archive_path(&journal).unwrap().exists());
+                let metadata = fs::metadata(&journal).unwrap();
+                assert_eq!(metadata.mode() & 0o777, 0o600);
+                assert_eq!(metadata.nlink(), 1);
+                if let Some(inode) = original_inode {
+                    assert_eq!(metadata.ino(), inode);
+                }
+                let retry = record("restart", json!({})).to_string();
+                if *phase == "partial-active" {
+                    assert_eq!(
+                        inspect_fixture(&journal).unwrap_err().kind(),
+                        io::ErrorKind::InvalidData
+                    );
+                    assert_eq!(
+                        append_record(&journal, &retry).unwrap_err().kind(),
+                        io::ErrorKind::InvalidData
+                    );
+                    assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
+                } else {
+                    // A distinct restart event preserves a complete record
+                    // even though its caller never received acknowledgement.
+                    append_record(&journal, &retry).unwrap();
+                    assert_eq!(
+                        fs::read_to_string(&journal).unwrap(),
+                        format!("{expected}{retry}\n")
+                    );
+                    let records = usize::from(existing) + usize::from(!suffix.is_empty()) + 1;
+                    assert_eq!(inspect_fixture(&journal).unwrap()["records"], records);
+                }
+                assert_eq!(fs::metadata(&journal).unwrap().ino(), metadata.ino());
+                assert!(!archive_path(&journal).unwrap().exists());
+                fs::remove_dir_all(dir).unwrap();
+            }
         }
     }
 

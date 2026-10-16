@@ -129,6 +129,7 @@ Archive-only layout recovery and the held VT chord passed in the full
 Released-key graphical login, terminal return, production audit adapter and all
 existing native gates passed together at
 [4390a8c](docs/validation/native-4390a8c/README.md).
+The later [aa17982 run](docs/validation/native-aa17982/README.md) also passed every native gate.
 This remains an experimental VM, **not** a production desktop, signed release,
 owner-recovery system, or physical installer. The first hands-on test contract
 is in [ROADMAP.md](ROADMAP.md) and [docs/FIRST_INSTALL.md](docs/FIRST_INSTALL.md).

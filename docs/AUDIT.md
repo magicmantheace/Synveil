@@ -87,6 +87,15 @@ passed at `f75de2b` (115 Rust tests, formatting and clippy;
 The kernel and filesystem cache survive these process
 cuts: this does not interrupt a kernel syscall, reboot a guest or model power loss.
 
+An extension covers complete but unacknowledged writes before file sync, after
+file sync and after final directory sync. It also exercises first creation and
+ordinary append at five cuts each, for 17 cases including rotation. A restart
+must preserve full records before a new event, retain inode identity and valid
+record counts, and refuse partial tails without repair. Host validation of this
+extension is pending. Process death after sync is still not evidence that a
+volatile device cache survives power loss.
+
+
 The native two-boot QEMU persistence gate verifies that the versioned audit
 journal is present, root-owned, mode 0600 and singly linked. This gate and
 target structural inspection passed at
