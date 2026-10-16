@@ -81,8 +81,10 @@ archive rename, after archive-directory sync, before writing the new active
 journal, or after writing a 17-byte partial record. The parent requires an
 actual signal-9 exit, exact archived bytes/inode, released locks, and safe
 restart; an incomplete active tail must remain unchanged and block appends.
-A five-second watchdog fails the test if a boundary is not reached. Host
-validation is pending. The kernel and filesystem cache survive these process
+A five-second watchdog fails the test if a boundary is not reached. Host CI
+passed at `f75de2b` (115 Rust tests, formatting and clippy;
+[run 38907418988](https://github.com/magicmantheace/Synveil/actions/runs/38907418988)).
+The kernel and filesystem cache survive these process
 cuts: this does not interrupt a kernel syscall, reboot a guest or model power loss.
 
 The native two-boot QEMU persistence gate verifies that the versioned audit

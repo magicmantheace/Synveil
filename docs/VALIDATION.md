@@ -663,7 +663,10 @@ is synchronized before the child starts; no sync or cleanup precedes inspecting
 the interrupted state. A five-second timeout kills/reaps the child and fails
 instead of accepting a watchdog kill as evidence.
 
-Host CI is pending. There are no production crash flags. These are userspace
+Host CI at `f75de2bec42834c27688359c82039ad890d809fb` passed all four cases,
+115 Rust tests, formatting and clippy
+([run 38907418988](https://github.com/magicmantheace/Synveil/actions/runs/38907418988)).
+There are no production crash flags. These are userspace
 process cuts at known operation boundaries while the host kernel and cache
 survive; interrupted kernel operations, guest reboot during rotation, real
 device errors and volatile-cache/physical power loss remain unproven.
