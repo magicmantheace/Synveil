@@ -279,8 +279,9 @@ grabs exclusively, discards pre-login queued events without logging them, and
 rechecks the physical key bitmap. A raced key press releases the grab and retries;
 waiting and event draining are bounded. Failure leaves login input unavailable
 and preserves serial recovery. The authenticated tty1 remains in its normal
-keyboard mode. Host regressions pass; native validation of this candidate
-terminal-input fix is pending. This remains a single-keyboard QEMU prototype.
+keyboard mode. Host regressions and the full native pipeline, including
+graphical terminal return and cleanup, passed at
+[4390a8c](validation/native-4390a8c/README.md). This remains a single-keyboard QEMU prototype.
 
 The experimental authenticated user desktop supports keyboard navigation
 through tty1 and, when available, an absolute Linux evdev pointer delegated

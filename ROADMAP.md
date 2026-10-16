@@ -169,7 +169,11 @@ does not establish interrupted-rotation durability. Deterministic host error
 injection at append/rotation I/O boundaries passed at `6e7d7ed`. Native audit
 gates with the storage adapter passed in the
 [partial 200f903 run](docs/validation/native-200f903/README.md), whose graphical
-terminal-return gate failed. Full revalidation and real device failure remain open.
+terminal-return gate failed. Full native revalidation, including terminal return,
+passed at [4390a8c](docs/validation/native-4390a8c/README.md). Test-only
+process-kill coverage at four rotation boundaries is being validated; this
+preserves the host kernel/cache and does not establish power-loss durability.
+Real device failure and interrupted filesystem operations remain open.
 Exports preserve source history and do not release the archive slot. Explicit retention release,
 independent integrity anchoring and power-loss testing remain open.
 

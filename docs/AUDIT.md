@@ -63,8 +63,9 @@ further append after an injected partial write. A sync error can leave complete
 but unacknowledged bytes, so an error does not mean nothing was written or grant
 exactly-once retry semantics. Injected errors establish control-flow behavior,
 not real device EIO, interrupted filesystem operations or power-loss durability.
-All four fault-injection tests passed host CI at `6e7d7ed`; native revalidation
-of the production storage adapter remains pending.
+All four fault-injection tests passed host CI at `6e7d7ed`; full native
+revalidation of the production storage adapter passed at
+[4390a8c](validation/native-4390a8c/README.md).
 
 An additional host fixture substitutes a symlink, hardlink, directory or FIFO
 for the next active journal after the archive rename and directory sync. It
@@ -73,6 +74,16 @@ write, preserve the archive's bytes and inode, leave unrelated target bytes
 untouched, and retain the substituted object. Only the fixture removes its own
 injection before checking recovery. This is deterministic host path-boundary
 coverage, not a guest crash, device fault or proof against a malicious root.
+The four cases passed host CI at `d70c745` (113 Rust tests, formatting/clippy).
+
+A further test-only subprocess matrix sends itself SIGKILL immediately after
+archive rename, after archive-directory sync, before writing the new active
+journal, or after writing a 17-byte partial record. The parent requires an
+actual signal-9 exit, exact archived bytes/inode, released locks, and safe
+restart; an incomplete active tail must remain unchanged and block appends.
+A five-second watchdog fails the test if a boundary is not reached. Host
+validation is pending. The kernel and filesystem cache survive these process
+cuts: this does not interrupt a kernel syscall, reboot a guest or model power loss.
 
 The native two-boot QEMU persistence gate verifies that the versioned audit
 journal is present, root-owned, mode 0600 and singly linked. This gate and
