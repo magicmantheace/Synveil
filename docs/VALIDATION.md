@@ -586,3 +586,11 @@ with 111 workspace tests, formatting and clippy. Native revalidation of the
 production adapter is pending. Simulated EIO returns
 do not establish real block-device failure, interrupted rotation or power-loss
 durability; the durable-audit roadmap item remains open.
+
+Post-merge host CI at `200f903` exposed a failure at the new rotation fixture's
+boolean archive-inspection assertion after the earlier run passed. Parallel
+process launches can transiently inherit an audit flock until exec. The fault
+fixtures now use bounded WouldBlock-only inspection retries with error output;
+all other inspection errors fail immediately, and partial-tail assertions
+require InvalidData rather than accepting any error. Production lock handling
+remains nonblocking. Fresh host validation of this fixture correction is pending.
