@@ -869,7 +869,10 @@ mod tests {
             };
             let next = record("next", json!({"padding": "y".repeat(8192)})).to_string();
             assert!(append_record_with_io(&journal, &next, &mut storage).is_err());
-            assert!(storage.installed, "replacement boundary was not reached: {kind}");
+            assert!(
+                storage.installed,
+                "replacement boundary was not reached: {kind}"
+            );
             assert_eq!(storage.writes, 0, "attempted write through {kind}");
             assert!(fs::symlink_metadata(&journal).is_ok());
             assert_eq!(fs::read(&target).unwrap(), b"unrelated private data\n");
