@@ -192,7 +192,7 @@ pub fn release_archive(
             return Err(io::Error::last_os_error());
         }
         directory.sync_all()?;
-        Ok(json!({
+        let completed = json!({
             "schema": "synveil.audit-retention-release/v1",
             "released": true,
             "authorization_durable": true,
@@ -201,7 +201,11 @@ pub fn release_archive(
             "bytes": archived.len(),
             "records": inspected["records"],
             "authenticated": false,
-        }))
+        });
+        same_private_file(authorization, &receipt.metadata()?)?;
+        writeln!(receipt, "{completed}")?;
+        receipt.sync_all()?;
+        Ok(completed)
     })
 }
 
@@ -310,10 +314,15 @@ mod tests {
         assert_eq!(fs::read(&fixture.active).unwrap(), active);
         assert_eq!(fs::metadata(&fixture.active).unwrap().ino(), active_inode);
         assert_eq!(fs::read(&fixture.copy).unwrap(), copy);
-        let receipt: Value =
-            serde_json::from_slice(&fs::read(&fixture.authorization).unwrap()).unwrap();
-        assert_eq!(receipt["phase"], "authorized-before-unlink");
-        assert_eq!(receipt["digest"], fixture.digest);
+        let saved = fs::read_to_string(&fixture.authorization).unwrap();
+        let receipts: Vec<Value> = saved
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(receipts.len(), 2);
+        assert_eq!(receipts[0]["phase"], "authorized-before-unlink");
+        assert_eq!(receipts[0]["digest"], fixture.digest);
+        assert_eq!(receipts[1], report);
         assert_eq!(
             fs::metadata(&fixture.authorization).unwrap().mode() & 0o777,
             0o600

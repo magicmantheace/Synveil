@@ -710,7 +710,7 @@ run remains a failed pipeline.
 The release candidate requires a verified distinct private snapshot and a new
 durable authorization receipt before removing only the derived `.1` archive.
 Host tests require unchanged active bytes/inode and copy, accurate pre-unlink
-receipt semantics, digest/structure mismatch refusal, symlink/permission/alias
+receipt ordering (authorization then synchronized completion), digest/structure mismatch refusal, symlink/permission/alias
 and receipt-collision refusal, and nonblocking busy-lock failure. CLI coverage
 exercises explicit arguments and verifies no event-content disclosure. A full
 journal fixture must resume a second rotation after release while preserving

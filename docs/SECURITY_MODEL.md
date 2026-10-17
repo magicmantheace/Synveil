@@ -156,6 +156,7 @@ The retention release candidate is a direct administrative CLI, authorized by
 filesystem ownership and explicit supplied archive-base, copy, digest and new
 receipt arguments. It has no model/IPC endpoint. It releases only the derived
 archive after durable copy/intent checks, without changing the active journal.
-The stored receipt records authorization before unlink; completion is a separate
-successful report, so failures cannot misrepresent completed deletion. Future
+The stored receipt records authorization before unlink. After unlink and directory
+sync, a separate completion record is appended and synchronized before success
+is returned. Failures preserve the intent and never claim an unperformed deletion. Future
 AI-requested retention must use typed policy and stronger owner authorization.

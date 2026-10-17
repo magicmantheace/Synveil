@@ -438,10 +438,14 @@ before unlink. Existing receipts are never replaced or automatically cleaned up.
 
 The persisted `synveil.audit-retention-authorization/v1` receipt records
 `authorized-before-unlink`, digest, size, count, caller UID and archive/copy inode
-identities. It does not claim release completed. Only a successful final
-`synveil.audit-retention-release/v1` report says `released:true`. A failure after
+identities. It does not claim release completed. After unlink and journal-directory
+sync, a second JSON line records `synveil.audit-retention-release/v1` with
+`released:true`; that line is synchronized before the same report is returned.
+The authorization file is therefore a two-record JSONL receipt on success.
+A failure after
 receipt publication can leave the intent; a failure after unlink can leave the
-archive absent. Inspect both locations before retrying with a fresh receipt.
+archive absent or an incomplete completion line. Preserve the first intent and
+inspect both locations before retrying with a fresh receipt.
 The active journal and retained copy remain untouched. An incomplete active
 journal still requires separate recovery; releasing its archive does not repair it.
 

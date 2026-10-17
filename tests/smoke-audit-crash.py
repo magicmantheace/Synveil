@@ -100,6 +100,7 @@ def read_command(digest, archive_digest=None, release_archive=False):
             f'--digest {archive_digest} >/dev/null &&\n'
             f'[ ! -e {store}/journal.1 ] && [ ! -L {store}/journal.1 ] &&\n'
             f'grep -Fq \'"phase":"authorized-before-unlink"\' {store}/copies/release.json &&\n'
+            f'grep -Fq \'"schema":"synveil.audit-retention-release/v1"\' {store}/copies/release.json &&\n'
             f'/usr/sbin/veil-audit verify --path {store}/journal --digest {digest} >/dev/null &&\n'
             f'/usr/sbin/veil-audit verify --path {store}/copies/archive --digest {archive_digest} >/dev/null'
         )

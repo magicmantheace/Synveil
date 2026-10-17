@@ -104,6 +104,7 @@ else:
     if release:
         assert 'release-archive --path' in command and '--authorization' in command
         assert 'authorized-before-unlink' in command and '[ ! -e ' in command
+        assert 'synveil.audit-retention-release/v1' in command
     if mode in ('lost-data', 'lost-archive', 'release-refused'): sys.exit(1)
     print('SYNVEIL_AUDIT_CRASH_READ_OK', flush=True)
     time.sleep(30)
