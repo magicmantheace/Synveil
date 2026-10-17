@@ -808,6 +808,9 @@ active journal, archive and snapshot must refuse before receipt publication;
 release succeeds after the locks are dropped. Each release subprocess has a
 five-second watchdog; watchdog termination is a test failure.
 
-These are host command-boundary checks, pending CI validation when introduced.
+These host command-boundary checks passed at
+`2261ec59e5b6438cd457fb1c91ef781eb506a250`: all 132 Rust tests, formatting and
+clippy passed in [run 39052487780](https://github.com/magicmantheace/Synveil/actions/runs/39052487780),
+job `117453710277`.
 They supplement the nine-cut process-loss matrix without adding guest live-release
 interruption, real storage faults, cache loss, power-loss or authenticated integrity proof.

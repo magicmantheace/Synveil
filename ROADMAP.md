@@ -192,7 +192,10 @@ formatting/clippy and bootstrap lint, and all 44 corrected native steps passed i
 Explicit owner-controlled release is now merged. A nine-cut test-only SIGKILL
 matrix for interrupted release passed host CI at `4f4c0a2` (129 Rust tests,
 formatting/clippy). It preserves the host kernel/cache and does not establish
-power-loss durability.
+power-loss durability. Three additional built-command tests cover receipt replay
+against an identical-byte next archive, invalid arguments and busy file locks;
+host CI at `2261ec5` passed all 132 Rust tests, formatting and clippy
+([run 39052487780](https://github.com/magicmantheace/Synveil/actions/runs/39052487780)).
 Automatic retention remains absent. Guest interruption during release,
 independent integrity anchoring and power-loss testing remain open.
 
