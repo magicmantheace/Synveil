@@ -867,3 +867,15 @@ job `117492261989`. The tracing worker in this host suite is a controlled syscal
 fixture, not the native Rust command in a guest. Fresh full native validation
 remains pending. This candidate does not yet establish guest-interruption
 recovery, physical power-loss durability or independent authenticated integrity.
+
+The initial native candidate `798b905` failed the live-release guest step in
+[run 39065683248](https://github.com/magicmantheace/Synveil/actions/runs/39065683248).
+Review identified that the tracer recognized `AT_EMPTY_PATH` publication, while
+production uses `linkat(AT_FDCWD, "/proc/self/fd/<fd>", ..., AT_SYMLINK_FOLLOW)`.
+The earlier controlled worker used the same incorrect assumption as the tracer;
+its passing host result did not establish compatibility with the native command.
+The corrected tracer reads the bounded procfs descriptor source and tracks that
+receipt descriptor. The controlled worker now uses the production publication
+form and rejects the old form as a negative case. A separate host CI step traces
+the actual built `veil-audit` at every cut and runs its read-only inspector on
+each residual receipt. Fresh host and native results remain pending.

@@ -2,6 +2,8 @@
 /* x86_64-only tracing fixture. Never installed in the normal rootfs. */
 #define _GNU_SOURCE
 #include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <linux/audit.h>
 #include <signal.h>
 #include <stdio.h>
@@ -15,17 +17,39 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+static int remote_byte(pid_t child, unsigned long long address, unsigned char *byte) {
+    unsigned long location = (unsigned long)address;
+    errno = 0;
+    long word = ptrace(PTRACE_PEEKDATA, child,
+                       (void *)(location & ~(sizeof(long) - 1)), NULL);
+    if (errno) return 0;
+    *byte = ((unsigned char *)&word)[location % sizeof(long)];
+    return 1;
+}
+
 static int remote_name(pid_t child, unsigned long long address, const char *expected) {
-    size_t length = strlen(expected);
-    for (size_t i = 0; i <= length; ++i) {
-        unsigned long location = (unsigned long)address + i;
-        errno = 0;
-        long word = ptrace(PTRACE_PEEKDATA, child,
-                           (void *)(location & ~(sizeof(long) - 1)), NULL);
-        if (errno || ((unsigned char *)&word)[location % sizeof(long)] !=
-                         (unsigned char)expected[i]) return 0;
+    for (size_t i = 0; i <= strlen(expected); ++i) {
+        unsigned char byte;
+        if (!remote_byte(child, address + i, &byte) || byte != (unsigned char)expected[i]) return 0;
     }
     return 1;
+}
+
+static int remote_receipt_fd(pid_t child, unsigned long long address) {
+    const char prefix[] = "/proc/self/fd/";
+    for (size_t i = 0; i < sizeof(prefix) - 1; ++i) {
+        unsigned char byte;
+        if (!remote_byte(child, address + i, &byte) || byte != (unsigned char)prefix[i]) return -1;
+    }
+    int fd = 0;
+    for (size_t i = 0; i <= 10; ++i) {
+        unsigned char byte;
+        if (!remote_byte(child, address + sizeof(prefix) - 1 + i, &byte)) return -1;
+        if (!byte) return i ? fd : -1;
+        if (byte < '0' || byte > '9' || fd > (INT_MAX - (byte - '0')) / 10) return -1;
+        fd = fd * 10 + byte - '0';
+    }
+    return -1;
 }
 
 static int wait_child(pid_t child, int *status) {
@@ -90,11 +114,12 @@ int main(int argc, char **argv) {
             pending_publish = pending_unlink = pending_sync = pending_write = 0;
             pending_fsync = info.entry.nr == SYS_fsync ? (int)info.entry.args[0] : -1;
             if (info.entry.nr == SYS_linkat &&
-                remote_name(child, info.entry.args[1], "") &&
+                (int)info.entry.args[0] == AT_FDCWD &&
                 remote_name(child, info.entry.args[3], "release.json") &&
-                info.entry.args[4] == 0x1000) {
+                info.entry.args[4] == AT_SYMLINK_FOLLOW) {
                 if (published) goto fail;
-                receipt_fd = (int)info.entry.args[0];
+                receipt_fd = remote_receipt_fd(child, info.entry.args[1]);
+                if (receipt_fd < 0) goto fail;
                 copies_fd = (int)info.entry.args[2];
                 if (last_synced_fd != receipt_fd) goto fail;
                 pending_publish = 1;

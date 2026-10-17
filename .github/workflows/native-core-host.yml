@@ -149,6 +149,9 @@ jobs:
       - name: Test workspace
         run: cargo test --workspace --all-targets --locked
 
+      - name: Trace the built release CLI at all four interruption boundaries
+        run: python3 tests/audit-release-cut.py --native-binary target/debug/veil-audit
+
       - name: Lint workspace
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
