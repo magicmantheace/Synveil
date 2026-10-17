@@ -77,6 +77,8 @@ jobs:
           python3 tests/native-smoke.py
           python3 tests/native-recovery.py
           python3 tests/audit-crash-smoke.py
+          python3 tests/audit-release-cut.py
+          python3 tests/audit-release-crash-smoke.py
           python3 tests/recovery-status.py
           python3 tests/qemu-lock.py
           python3 tests/native-protocol-probe.py
@@ -241,6 +243,13 @@ jobs:
       - name: Release copied audit archive after reboot without changing active history
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: bash build.sh audit-crash-smoke --rollover --release-archive --timeout 60
+
+      - name: Recover live archive release across four guest interruptions
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          bash build.sh guest-fixture --case audit-release-crash 2>&1 \
+            | tee out/logs/audit-release-crash-fixture.log
 
       - name: One-time root-owned credential enrollment in QEMU state
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}

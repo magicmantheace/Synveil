@@ -815,7 +815,7 @@ job `117453710277`.
 They supplement the nine-cut process-loss matrix without adding guest live-release
 interruption, real storage faults, cache loss, power-loss or authenticated integrity proof.
 
-## Release receipt inspector candidate
+## Release receipt inspection
 
 `inspect-release` adds read-only observation of authorization-only, partial
 completion and recorded completion states. Unit fixtures verify that receipt,
@@ -833,7 +833,8 @@ journal/snapshot checksums. Local Python driver checks passed 11 tests with two
 real-process fixtures skipped because this environment proxies process identity.
 Source `39d26273c9b54fb9c18c73ec0a65e0d0849923fe` passed all 136 Rust tests,
 formatting and clippy in [run 39058995249](https://github.com/magicmantheace/Synveil/actions/runs/39058995249),
-job `117473083817`. Fresh native validation remains pending for this candidate.
+job `117473083817`. All 44 native steps passed at
+[9059bf6](validation/native-9059bf6/README.md); the inspector is now merged.
 Inspection never upgrades a process-cut observation into guest/cache/power-loss proof.
 
 The preceding CLI-only review correction at `953c368` also passed 132 Rust tests,
@@ -841,3 +842,21 @@ formatting and clippy in [run 39058533152](https://github.com/magicmantheace/Syn
 before PR #25 merged. It checks actual supplied malformed digest values for
 error disclosure. The prior merged source `8d8dfed` passed all 44 native steps in
 [run 39052189785](https://github.com/magicmantheace/Synveil/actions/runs/39052189785).
+
+## Live release guest interruption candidate
+
+The isolated `audit-release-crash` fixture now targets four live release syscall
+boundaries and eight independent QEMU sessions. Its exact checkpoints, replay
+expectations and scope are defined in [AUDIT.md](AUDIT.md#live-release-guest-interruption-fixture).
+The regular image and native runtime contain no tracing helper or fault controls.
+The new fixture becomes an additional required step in the native workflow.
+
+Local shell recovery tests passed four tests covering all allowed archive/receipt
+states, forbidden completion/presence combinations, corrupt copies, missing or
+ambiguous host-retained digests, cut failure and reboot failure. Fixture staging
+checks passed eight tests, including baseline isolation. The C tracer compiled
+with `-Wall -Wextra -Werror`; argument refusal passed locally, while six real
+tracing subcases skipped because local policy blocks ptrace. Under GitHub Actions,
+tracing unavailability is a failure, not a skip. Host tracing CI and fresh native
+validation are pending. This candidate does not yet establish guest-interruption
+recovery, physical power-loss durability or independent authenticated integrity.
