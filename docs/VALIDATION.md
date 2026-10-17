@@ -764,3 +764,20 @@ receipt, while an absent archive refuses retry without changing old receipts.
 Partial intent writes must remain unpublished; partial completion writes must
 preserve the valid intent and exact incomplete tail. These are host error-return
 and partial-write fixtures, not real device EIO or process/power-loss evidence.
+
+## Process loss during offline archive release
+
+The test-only release matrix covers nine SIGKILL points from partial anonymous
+intent through synchronized completion. Require a matching fixed checkpoint and
+actual signal-9 exit, reaped children, exact active/copy bytes and inode identity,
+expected archive/receipt state, no named partial intent, kernel lock release,
+fresh-receipt pre-unlink recovery and unchanged refusal after unlink. The matrix
+itself runs in an isolated exact-filtered test process, with bounded watchdogs;
+a watchdog termination cannot count as a successfully reached cut.
+
+Baseline file/directory sync occurs only before the cut. Observe interrupted
+state before recovery synchronizes anything. Partial completion preserves the
+valid first intent and a 17-byte incomplete tail; complete unacknowledged
+completion may remain after process loss. No runtime fault flags, receipt repair,
+automatic retry or archive recreation is added. Host CI is pending. Kernel/cache
+survival limits the proof to process loss, not guest/device/cache/power failure.
