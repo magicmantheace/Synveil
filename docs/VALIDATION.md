@@ -781,3 +781,9 @@ valid first intent and a 17-byte incomplete tail; complete unacknowledged
 completion may remain after process loss. No runtime fault flags, receipt repair,
 automatic retry or archive recreation is added. Host CI is pending. Kernel/cache
 survival limits the proof to process loss, not guest/device/cache/power failure.
+
+The matrix's outer watchdog reserves all nine five-second worker budgets plus
+30 seconds for fixture synchronization and recovery (75 seconds total). It owns
+a dedicated process group and terminates descendants on outer timeout. The
+initial 15-second aggregate budget was corrected after review; even successful
+workers must not collectively exhaust an undersized outer deadline.

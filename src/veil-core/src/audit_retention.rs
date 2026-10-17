@@ -816,6 +816,8 @@ mod tests {
         "completion-synced",
     ];
 
+    const RELEASE_WORKER_TIMEOUT_SECONDS: u64 = 5;
+
     fn release_cut(phase: &str) -> ! {
         unsafe extern "C" {
             fn raise(signal: i32) -> i32;
@@ -1009,7 +1011,7 @@ mod tests {
                 .stderr(Stdio::piped())
                 .spawn()
                 .unwrap();
-            let (status, diagnostic) = wait_release_worker(child, 5, false);
+            let (status, diagnostic) = wait_release_worker(child, RELEASE_WORKER_TIMEOUT_SECONDS, false);
             assert_eq!(status.signal(), Some(9), "{phase}: {diagnostic}");
             let checkpoints: Vec<_> = diagnostic
                 .lines()
@@ -1132,7 +1134,9 @@ mod tests {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
-        let (status, diagnostic) = wait_release_worker(child, 15, true);
+        // Cover every sequential worker's budget plus baseline/recovery I/O.
+        let seconds = RELEASE_CUTS.len() as u64 * RELEASE_WORKER_TIMEOUT_SECONDS + 30;
+        let (status, diagnostic) = wait_release_worker(child, seconds, true);
         assert!(
             status.success(),
             "isolated release matrix failed: {diagnostic}"
