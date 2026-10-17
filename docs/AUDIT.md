@@ -558,6 +558,7 @@ After reboot, the read-only inspector and retained digests check the surviving
 receipt/history before recovery. A surviving archive can be released only with
 a fresh receipt; an absent archive must refuse retry without creating that
 receipt. Original receipt bytes and active/snapshot histories must remain intact.
-This fixture is pending validation when introduced. It exercises guest kernel
-loss and filesystem replay while the host page cache survives; it does not
+Host source `d3a0360` passed real tracing and refusal checks against a controlled
+filesystem worker; full native validation remains pending. The guest fixture
+targets kernel loss and filesystem replay while the host page cache survives; it does not
 simulate real device errors, volatile-device-cache loss or physical power failure.

@@ -857,6 +857,13 @@ ambiguous host-retained digests, cut failure and reboot failure. Fixture staging
 checks passed eight tests, including baseline isolation. The C tracer compiled
 with `-Wall -Wextra -Werror`; argument refusal passed locally, while six real
 tracing subcases skipped because local policy blocks ptrace. Under GitHub Actions,
-tracing unavailability is a failure, not a skip. Host tracing CI and fresh native
-validation are pending. This candidate does not yet establish guest-interruption
+tracing unavailability is a failure, not a skip.
+
+Host source `d3a0360cd4ad04564abd131d706f6930d05f1519` passed all four real
+tracing boundaries and both refusal subcases without skips, four shell recovery
+tests, eight staging tests and the full 136-test Rust workspace with formatting
+and clippy in [run 39065469118](https://github.com/magicmantheace/Synveil/actions/runs/39065469118),
+job `117492261989`. The tracing worker in this host suite is a controlled syscall
+fixture, not the native Rust command in a guest. Fresh full native validation
+remains pending. This candidate does not yet establish guest-interruption
 recovery, physical power-loss durability or independent authenticated integrity.

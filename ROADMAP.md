@@ -202,8 +202,10 @@ current archive state. Source `39d2627` passed all 136 Rust tests, formatting
 and clippy ([run 39058995249](https://github.com/magicmantheace/Synveil/actions/runs/39058995249));
 all 44 native steps passed at [9059bf6](docs/validation/native-9059bf6/README.md).
 A separate guest fixture now targets live release at four traced syscall
-boundaries and reboot recovery across eight QEMU sessions. It is pending host
-tracing and fresh native validation; no guest-interruption completion is claimed.
+boundaries and reboot recovery across eight QEMU sessions. Host source `d3a0360`
+passed all four tracing cuts, both refusal cases, recovery/staging checks, all
+136 Rust tests, formatting and clippy ([run 39065469118](https://github.com/magicmantheace/Synveil/actions/runs/39065469118)).
+Fresh native validation is pending; no guest-interruption completion is claimed.
 Automatic retention remains absent. Guest interruption during release,
 independent integrity anchoring and power-loss testing remain open.
 
