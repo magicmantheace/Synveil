@@ -123,16 +123,27 @@ pub fn inspect_release(
     expected: &str,
 ) -> io::Result<Value> {
     const MAX_RECEIPT_BYTES: u64 = 8192;
-    if ![active, snapshot, authorization].into_iter().all(absolute_normal)
+    if ![active, snapshot, authorization]
+        .into_iter()
+        .all(absolute_normal)
         || snapshot == authorization
         || snapshot.parent() != authorization.parent()
         || active.file_name().unwrap() == ".audit-lock"
-        || active.file_name().unwrap().as_encoded_bytes().ends_with(b".1")
+        || active
+            .file_name()
+            .unwrap()
+            .as_encoded_bytes()
+            .ends_with(b".1")
         || authorization.file_name().unwrap() == ".audit-lock"
         || expected.len() != 128
-        || !expected.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        || !expected
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
     {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid inspection arguments"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid inspection arguments",
+        ));
     }
     let parent = active.parent().ok_or_else(refused)?;
     let copies_parent = snapshot.parent().ok_or_else(refused)?;
@@ -159,7 +170,9 @@ pub fn inspect_release(
         return Err(io::Error::last_os_error());
     }
     let mut bytes = Vec::new();
-    (&receipt).take(MAX_RECEIPT_BYTES + 1).read_to_end(&mut bytes)?;
+    (&receipt)
+        .take(MAX_RECEIPT_BYTES + 1)
+        .read_to_end(&mut bytes)?;
     if bytes.len() as u64 > MAX_RECEIPT_BYTES || bytes.contains(&b'\r') {
         return Err(refused());
     }
@@ -169,9 +182,21 @@ pub fn inspect_release(
         let copy_meta = copy.metadata()?;
         same_private_file(snapshot, &copy_meta)?;
         let keys = [
-            "schema", "operation", "phase", "uid", "algorithm", "digest", "bytes", "records",
-            "active_device", "active_inode", "archive_device", "archive_inode",
-            "snapshot_device", "snapshot_inode", "authenticated",
+            "schema",
+            "operation",
+            "phase",
+            "uid",
+            "algorithm",
+            "digest",
+            "bytes",
+            "records",
+            "active_device",
+            "active_inode",
+            "archive_device",
+            "archive_inode",
+            "snapshot_device",
+            "snapshot_inode",
+            "authenticated",
         ];
         let exact_keys = intent.as_object().is_some_and(|object| {
             object.len() == keys.len() && keys.iter().all(|key| object.contains_key(*key))
@@ -189,8 +214,14 @@ pub fn inspect_release(
             || intent["snapshot_device"] != copy_meta.dev()
             || intent["snapshot_inode"] != copy_meta.ino()
             || intent["authenticated"] != false
-            || ["active_device", "active_inode", "archive_device", "archive_inode"]
-                .iter().any(|key| intent[*key].as_u64().is_none())
+            || [
+                "active_device",
+                "active_inode",
+                "archive_device",
+                "archive_inode",
+            ]
+            .iter()
+            .any(|key| intent[*key].as_u64().is_none())
             || super::audit_export::checksum(retained) != expected
             || identity(&copy_meta) == identity(&receipt_meta)
         {
@@ -564,19 +595,33 @@ mod tests {
         let intent: Value = serde_json::from_slice(first).unwrap();
         let completion: Value = serde_json::from_slice(second).unwrap();
         let mut cases = vec![
-            Vec::new(), first[..first.len() - 1].to_vec(),
-            [first, b"garbage"].concat(), [receipt.as_slice(), b"\n"].concat(),
-            [receipt.as_slice(), second].concat(), vec![b'x'; 8193],
-            [b"{\"phase\":\"authorized-before-unlink\",", &first[1..], second].concat(),
+            Vec::new(),
+            first[..first.len() - 1].to_vec(),
+            [first, b"garbage"].concat(),
+            [receipt.as_slice(), b"\n"].concat(),
+            [receipt.as_slice(), second].concat(),
+            vec![b'x'; 8193],
+            [
+                b"{\"phase\":\"authorized-before-unlink\",",
+                &first[1..],
+                second,
+            ]
+            .concat(),
             [first, b"{\"released\":true,", &second[1..]].concat(),
         ];
         for (key, value) in [
-            ("schema", json!("unknown")), ("operation", json!("other")),
-            ("phase", json!("completed")), ("uid", json!(u64::MAX)),
-            ("algorithm", json!("other")), ("digest", json!("0".repeat(128))),
-            ("bytes", json!(0)), ("records", json!(0)),
-            ("snapshot_inode", json!(u64::MAX)), ("snapshot_device", json!(u64::MAX)),
-            ("active_inode", json!("invalid")), ("authenticated", json!(true)),
+            ("schema", json!("unknown")),
+            ("operation", json!("other")),
+            ("phase", json!("completed")),
+            ("uid", json!(u64::MAX)),
+            ("algorithm", json!("other")),
+            ("digest", json!("0".repeat(128))),
+            ("bytes", json!(0)),
+            ("records", json!(0)),
+            ("snapshot_inode", json!(u64::MAX)),
+            ("snapshot_device", json!(u64::MAX)),
+            ("active_inode", json!("invalid")),
+            ("authenticated", json!(true)),
             ("extra", json!(false)),
         ] {
             let mut invalid = intent.clone();
@@ -587,9 +632,12 @@ mod tests {
         missing.as_object_mut().unwrap().remove("archive_inode");
         cases.push(format!("{missing}\n{completion}\n").into_bytes());
         for (key, value) in [
-            ("released", json!(false)), ("authorization_durable", json!(false)),
-            ("digest", json!("0".repeat(128))), ("records", json!(2)),
-            ("authenticated", json!(true)), ("extra", json!(false)),
+            ("released", json!(false)),
+            ("authorization_durable", json!(false)),
+            ("digest", json!("0".repeat(128))),
+            ("records", json!(2)),
+            ("authenticated", json!(true)),
+            ("extra", json!(false)),
         ] {
             let mut invalid = completion.clone();
             invalid[key] = value;
@@ -602,7 +650,11 @@ mod tests {
         }
         fs::write(&fixture.authorization, &receipt).unwrap();
         // Valid journal bytes with a different checksum cannot validate intent.
-        fs::write(&fixture.copy, format!("{}\n", super::super::audit::record("changed", json!({})))).unwrap();
+        fs::write(
+            &fixture.copy,
+            format!("{}\n", super::super::audit::record("changed", json!({}))),
+        )
+        .unwrap();
         assert!(fixture.inspect().is_err());
     }
 
@@ -615,11 +667,33 @@ mod tests {
         for path in [&fixture.authorization, &fixture.copy] {
             let held = fs::File::open(path).unwrap();
             assert_eq!(unsafe { flock(held.as_raw_fd(), 2 | 4) }, 0);
-            assert_eq!(inspect_release(&fixture.active, &fixture.copy, &fixture.authorization, &fixture.digest).unwrap_err().kind(), io::ErrorKind::WouldBlock);
+            assert_eq!(
+                inspect_release(
+                    &fixture.active,
+                    &fixture.copy,
+                    &fixture.authorization,
+                    &fixture.digest
+                )
+                .unwrap_err()
+                .kind(),
+                io::ErrorKind::WouldBlock
+            );
             assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
         }
-        let held = super::super::audit::directory_lock(&fixture.active, true).unwrap().unwrap();
-        assert_eq!(inspect_release(&fixture.active, &fixture.copy, &fixture.authorization, &fixture.digest).unwrap_err().kind(), io::ErrorKind::WouldBlock);
+        let held = super::super::audit::directory_lock(&fixture.active, true)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            inspect_release(
+                &fixture.active,
+                &fixture.copy,
+                &fixture.authorization,
+                &fixture.digest
+            )
+            .unwrap_err()
+            .kind(),
+            io::ErrorKind::WouldBlock
+        );
         assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
         drop(held);
         let held = fixture.authorization.with_file_name("held");
@@ -1354,7 +1428,10 @@ mod tests {
             }
             super::super::audit_export::verify(&fixture.copy, &fixture.digest).unwrap();
             if anonymous {
-                assert_eq!(fixture.inspect().unwrap_err().kind(), io::ErrorKind::NotFound);
+                assert_eq!(
+                    fixture.inspect().unwrap_err().kind(),
+                    io::ErrorKind::NotFound
+                );
             } else {
                 let report = fixture.inspect().unwrap();
                 let expected_state = match phase {

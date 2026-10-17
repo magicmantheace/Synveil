@@ -285,7 +285,13 @@ fn inspection_cli_observes_complete_and_interrupted_receipts_without_repair() {
     }
     fs::write(&fixture.receipt, b"invalid-private-content\n").unwrap();
     fixture.refused(&args);
-    assert_eq!(fs::read(&fixture.receipt).unwrap(), b"invalid-private-content\n");
-    args.extend([OsString::from("--output"), OsString::from("private-argument")]);
+    assert_eq!(
+        fs::read(&fixture.receipt).unwrap(),
+        b"invalid-private-content\n"
+    );
+    args.extend([
+        OsString::from("--output"),
+        OsString::from("private-argument"),
+    ]);
     fixture.refused(&args);
 }
