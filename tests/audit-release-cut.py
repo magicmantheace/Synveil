@@ -94,10 +94,11 @@ class CutTests(unittest.TestCase):
                 receipt = (root / "copies/release.json").read_bytes()
                 self.assertEqual(receipt, b"intent\n" + (b"c" if phase == "partial-completion" else b""))
             finally:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
+                if process.poll() is None:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
                 process.wait(timeout=3)
                 process.stdout.close()
                 process.stderr.close()

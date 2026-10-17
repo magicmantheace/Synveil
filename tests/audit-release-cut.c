@@ -71,13 +71,15 @@ int main(int argc, char **argv) {
     int copies_fd = -1, authorization_synced = 0, last_synced_fd = -1, pending_fsync = -1;
     unsigned long options = PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEEXEC | PTRACE_O_EXITKILL;
     alarm(30); /* A timeout cannot count as a checkpoint. EXITKILL terminates the tracee. */
-    if (!wait_child(child, &status)) goto fail;
+    if (!wait_child(child, &status)) return 1;
     if (WIFEXITED(status) && WEXITSTATUS(status) == 125) return 77;
-    if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGSTOP ||
+    if (!WIFSTOPPED(status)) return 1; /* Already reaped; never signal a stale PID. */
+    if (WSTOPSIG(status) != SIGSTOP ||
         ptrace(PTRACE_SETOPTIONS, child, NULL, (void *)options)) goto fail;
     for (unsigned int stops = 0; stops < 100000; ++stops) {
-        if (ptrace(PTRACE_SYSCALL, child, NULL, NULL) || !wait_child(child, &status) ||
-            !WIFSTOPPED(status)) goto fail;
+        if (ptrace(PTRACE_SYSCALL, child, NULL, NULL)) goto fail;
+        if (!wait_child(child, &status)) return 1;
+        if (!WIFSTOPPED(status)) return 1; /* A normal exit is not a cut. */
         if (WSTOPSIG(status) == SIGTRAP && (status >> 16) == PTRACE_EVENT_EXEC) continue;
         if (WSTOPSIG(status) != (SIGTRAP | 0x80)) goto fail;
         struct ptrace_syscall_info info;
