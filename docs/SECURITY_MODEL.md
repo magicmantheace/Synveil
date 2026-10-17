@@ -154,8 +154,10 @@ Before Synveil performs autonomous persistent mutations, this document must expa
 
 The retention release candidate is a direct administrative CLI, authorized by
 filesystem ownership and explicit supplied archive-base, copy, digest and new
-receipt arguments. It has no model/IPC endpoint. It releases only the derived
-archive after durable copy/intent checks, without changing the active journal.
+receipt arguments. It has no model/IPC endpoint. It requires a healthy private
+active journal with a distinct inode, locked and rechecked before unlink. It
+releases only the derived archive after durable copy/intent checks, without
+changing active history.
 The stored receipt records authorization before unlink. After unlink and directory
 sync, a separate completion record is appended and synchronized before success
 is returned. Failures preserve the intent and never claim an unperformed deletion. Future

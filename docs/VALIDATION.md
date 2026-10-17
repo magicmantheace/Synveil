@@ -719,8 +719,9 @@ the original snapshot. Host CI at `b27fe1d67db4bd2cd5379770b883db4f8b7000ae`
 passed all 122 Rust tests, formatting and clippy
 ([run 38994925827](https://github.com/magicmantheace/Synveil/actions/runs/38994925827)).
 [Bootstrap lint 38994928997](https://github.com/magicmantheace/Synveil/actions/runs/38994928997)
-also passed, including real process-cut host fixtures. Native release, interrupted release,
-real sync/unlink device errors and power-loss behavior remain unvalidated.
+also passed, including real process-cut host fixtures. That host checkpoint
+predates the initial native proof below. Interrupted release, real sync/unlink
+device errors and power-loss behavior remain unvalidated.
 
 The native workflow now includes `audit-crash-smoke --rollover
 --release-archive`: retain separate digests, abruptly stop/reap the emulator,
@@ -730,9 +731,9 @@ and renewed active/copy digest verification before the read-success marker.
 The original crash gates retain their preservation-only behavior and log names;
 release uses separate logs. The 11-test harness passed locally (two CI-only
 signal tests skipped), with shell syntax and malformed/missing archive-input
-checks. Native guest execution is pending; the feature branch now triggers a
-separate full native run so it can be validated before merge without cancelling
-the current development-branch run.
+checks. Initial native execution passed at `e81d6d5` as recorded below; the
+corrected candidate still requires fresh native proof. The feature branch runs
+separately, without cancelling a development-branch native run.
 
 ## Active-journal release precondition and storage-error boundaries
 
@@ -744,7 +745,12 @@ locks and validates the active journal, requires a distinct archive/copy inode,
 and rechecks active identity before unlink. Missing, symlinked, hardlinked,
 directory, FIFO, permissive, incomplete and invalid active paths must preserve
 archive/copy bytes and their own inode/type without publishing authorization.
-A valid empty active journal is allowed. Fresh host/native proof is pending.
+A valid empty active journal is allowed. Corrected source
+`da43fc1b0e7ca87a4cc96304997cddb539517939` passed all 126 Rust tests, formatting
+and clippy ([host run 39038885162](https://github.com/magicmantheace/Synveil/actions/runs/39038885162)),
+plus [bootstrap lint 39038889259](https://github.com/magicmantheace/Synveil/actions/runs/39038889259).
+Fresh [native run 39038885250](https://github.com/magicmantheace/Synveil/actions/runs/39038885250)
+is pending; the initial successful run is not proof of this correction.
 
 A private statically dispatched adapter tests EIO at all eleven release storage
 steps: copy sync, copy-directory sync, anonymous receipt creation, intent write,

@@ -458,8 +458,12 @@ future model-driven retention requires typed policy and stronger owner approval.
 A copied digest does not authenticate origin, guarantee an independently backed
 up copy, defeat a malicious owner/root process, or prove device-cache durability.
 The owner must preserve the copy, authorization and independently retained digest.
-Host validation at `b27fe1d` passed all 122 Rust tests, formatting and clippy
-([run 38994925827](https://github.com/magicmantheace/Synveil/actions/runs/38994925827)),
-plus bootstrap lint including the release harness. Native execution of the new
-release gate is pending; the feature branch has its own native workflow trigger.
-The durable-audit roadmap item remains open.
+The initial [e81d6d5 run](validation/native-e81d6d5/README.md) passed all 44
+native steps, including release, before review identified the unsafe-active case.
+The corrected active validation and private storage-error adapter passed host
+CI at `da43fc1` (126 Rust tests, formatting/clippy and bootstrap lint;
+[run 39038885162](https://github.com/magicmantheace/Synveil/actions/runs/39038885162)).
+Eleven EIO boundaries and partial intent/completion writes preserve active/copy
+history and truthful residual receipts; these are simulated errors, not real
+device or crash durability proof. Fresh native validation of the correction is
+running separately. The durable-audit roadmap item remains open.
