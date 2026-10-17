@@ -23,6 +23,7 @@ on:
       - development/audit-append-process-crash
       - development/audit-retention-release
       - development/audit-retention-process-crash
+      - development/audit-retention-cli-recovery
       - development/login-idle-keyboard
       - development/qmp-chord-hold
       - development/archive-stream-integrity

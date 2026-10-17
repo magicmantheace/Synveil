@@ -789,3 +789,25 @@ The matrix's outer watchdog reserves all nine five-second worker budgets plus
 a dedicated process group and terminates descendants on outer timeout. The
 initial 15-second aggregate budget was corrected after review; even successful
 workers must not collectively exhaust an undersized outer deadline.
+
+## Offline release command recovery checks
+
+`src/veil-core/tests/audit_retention_cli.rs` exercises the built `veil-audit`
+binary in separate processes. It checks missing/duplicate required flags,
+foreign flags, incomplete pairs, a foreign command and malformed/non-UTF-8
+digests against intact active/archive/snapshot fixtures. Refusals must produce
+no success output, disclose no supplied path/digest/event content, leave all
+three histories unchanged and publish no authorization receipt.
+
+The replay case first completes a release, then retries both with the archive
+absent and after placing an identical-byte archive in the slot. The old receipt
+must remain byte-for-byte intact, and the new archive must survive the retry.
+A fresh explicit receipt can release that archive while preserving the active
+inode/history, snapshot and old receipt. Separate exclusive file locks on the
+active journal, archive and snapshot must refuse before receipt publication;
+release succeeds after the locks are dropped. Each release subprocess has a
+five-second watchdog; watchdog termination is a test failure.
+
+These are host command-boundary checks, pending CI validation when introduced.
+They supplement the nine-cut process-loss matrix without adding guest live-release
+interruption, real storage faults, cache loss, power-loss or authenticated integrity proof.
