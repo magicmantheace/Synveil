@@ -467,3 +467,27 @@ Eleven EIO boundaries and partial intent/completion writes preserve active/copy
 history and truthful residual receipts; these are simulated errors, not real
 device or crash durability proof. Fresh native validation of the correction is
 running separately. The durable-audit roadmap item remains open.
+
+## Release process-loss matrix
+
+Test-only subprocess adapters terminate themselves with SIGKILL at nine release
+boundaries: partial anonymous intent, intent file sync, publication,
+authorization-directory sync, unlink, journal-directory sync, partial completion,
+complete completion write, and completion file sync. Each worker must emit its
+fixed phase checkpoint before the parent accepts a signal-9 exit. A watchdog
+kill fails rather than counting as checkpoint evidence.
+
+The seed is synchronized before the worker starts. Before any post-cut sync or
+recovery, inspect exact active/copy bytes and inodes, archive presence/identity,
+receipt phases and incomplete completion tails, anonymous-inode cleanup and
+release of stable/active/archive/copy locks. A fresh authorization can finish a
+pre-unlink release without changing the old intent. An already removed archive
+must refuse retry without altering the old receipt or retained copy.
+
+All nine cuts passed host CI at `4f4c0a2` with 129 Rust tests, formatting and
+clippy ([run 39046865707](https://github.com/magicmantheace/Synveil/actions/runs/39046865707)).
+The nine-cut matrix runs in a separate exact-filtered test executable to keep
+its forks away from parallel tests' open audit descriptors. All crash controls
+are compiled only into tests. These are userspace process failures while the
+host kernel/cache survives, not interrupted kernel operations, guest reboot at
+release boundaries, real device faults or physical power-loss durability.

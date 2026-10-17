@@ -187,8 +187,13 @@ digest and durable pre-unlink authorization/completion receipt. Host CI at
 initial candidate passed all 44 native steps at `e81d6d5`. A later review fix
 requires a healthy active journal and adds eleven storage-error boundaries plus
 partial-receipt checks. Corrected source `da43fc1` passed all 126 Rust tests,
-formatting/clippy and bootstrap lint; fresh native validation of that revision is pending.
-Automatic retention remains absent. Validated retention release,
+formatting/clippy and bootstrap lint, and all 44 corrected native steps passed in
+[run 39038885250](https://github.com/magicmantheace/Synveil/actions/runs/39038885250).
+Explicit owner-controlled release is now merged. A nine-cut test-only SIGKILL
+matrix for interrupted release passed host CI at `4f4c0a2` (129 Rust tests,
+formatting/clippy). It preserves the host kernel/cache and does not establish
+power-loss durability.
+Automatic retention remains absent. Guest interruption during release,
 independent integrity anchoring and power-loss testing remain open.
 
 ## Phase 3 — Observer

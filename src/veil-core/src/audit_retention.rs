@@ -804,6 +804,353 @@ mod tests {
         assert!(!fixture.archive.exists());
     }
 
+    const RELEASE_CUTS: [&str; 9] = [
+        "partial-intent",
+        "intent-synced",
+        "published",
+        "authorization-synced",
+        "unlinked",
+        "unlink-synced",
+        "partial-completion",
+        "completion-written",
+        "completion-synced",
+    ];
+
+    const RELEASE_WORKER_TIMEOUT_SECONDS: u64 = 5;
+
+    fn release_cut(phase: &str) -> ! {
+        unsafe extern "C" {
+            fn raise(signal: i32) -> i32;
+        }
+        // --nocapture makes the fixed checkpoint observable before SIGKILL.
+        eprintln!("SYNVEIL_RETENTION_CUT={phase}");
+        unsafe { raise(9) };
+        panic!("release worker survived SIGKILL");
+    }
+
+    struct ReleaseCrashIo {
+        phase: String,
+        file_syncs: usize,
+        directory_syncs: usize,
+        writes: usize,
+    }
+
+    impl RetentionIo for ReleaseCrashIo {
+        fn sync_file(&mut self, file: &fs::File) -> io::Result<()> {
+            FilesystemRetentionIo.sync_file(file)?;
+            self.file_syncs += 1;
+            if (self.file_syncs == 2 && self.phase == "intent-synced")
+                || (self.file_syncs == 3 && self.phase == "completion-synced")
+            {
+                release_cut(&self.phase);
+            }
+            Ok(())
+        }
+
+        fn sync_directory(&mut self, directory: &fs::File) -> io::Result<()> {
+            FilesystemRetentionIo.sync_directory(directory)?;
+            self.directory_syncs += 1;
+            if (self.directory_syncs == 2 && self.phase == "authorization-synced")
+                || (self.directory_syncs == 3 && self.phase == "unlink-synced")
+            {
+                release_cut(&self.phase);
+            }
+            Ok(())
+        }
+
+        fn write_receipt(&mut self, file: &mut fs::File, record: &Value) -> io::Result<()> {
+            self.writes += 1;
+            if (self.writes == 1 && self.phase == "partial-intent")
+                || (self.writes == 2 && self.phase == "partial-completion")
+            {
+                file.write_all(&record.to_string().as_bytes()[..17])?;
+                release_cut(&self.phase);
+            }
+            FilesystemRetentionIo.write_receipt(file, record)?;
+            if self.writes == 2 && self.phase == "completion-written" {
+                release_cut(&self.phase);
+            }
+            Ok(())
+        }
+
+        fn publish_receipt(
+            &mut self,
+            file: &fs::File,
+            directory: &fs::File,
+            name: &CString,
+        ) -> io::Result<()> {
+            FilesystemRetentionIo.publish_receipt(file, directory, name)?;
+            if self.phase == "published" {
+                release_cut(&self.phase);
+            }
+            Ok(())
+        }
+
+        fn unlink_archive(&mut self, directory: &fs::File, name: &CString) -> io::Result<()> {
+            FilesystemRetentionIo.unlink_archive(directory, name)?;
+            if self.phase == "unlinked" {
+                release_cut(&self.phase);
+            }
+            Ok(())
+        }
+    }
+
+    fn wait_release_worker(
+        mut child: std::process::Child,
+        seconds: u64,
+        whole_group: bool,
+    ) -> (std::process::ExitStatus, String) {
+        use std::time::{Duration, Instant};
+        let deadline = Instant::now() + Duration::from_secs(seconds);
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break status;
+            }
+            if Instant::now() >= deadline {
+                if whole_group {
+                    unsafe extern "C" {
+                        fn kill(pid: i32, signal: i32) -> i32;
+                    }
+                    // The outer worker owns a fresh process group; its
+                    // descendants must not survive an outer watchdog failure.
+                    let pid = i32::try_from(child.id()).unwrap();
+                    if unsafe { kill(-pid, 9) } != 0 {
+                        // A worker can exit between try_wait and the group
+                        // signal. Still reap it before reporting the timeout.
+                        let _ = child.kill();
+                    }
+                } else {
+                    child.kill().unwrap();
+                }
+                child.wait().unwrap();
+                panic!("release test worker timed out");
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        let mut diagnostic = String::new();
+        child
+            .stderr
+            .take()
+            .unwrap()
+            .read_to_string(&mut diagnostic)
+            .unwrap();
+        (status, diagnostic)
+    }
+
+    #[test]
+    fn release_crash_worker() {
+        let Some(root) = std::env::var_os("SYNVEIL_TEST_RELEASE_CRASH_ROOT") else {
+            return;
+        };
+        let root = PathBuf::from(root);
+        assert_eq!(root.parent().unwrap(), std::env::temp_dir());
+        assert!(
+            root.file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .starts_with("synveil-retention-")
+        );
+        private_directory(&root).unwrap();
+        let phase = std::env::var("SYNVEIL_TEST_RELEASE_CRASH_PHASE").unwrap();
+        assert!(RELEASE_CUTS.contains(&phase.as_str()));
+        let digest = std::env::var("SYNVEIL_TEST_RELEASE_CRASH_DIGEST").unwrap();
+        let mut storage = ReleaseCrashIo {
+            phase,
+            file_syncs: 0,
+            directory_syncs: 0,
+            writes: 0,
+        };
+        release_with_io(
+            &root.join("journal"),
+            &root.join("copies/snapshot"),
+            &root.join("copies/release.json"),
+            &digest,
+            &mut storage,
+        )
+        .unwrap();
+        panic!("release crash boundary was not reached");
+    }
+
+    #[test]
+    fn release_crash_matrix_worker() {
+        use std::os::unix::process::ExitStatusExt;
+        use std::process::{Command, Stdio};
+        let Some(enabled) = std::env::var_os("SYNVEIL_TEST_RELEASE_CRASH_MATRIX") else {
+            return;
+        };
+        assert_eq!(enabled, "1");
+        for phase in RELEASE_CUTS {
+            let fixture = Fixture::new();
+            let active = fs::read(&fixture.active).unwrap();
+            let archived = fs::read(&fixture.archive).unwrap();
+            let active_inode = fs::metadata(&fixture.active).unwrap().ino();
+            let archive_inode = fs::metadata(&fixture.archive).unwrap().ino();
+            let copy_inode = fs::metadata(&fixture.copy).unwrap().ino();
+            // Synchronize only the seed, before the cut worker starts.
+            for path in [&fixture.active, &fixture.archive, &fixture.copy] {
+                fs::File::open(path).unwrap().sync_all().unwrap();
+            }
+            fs::File::open(&fixture.root).unwrap().sync_all().unwrap();
+            fs::File::open(fixture.copy.parent().unwrap())
+                .unwrap()
+                .sync_all()
+                .unwrap();
+            let child = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "audit_retention::tests::release_crash_worker",
+                    "--nocapture",
+                    "--test-threads=1",
+                ])
+                .env("SYNVEIL_TEST_RELEASE_CRASH_ROOT", &fixture.root)
+                .env("SYNVEIL_TEST_RELEASE_CRASH_PHASE", phase)
+                .env("SYNVEIL_TEST_RELEASE_CRASH_DIGEST", &fixture.digest)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let (status, diagnostic) =
+                wait_release_worker(child, RELEASE_WORKER_TIMEOUT_SECONDS, false);
+            assert_eq!(status.signal(), Some(9), "{phase}: {diagnostic}");
+            let checkpoints: Vec<_> = diagnostic
+                .lines()
+                .filter(|line| line.starts_with("SYNVEIL_RETENTION_CUT="))
+                .collect();
+            let checkpoint = format!("SYNVEIL_RETENTION_CUT={phase}");
+            assert_eq!(checkpoints, [checkpoint.as_str()]);
+            // Observe interrupted state before any post-cut sync or recovery.
+            assert_eq!(fs::read(&fixture.active).unwrap(), active);
+            assert_eq!(fs::metadata(&fixture.active).unwrap().ino(), active_inode);
+            assert_eq!(fs::read(&fixture.copy).unwrap(), archived);
+            assert_eq!(fs::metadata(&fixture.copy).unwrap().ino(), copy_inode);
+            let removed = [
+                "unlinked",
+                "unlink-synced",
+                "partial-completion",
+                "completion-written",
+                "completion-synced",
+            ]
+            .contains(&phase);
+            if removed {
+                assert!(!fixture.archive.exists());
+            } else {
+                assert_eq!(fs::read(&fixture.archive).unwrap(), archived);
+                assert_eq!(fs::metadata(&fixture.archive).unwrap().ino(), archive_inode);
+            }
+            let saved = fs::read(&fixture.authorization).ok();
+            let anonymous = ["partial-intent", "intent-synced"].contains(&phase);
+            if anonymous {
+                assert!(saved.is_none());
+            } else {
+                let bytes = saved.as_ref().unwrap();
+                let split = bytes.iter().position(|byte| *byte == b'\n').unwrap();
+                let intent: Value = serde_json::from_slice(&bytes[..split]).unwrap();
+                assert_eq!(intent["phase"], "authorized-before-unlink");
+                assert_eq!(intent["digest"], fixture.digest);
+                assert_eq!(intent["archive_inode"], archive_inode);
+                assert_eq!(intent["active_inode"], active_inode);
+                assert_eq!(intent["snapshot_inode"], copy_inode);
+                let tail = &bytes[split + 1..];
+                if phase == "partial-completion" {
+                    assert_eq!(tail.len(), 17);
+                    assert!(!tail.ends_with(b"\n"));
+                    assert!(serde_json::from_slice::<Value>(tail).is_err());
+                } else if ["completion-written", "completion-synced"].contains(&phase) {
+                    assert!(tail.ends_with(b"\n"));
+                    let completion: Value = serde_json::from_slice(tail).unwrap();
+                    assert_eq!(completion["released"], true);
+                    assert_eq!(completion["digest"], fixture.digest);
+                    assert!(removed);
+                } else {
+                    assert!(tail.is_empty());
+                }
+            }
+            let mut entries: Vec<_> = fs::read_dir(fixture.copy.parent().unwrap())
+                .unwrap()
+                .map(|entry| entry.unwrap().file_name())
+                .collect();
+            entries.sort();
+            let expected: Vec<std::ffi::OsString> = if anonymous {
+                vec!["snapshot".into()]
+            } else {
+                vec!["release.json".into(), "snapshot".into()]
+            };
+            assert_eq!(entries, expected);
+            // Reaping must release every kernel lock, including stable scope.
+            let held = super::super::audit::directory_lock(&fixture.active, true)
+                .unwrap()
+                .unwrap();
+            assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
+            drop(held);
+            for path in [&fixture.active, &fixture.copy, &fixture.archive] {
+                if path == &fixture.archive && removed {
+                    continue;
+                }
+                let file = fs::File::open(path).unwrap();
+                assert_eq!(unsafe { flock(file.as_raw_fd(), 2 | 4) }, 0);
+                assert_eq!(unsafe { flock(file.as_raw_fd(), 8) }, 0);
+            }
+            super::super::audit_export::verify(&fixture.copy, &fixture.digest).unwrap();
+            if removed {
+                assert_eq!(
+                    fixture.release().unwrap_err().kind(),
+                    io::ErrorKind::NotFound
+                );
+            } else {
+                let fresh = fixture.copy.with_file_name("recovered.json");
+                assert_eq!(
+                    release_archive(&fixture.active, &fixture.copy, &fresh, &fixture.digest)
+                        .unwrap()["released"],
+                    true
+                );
+                assert!(!fixture.archive.exists());
+            }
+            assert_eq!(fs::read(&fixture.authorization).ok(), saved);
+            assert_eq!(fs::read(&fixture.active).unwrap(), active);
+            assert_eq!(fs::read(&fixture.copy).unwrap(), archived);
+        }
+        eprintln!("SYNVEIL_RETENTION_CRASH_MATRIX_OK");
+    }
+
+    #[test]
+    fn process_loss_during_release_preserves_history_receipts_and_restart_safety() {
+        use std::os::unix::process::CommandExt;
+        use std::process::{Command, Stdio};
+        // Isolate the matrix from parallel tests so its nine forks cannot
+        // inherit their audit descriptors before exec.
+        let child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "audit_retention::tests::release_crash_matrix_worker",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("SYNVEIL_TEST_RELEASE_CRASH_MATRIX", "1")
+            .env_remove("SYNVEIL_TEST_RELEASE_CRASH_ROOT")
+            .process_group(0)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        // Cover every sequential worker's budget plus baseline/recovery I/O.
+        let seconds = RELEASE_CUTS.len() as u64 * RELEASE_WORKER_TIMEOUT_SECONDS + 30;
+        let (status, diagnostic) = wait_release_worker(child, seconds, true);
+        assert!(
+            status.success(),
+            "isolated release matrix failed: {diagnostic}"
+        );
+        assert_eq!(
+            diagnostic
+                .lines()
+                .filter(|line| *line == "SYNVEIL_RETENTION_CRASH_MATRIX_OK")
+                .count(),
+            1
+        );
+    }
+
     #[test]
     fn busy_or_ambiguous_release_is_refused_before_publication() {
         let fixture = Fixture::new();
