@@ -117,6 +117,10 @@ impl Fixture {
         assert!(result.stdout.is_empty());
         let error = String::from_utf8(result.stderr).unwrap();
         assert!(error.starts_with("veil-audit: operation refused ("));
+        // Inspect the actual supplied values, including malformed digests.
+        for value in args.iter().skip(2).step_by(2) {
+            assert!(!error.contains(value.to_string_lossy().as_ref()));
+        }
         for private in [
             self.root.to_str().unwrap(),
             self.digest.as_str(),
