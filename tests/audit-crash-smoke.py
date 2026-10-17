@@ -99,10 +99,12 @@ else:
     assert '/journal' in command and '/copies/snapshot' in command
     assert 'synctl --json status' in command
     if rollover or archive_only:
-        assert command.count('--digest ' + 'b' * 128) == (4 if release else 2)
+        assert command.count('--digest ' + 'b' * 128) == (5 if release else 2)
         assert '/journal.1' in command and '/copies/archive' in command
     if release:
         assert 'release-archive --path' in command and '--authorization' in command
+        assert 'inspect-release --path' in command and 'completion-recorded' in command
+        assert 'not-inspected' in command
         assert 'authorized-before-unlink' in command and '[ ! -e ' in command
         assert 'synveil.audit-retention-release/v1' in command
     if mode in ('lost-data', 'lost-archive', 'release-refused'): sys.exit(1)

@@ -114,6 +114,163 @@ trait RetentionIo {
 struct FilesystemRetentionIo;
 impl RetentionIo for FilesystemRetentionIo {}
 
+/// Observe a release receipt and its retained snapshot without repairing either.
+/// A recorded completion is not proof of durable storage or current archive state.
+pub fn inspect_release(
+    active: &Path,
+    snapshot: &Path,
+    authorization: &Path,
+    expected: &str,
+) -> io::Result<Value> {
+    const MAX_RECEIPT_BYTES: u64 = 8192;
+    if ![active, snapshot, authorization]
+        .into_iter()
+        .all(absolute_normal)
+        || snapshot == authorization
+        || snapshot.parent() != authorization.parent()
+        || active.file_name().unwrap() == ".audit-lock"
+        || active
+            .file_name()
+            .unwrap()
+            .as_encoded_bytes()
+            .ends_with(b".1")
+        || authorization.file_name().unwrap() == ".audit-lock"
+        || expected.len() != 128
+        || !expected
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid inspection arguments",
+        ));
+    }
+    let parent = active.parent().ok_or_else(refused)?;
+    let copies_parent = snapshot.parent().ok_or_else(refused)?;
+    let directory = private_directory(parent)?;
+    let copies_directory = private_directory(copies_parent)?;
+    let directory_meta = directory.metadata()?;
+    let copies_meta = copies_directory.metadata()?;
+    if identity(&directory_meta) == identity(&copies_meta) {
+        return Err(refused());
+    }
+    // Release always creates this lock before publishing intent. Inspection
+    // never creates it, and shares it to exclude a cooperating live release.
+    let _lock = super::audit::directory_lock(active, false)?.ok_or_else(refused)?;
+    let receipt = OpenOptions::new()
+        .read(true)
+        .custom_flags(NOFOLLOW_NONBLOCK)
+        .open(authorization)?;
+    let receipt_meta = receipt.metadata()?;
+    same_private_file(authorization, &receipt_meta)?;
+    if receipt_meta.len() > MAX_RECEIPT_BYTES {
+        return Err(refused());
+    }
+    if unsafe { flock(receipt.as_raw_fd(), 1 | 4) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let mut bytes = Vec::new();
+    (&receipt)
+        .take(MAX_RECEIPT_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_RECEIPT_BYTES || bytes.contains(&b'\r') {
+        return Err(refused());
+    }
+    let end = bytes.iter().position(|b| *b == b'\n').ok_or_else(refused)?;
+    let intent = super::audit_json::decode(&bytes[..end]).map_err(|_| refused())?;
+    super::audit_check::with_snapshot_file(snapshot, |copy, retained, inspected| {
+        let copy_meta = copy.metadata()?;
+        same_private_file(snapshot, &copy_meta)?;
+        let keys = [
+            "schema",
+            "operation",
+            "phase",
+            "uid",
+            "algorithm",
+            "digest",
+            "bytes",
+            "records",
+            "active_device",
+            "active_inode",
+            "archive_device",
+            "archive_inode",
+            "snapshot_device",
+            "snapshot_inode",
+            "authenticated",
+        ];
+        let exact_keys = intent.as_object().is_some_and(|object| {
+            object.len() == keys.len() && keys.iter().all(|key| object.contains_key(*key))
+        });
+        if !exact_keys
+            || retained.is_empty()
+            || intent["schema"] != "synveil.audit-retention-authorization/v1"
+            || intent["operation"] != "release-archive"
+            || intent["phase"] != "authorized-before-unlink"
+            || intent["uid"] != unsafe { geteuid() }
+            || intent["algorithm"] != "blake2b-512"
+            || intent["digest"] != expected
+            || intent["bytes"] != retained.len()
+            || intent["records"] != inspected["records"]
+            || intent["snapshot_device"] != copy_meta.dev()
+            || intent["snapshot_inode"] != copy_meta.ino()
+            || intent["authenticated"] != false
+            || [
+                "active_device",
+                "active_inode",
+                "archive_device",
+                "archive_inode",
+            ]
+            .iter()
+            .any(|key| intent[*key].as_u64().is_none())
+            || super::audit_export::checksum(retained) != expected
+            || identity(&copy_meta) == identity(&receipt_meta)
+        {
+            return Err(refused());
+        }
+        let completion = json!({
+            "schema": "synveil.audit-retention-release/v1",
+            "released": true, "authorization_durable": true,
+            "algorithm": "blake2b-512", "digest": expected,
+            "bytes": retained.len(), "records": inspected["records"],
+            "authenticated": false,
+        });
+        let tail = &bytes[end + 1..];
+        let (state, recorded) = if tail.is_empty() {
+            ("authorization-only", false)
+        } else if tail.ends_with(b"\n") {
+            if tail.iter().filter(|b| **b == b'\n').count() != 1 {
+                return Err(refused());
+            }
+            let decoded = super::audit_json::decode(tail).map_err(|_| refused())?;
+            if decoded != completion {
+                return Err(refused());
+            }
+            ("completion-recorded", true)
+        } else {
+            // Only a prefix that the actual writer could have produced counts
+            // as interrupted completion; arbitrary trailing bytes are refused.
+            let encoded = format!("{completion}\n");
+            if !encoded.as_bytes().starts_with(tail) {
+                return Err(refused());
+            }
+            ("incomplete-completion", false)
+        };
+        same_private_file(authorization, &receipt_meta)?;
+        same_private_file(snapshot, &copy_meta)?;
+        same_directory(parent, &directory_meta)?;
+        same_directory(copies_parent, &copies_meta)?;
+        Ok(json!({
+            "schema": "synveil.audit-release-inspection/v1",
+            "state": state, "completion_recorded": recorded,
+            "archive_state": "not-inspected", "authenticated": false,
+            "algorithm": "blake2b-512", "digest": expected,
+            "bytes": retained.len(), "records": inspected["records"],
+            "archive_device": intent["archive_device"],
+            "archive_inode": intent["archive_inode"],
+        }))
+    })
+}
+
 /// Remove only `<active>.1`, preserving a separately verified durable snapshot.
 /// The caller must explicitly retain the supplied digest and authorization
 /// receipt. No automatic retention or planner/IPC interface invokes this.
@@ -294,6 +451,20 @@ mod tests {
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
 
+    // Parallel process-cut tests can inherit an open flock until their exec.
+    // Retry only fixture lock acquisition; production inspection stays nonblocking.
+    fn retry_lock<T>(mut operation: impl FnMut() -> io::Result<T>) -> io::Result<T> {
+        for attempt in 0..=100 {
+            match operation() {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock && attempt < 100 => {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                result => return result,
+            }
+        }
+        unreachable!()
+    }
+
     struct Fixture {
         root: PathBuf,
         active: PathBuf,
@@ -353,6 +524,18 @@ mod tests {
             release_archive(&self.active, &self.copy, &self.authorization, &self.digest)
         }
 
+        fn inspect(&self) -> io::Result<Value> {
+            for attempt in 0..=100 {
+                match inspect_release(&self.active, &self.copy, &self.authorization, &self.digest) {
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock && attempt < 100 => {
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                    result => return result,
+                }
+            }
+            unreachable!()
+        }
+
         fn release_after_contention(&self) -> Value {
             self.release_until_uncontended().unwrap()
         }
@@ -379,6 +562,178 @@ mod tests {
         fn drop(&mut self) {
             fs::remove_dir_all(&self.root).unwrap();
         }
+    }
+
+    #[test]
+    fn inspection_distinguishes_recorded_phases_without_repair_or_active_history() {
+        let fixture = Fixture::new();
+        fixture.release_after_contention();
+        let receipt = fs::read(&fixture.authorization).unwrap();
+        let end = receipt.iter().position(|b| *b == b'\n').unwrap() + 1;
+        let active = fs::read(&fixture.active).unwrap();
+        let copy = fs::read(&fixture.copy).unwrap();
+        for (size, state, recorded) in [
+            (receipt.len(), "completion-recorded", true),
+            (end, "authorization-only", false),
+            (end + 17, "incomplete-completion", false),
+            (receipt.len() - 1, "incomplete-completion", false),
+        ] {
+            fs::write(&fixture.authorization, &receipt[..size]).unwrap();
+            let result = fixture.inspect().unwrap();
+            assert_eq!(result["state"], state);
+            assert_eq!(result["completion_recorded"], recorded);
+            assert_eq!(result["archive_state"], "not-inspected");
+            assert_eq!(result["authenticated"], false);
+            assert_eq!(fs::read(&fixture.authorization).unwrap(), receipt[..size]);
+            assert_eq!(fs::read(&fixture.active).unwrap(), active);
+            assert_eq!(fs::read(&fixture.copy).unwrap(), copy);
+            assert!(!fixture.archive.exists());
+        }
+        // An old completion does not establish the state of a reused slot.
+        fs::copy(&fixture.copy, &fixture.archive).unwrap();
+        fs::write(&fixture.authorization, &receipt).unwrap();
+        fs::remove_file(&fixture.active).unwrap();
+        assert_eq!(fixture.inspect().unwrap()["state"], "completion-recorded");
+        assert_eq!(fs::read(&fixture.archive).unwrap(), copy);
+        assert!(!fixture.active.exists());
+    }
+
+    #[test]
+    fn inspection_refuses_ambiguous_mismatched_or_oversized_receipts() {
+        let fixture = Fixture::new();
+        fixture.release_after_contention();
+        let receipt = fs::read(&fixture.authorization).unwrap();
+        let mut lines = receipt.split_inclusive(|b| *b == b'\n');
+        let first = lines.next().unwrap();
+        let second = lines.next().unwrap();
+        let intent: Value = serde_json::from_slice(first).unwrap();
+        let completion: Value = serde_json::from_slice(second).unwrap();
+        let mut cases = vec![
+            Vec::new(),
+            first[..first.len() - 1].to_vec(),
+            [first, b"garbage"].concat(),
+            [receipt.as_slice(), b"\n"].concat(),
+            [receipt.as_slice(), second].concat(),
+            vec![b'x'; 8193],
+            [
+                b"{\"phase\":\"authorized-before-unlink\",",
+                &first[1..],
+                second,
+            ]
+            .concat(),
+            [first, b"{\"released\":true,", &second[1..]].concat(),
+        ];
+        for (key, value) in [
+            ("schema", json!("unknown")),
+            ("operation", json!("other")),
+            ("phase", json!("completed")),
+            ("uid", json!(u64::MAX)),
+            ("algorithm", json!("other")),
+            ("digest", json!("0".repeat(128))),
+            ("bytes", json!(0)),
+            ("records", json!(0)),
+            ("snapshot_inode", json!(u64::MAX)),
+            ("snapshot_device", json!(u64::MAX)),
+            ("active_inode", json!("invalid")),
+            ("authenticated", json!(true)),
+            ("extra", json!(false)),
+        ] {
+            let mut invalid = intent.clone();
+            invalid[key] = value;
+            cases.push(format!("{invalid}\n{completion}\n").into_bytes());
+        }
+        let mut missing = intent.clone();
+        missing.as_object_mut().unwrap().remove("archive_inode");
+        cases.push(format!("{missing}\n{completion}\n").into_bytes());
+        for (key, value) in [
+            ("released", json!(false)),
+            ("authorization_durable", json!(false)),
+            ("digest", json!("0".repeat(128))),
+            ("records", json!(2)),
+            ("authenticated", json!(true)),
+            ("extra", json!(false)),
+        ] {
+            let mut invalid = completion.clone();
+            invalid[key] = value;
+            cases.push(format!("{intent}\n{invalid}\n").into_bytes());
+        }
+        for invalid in cases {
+            fs::write(&fixture.authorization, &invalid).unwrap();
+            assert!(fixture.inspect().is_err());
+            assert_eq!(fs::read(&fixture.authorization).unwrap(), invalid);
+        }
+        fs::write(&fixture.authorization, &receipt).unwrap();
+        // Valid journal bytes with a different checksum cannot validate intent.
+        fs::write(
+            &fixture.copy,
+            format!("{}\n", super::super::audit::record("changed", json!({}))),
+        )
+        .unwrap();
+        assert!(fixture.inspect().is_err());
+    }
+
+    #[test]
+    fn inspection_refuses_unsafe_receipts_busy_locks_and_missing_scope_without_creating_it() {
+        use std::os::unix::fs::symlink;
+        let fixture = Fixture::new();
+        fixture.release_after_contention();
+        let receipt = fs::read(&fixture.authorization).unwrap();
+        for path in [&fixture.authorization, &fixture.copy] {
+            let held = fs::File::open(path).unwrap();
+            retry_lock(|| {
+                if unsafe { flock(held.as_raw_fd(), 2 | 4) } == 0 {
+                    Ok(())
+                } else {
+                    Err(io::Error::last_os_error())
+                }
+            })
+            .unwrap();
+            assert_eq!(
+                inspect_release(
+                    &fixture.active,
+                    &fixture.copy,
+                    &fixture.authorization,
+                    &fixture.digest
+                )
+                .unwrap_err()
+                .kind(),
+                io::ErrorKind::WouldBlock
+            );
+            assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
+        }
+        let held = retry_lock(|| super::super::audit::directory_lock(&fixture.active, true))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            inspect_release(
+                &fixture.active,
+                &fixture.copy,
+                &fixture.authorization,
+                &fixture.digest
+            )
+            .unwrap_err()
+            .kind(),
+            io::ErrorKind::WouldBlock
+        );
+        assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
+        drop(held);
+        let held = fixture.authorization.with_file_name("held");
+        fs::rename(&fixture.authorization, &held).unwrap();
+        symlink(&held, &fixture.authorization).unwrap();
+        assert!(fixture.inspect().is_err());
+        fs::remove_file(&fixture.authorization).unwrap();
+        fs::hard_link(&held, &fixture.authorization).unwrap();
+        assert!(fixture.inspect().is_err());
+        fs::remove_file(&fixture.authorization).unwrap();
+        fs::rename(&held, &fixture.authorization).unwrap();
+        fs::set_permissions(&fixture.authorization, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(fixture.inspect().is_err());
+        fs::set_permissions(&fixture.authorization, fs::Permissions::from_mode(0o600)).unwrap();
+        let lock_path = fixture.root.join(".audit-lock");
+        fs::remove_file(&lock_path).unwrap();
+        assert!(fixture.inspect().is_err());
+        assert!(!lock_path.exists());
+        assert_eq!(fs::read(&fixture.authorization).unwrap(), receipt);
     }
 
     #[test]
@@ -1093,6 +1448,22 @@ mod tests {
                 assert_eq!(unsafe { flock(file.as_raw_fd(), 8) }, 0);
             }
             super::super::audit_export::verify(&fixture.copy, &fixture.digest).unwrap();
+            if anonymous {
+                assert_eq!(
+                    fixture.inspect().unwrap_err().kind(),
+                    io::ErrorKind::NotFound
+                );
+            } else {
+                let report = fixture.inspect().unwrap();
+                let expected_state = match phase {
+                    "partial-completion" => "incomplete-completion",
+                    "completion-written" | "completion-synced" => "completion-recorded",
+                    _ => "authorization-only",
+                };
+                assert_eq!(report["state"], expected_state);
+                assert_eq!(report["archive_state"], "not-inspected");
+                assert_eq!(fs::read(&fixture.authorization).ok(), saved);
+            }
             if removed {
                 assert_eq!(
                     fixture.release().unwrap_err().kind(),

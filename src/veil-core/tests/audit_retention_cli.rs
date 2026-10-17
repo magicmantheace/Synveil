@@ -259,3 +259,39 @@ fn release_cli_refuses_busy_files_and_retries_after_lock_release() {
     assert_eq!(fs::read(&fixture.active).unwrap(), active);
     assert_eq!(fs::read(&fixture.snapshot).unwrap(), archived);
 }
+
+#[test]
+fn inspection_cli_observes_complete_and_interrupted_receipts_without_repair() {
+    let fixture = Fixture::new();
+    assert!(fixture.run(&fixture.arguments()).status.success());
+    let receipt = fs::read(&fixture.receipt).unwrap();
+    let intent_end = receipt.iter().position(|b| *b == b'\n').unwrap() + 1;
+    let mut args = fixture.arguments();
+    args[0] = "inspect-release".into();
+    for (size, state) in [
+        (receipt.len(), "completion-recorded"),
+        (intent_end, "authorization-only"),
+        (intent_end + 17, "incomplete-completion"),
+    ] {
+        fs::write(&fixture.receipt, &receipt[..size]).unwrap();
+        let output = fixture.run(&args);
+        assert!(output.status.success(), "{output:?}");
+        let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(report["state"], state);
+        assert_eq!(report["archive_state"], "not-inspected");
+        assert!(!String::from_utf8_lossy(&output.stdout).contains("private-content"));
+        assert_eq!(fs::read(&fixture.receipt).unwrap(), receipt[..size]);
+        assert!(!fixture.archive.exists());
+    }
+    fs::write(&fixture.receipt, b"invalid-private-content\n").unwrap();
+    fixture.refused(&args);
+    assert_eq!(
+        fs::read(&fixture.receipt).unwrap(),
+        b"invalid-private-content\n"
+    );
+    args.extend([
+        OsString::from("--output"),
+        OsString::from("private-argument"),
+    ]);
+    fixture.refused(&args);
+}
