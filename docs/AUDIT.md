@@ -559,6 +559,11 @@ receipt/history before recovery. A surviving archive can be released only with
 a fresh receipt; an absent archive must refuse retry without creating that
 receipt. Original receipt bytes and active/snapshot histories must remain intact.
 Host source `d3a0360` passed real tracing and refusal checks against a controlled
-filesystem worker; full native validation remains pending. The guest fixture
+filesystem worker, but the first native candidate failed because that worker and
+tracer assumed a publication syscall different from production. The corrected
+tracer recognizes the production procfs descriptor source; host CI also traces
+the actual built CLI at every cut. This correction passed at `18f43f1`, including
+all four actual CLI stops and read-only receipt inspection afterward. Fresh native
+validation remains pending. The guest fixture
 targets kernel loss and filesystem replay while the host page cache survives; it does not
 simulate real device errors, volatile-device-cache loss or physical power failure.

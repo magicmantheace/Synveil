@@ -879,3 +879,19 @@ receipt descriptor. The controlled worker now uses the production publication
 form and rejects the old form as a negative case. A separate host CI step traces
 the actual built `veil-audit` at every cut and runs its read-only inspector on
 each residual receipt. Fresh host and native results remain pending.
+
+
+Corrected source `18f43f16b81ad42e31a30d733675c5c64cab008d` passed
+[host run 39071600912](https://github.com/magicmantheace/Synveil/actions/runs/39071600912),
+job `117510191274`: all four actual built-CLI cuts followed by successful
+inspection of unchanged residual receipts, seven controlled-worker tracing/refusal
+subcases without skips, the recovery/staging suites, all 136 Rust tests,
+formatting and clippy. The new actual-CLI check is a separate post-build host
+step, not a simulation worker or guest proof. Only teardown lock contention is
+retried while a killed tracee closes its descriptors; every other inspector
+failure fails immediately. A fresh full native run is required after the failed
+`798b905` guest candidate. Physical power-loss and authenticated integrity remain open.
+
+Merged inspector source `4cfd054` separately passed all native steps in
+[run 39064960467](https://github.com/magicmantheace/Synveil/actions/runs/39064960467).
+The live-release fixture failure does not invalidate that earlier inspection proof.

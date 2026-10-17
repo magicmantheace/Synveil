@@ -205,6 +205,13 @@ A separate guest fixture now targets live release at four traced syscall
 boundaries and reboot recovery across eight QEMU sessions. Host source `d3a0360`
 passed all four tracing cuts, both refusal cases, recovery/staging checks, all
 136 Rust tests, formatting and clippy ([run 39065469118](https://github.com/magicmantheace/Synveil/actions/runs/39065469118)).
+The first native candidate failed the new step because its tracer assumed a
+publication syscall form different from production. A correction now recognizes
+the procfs descriptor source and adds tracing of the built CLI to host CI.
+Corrected source `18f43f1` passed tracing of the actual built CLI at all four
+cuts and receipt inspection afterward, seven controlled-worker subcases and
+all 136 Rust tests, formatting and clippy
+([run 39071600912](https://github.com/magicmantheace/Synveil/actions/runs/39071600912)).
 Fresh native validation is pending; no guest-interruption completion is claimed.
 Automatic retention remains absent. Guest interruption during release,
 independent integrity anchoring and power-loss testing remain open.
