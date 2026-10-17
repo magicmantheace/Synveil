@@ -32,3 +32,10 @@ does not interrupt release itself, inject real device errors, discard volatile
 device caches or establish physical power-loss durability. Independent
 authenticated integrity and physical-install readiness remain open. The
 durable-audit roadmap item remains unchecked.
+
+The merged production source at `b5b343609a5677b45889fe57fdf272235216889b`
+subsequently passed all 44 steps of
+[native run 39045646860](https://github.com/magicmantheace/Synveil/actions/runs/39045646860),
+job `117433708309`. This is post-merge workflow evidence for the corrected
+release implementation; the artifact checksums above belong to `da43fc1`, not
+this later run. The test-only process-loss matrix merged afterward.

@@ -8,8 +8,8 @@ use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
-use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -33,8 +33,12 @@ fn write_record(path: &Path, label: &str) {
         .mode(0o600)
         .open(path)
         .unwrap();
-    writeln!(file, "{}", veil_core::audit::record("request", json!({"private": label})))
-        .unwrap();
+    writeln!(
+        file,
+        "{}",
+        veil_core::audit::record("request", json!({"private": label}))
+    )
+    .unwrap();
 }
 
 impl Fixture {
@@ -64,7 +68,14 @@ impl Fixture {
         assert!(exported.status.success(), "{exported:?}");
         let report: Value = serde_json::from_slice(&exported.stdout).unwrap();
         let digest = report["digest"].as_str().unwrap().to_owned();
-        Self { root, active, archive, snapshot, receipt, digest }
+        Self {
+            root,
+            active,
+            archive,
+            snapshot,
+            receipt,
+            digest,
+        }
     }
 
     fn arguments(&self) -> Vec<OsString> {
@@ -195,7 +206,10 @@ fn release_cli_replay_cannot_replace_receipt_or_remove_a_new_archive() {
     fs::copy(&fixture.snapshot, &fixture.archive).unwrap();
     let next_archive = fs::metadata(&fixture.archive).unwrap();
     fixture.refused(&fixture.arguments());
-    assert_eq!(fs::metadata(&fixture.archive).unwrap().ino(), next_archive.ino());
+    assert_eq!(
+        fs::metadata(&fixture.archive).unwrap().ino(),
+        next_archive.ino()
+    );
     assert_eq!(fs::read(&fixture.archive).unwrap(), archived);
     assert_eq!(fs::read(&fixture.receipt).unwrap(), saved_receipt);
     let mut fresh = fixture.arguments();
@@ -205,10 +219,17 @@ fn release_cli_replay_cannot_replace_receipt_or_remove_a_new_archive() {
     assert!(!fixture.archive.exists());
     assert_eq!(fs::read(&fixture.receipt).unwrap(), saved_receipt);
     assert_eq!(fs::read(&fixture.active).unwrap(), active);
-    assert_eq!(fs::metadata(&fixture.active).unwrap().ino(), active_meta.ino());
+    assert_eq!(
+        fs::metadata(&fixture.active).unwrap().ino(),
+        active_meta.ino()
+    );
     assert_eq!(fs::read(&fixture.snapshot).unwrap(), archived);
     let next_intent: Value = serde_json::from_str(
-        fs::read_to_string(new_receipt).unwrap().lines().next().unwrap(),
+        fs::read_to_string(new_receipt)
+            .unwrap()
+            .lines()
+            .next()
+            .unwrap(),
     )
     .unwrap();
     assert_eq!(next_intent["archive_inode"], next_archive.ino());
