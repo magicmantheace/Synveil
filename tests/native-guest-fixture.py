@@ -52,6 +52,8 @@ class GuestFixtureTests(unittest.TestCase):
                                      case != "recovery-status")
                     self.assertEqual((tree / "usr/libexec/synveil-test/protocol-probe").exists(),
                                      case == "protocol")
+                    self.assertEqual((tree / "usr/libexec/synveil-test/audit-release-cut").exists(),
+                                     case == "audit-release-crash")
                     self.assertEqual((tree / "etc/synveil/auth-desktop").exists(),
                                      case in ("graphical-login", "graphical-locked", "graphical-onboard",
                                               "recovery-status"))
@@ -72,7 +74,9 @@ class GuestFixtureTests(unittest.TestCase):
                     output = Path(kwargs["env"]["SYNVEIL_OUT_DIR"])
                     (output / "synveil-x86_64.img").write_bytes(b"fixture disk")
                 else:
-                    if case == "graphical-login":
+                    if case == "audit-release-crash":
+                        self.assertIn("smoke-audit-release-crash.py", command[1])
+                    elif case == "graphical-login":
                         self.assertIn("smoke-graphical-login.py", command[1])
                     elif case == "graphical-onboard":
                         self.assertIn("smoke-graphical-onboard.py", command[1])
@@ -105,7 +109,13 @@ class GuestFixtureTests(unittest.TestCase):
                     self.assertEqual(data["git_commit"], "fixture-commit")
                     self.assertEqual(len(data["artifacts"]), 3)
                     proof_path = out / "guest-fixtures" / case / "manifests/validation.json"
-                    if case == "graphical-onboard":
+                    if case == "audit-release-crash":
+                        proof = json.loads(proof_path.read_text())
+                        self.assertEqual(proof["independent_qemu_boots"], 8)
+                        self.assertEqual(len(proof["release_cuts"]), 4)
+                        self.assertTrue(proof["host_page_cache_survives"])
+                        self.assertFalse(proof["physical_power_loss"])
+                    elif case == "graphical-onboard":
                         proof = json.loads(proof_path.read_text())
                         self.assertEqual(proof["result"], "passed")
                         self.assertEqual(proof["independent_qemu_boots"], 2)
@@ -136,6 +146,9 @@ class GuestFixtureTests(unittest.TestCase):
 
     def test_absent_fixture_preserves_baseline(self):
         self.check("absent")
+
+    def test_release_cut_fixture_never_stages_tracer_in_baseline(self):
+        self.check("audit-release-crash")
 
     def test_protocol_fixture_preserves_baseline(self):
         self.check("protocol")

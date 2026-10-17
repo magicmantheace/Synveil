@@ -528,3 +528,42 @@ presence, identity or durable storage. The archive slot may already have been
 reused. Preserve the independently retained digest and inspect current storage
 separately before deciding on a fresh explicit release. This tool grants no
 additional policy authority and does not automatically resume release.
+
+## Live release guest-interruption fixture
+
+`bash build.sh guest-fixture --case audit-release-crash` stages an isolated
+x86_64 syscall tracer beside the unchanged native `veil-audit` binary. The
+tracer is compiled only into this disposable test image, never the normal
+rootfs or packaged preview. It holds the real release process at a syscall stop
+and emits a fixed checkpoint only after observing the required successful calls.
+The host must see that exact phase, SIGKILL QEMU, confirm wrapper reap, retain
+both journal digests independently and reboot the same disposable state disk.
+Each phase starts with a fresh disk; four phases require eight QEMU boots.
+
+| Cut | Held boundary | Required recovery observation |
+| --- | --- | --- |
+| `before-unlink` | Before archive unlink, after receipt publication and copy-directory sync | Archive intact; authorization-only receipt |
+| `after-unlink` | Unlink returned zero, before journal-directory sync | Archive present or absent after replay; authorization-only receipt |
+| `unlink-synced` | Journal-directory fsync returned zero, before completion write | Archive absent; authorization-only receipt |
+| `partial-completion` | Exactly one completion byte written after journal-directory sync | Archive absent; authorization-only or incomplete-completion receipt |
+
+The tracer identifies publication, archive unlink and journal sync descriptors;
+it requires intent file sync before publication and authorization-directory sync
+before unlink. Unknown signals, failed syscalls, missing checkpoints and watchdog
+expiry fail the fixture. After checkpoint it never resumes the tracee. The only
+syscall modification shortens the first completion write to one byte; it does
+not change the production binary or add a production fault flag.
+
+After reboot, the read-only inspector and retained digests check the surviving
+receipt/history before recovery. A surviving archive can be released only with
+a fresh receipt; an absent archive must refuse retry without creating that
+receipt. Original receipt bytes and active/snapshot histories must remain intact.
+Host source `d3a0360` passed real tracing and refusal checks against a controlled
+filesystem worker, but the first native candidate failed because that worker and
+tracer assumed a publication syscall different from production. The corrected
+tracer recognizes the production procfs descriptor source; host CI also traces
+the actual built CLI at every cut. This correction passed at `18f43f1`, including
+all four actual CLI stops and read-only receipt inspection afterward. Fresh native
+validation remains pending. The guest fixture
+targets kernel loss and filesystem replay while the host page cache survives; it does not
+simulate real device errors, volatile-device-cache loss or physical power failure.

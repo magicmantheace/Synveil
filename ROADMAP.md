@@ -196,11 +196,23 @@ power-loss durability. Three additional built-command tests cover receipt replay
 against an identical-byte next archive, invalid arguments and busy file locks;
 host CI at `2261ec5` passed all 132 Rust tests, formatting and clippy
 ([run 39052487780](https://github.com/magicmantheace/Synveil/actions/runs/39052487780)).
-A read-only `inspect-release` candidate verifies retained snapshots and reports
+The merged read-only `inspect-release` command verifies retained snapshots and reports
 receipt phases without repairing receipts, recreating scope locks or inferring
 current archive state. Source `39d2627` passed all 136 Rust tests, formatting
 and clippy ([run 39058995249](https://github.com/magicmantheace/Synveil/actions/runs/39058995249));
-fresh native validation remains pending for this extension.
+all 44 native steps passed at [9059bf6](docs/validation/native-9059bf6/README.md).
+A separate guest fixture now targets live release at four traced syscall
+boundaries and reboot recovery across eight QEMU sessions. Host source `d3a0360`
+passed all four tracing cuts, both refusal cases, recovery/staging checks, all
+136 Rust tests, formatting and clippy ([run 39065469118](https://github.com/magicmantheace/Synveil/actions/runs/39065469118)).
+The first native candidate failed the new step because its tracer assumed a
+publication syscall form different from production. A correction now recognizes
+the procfs descriptor source and adds tracing of the built CLI to host CI.
+Corrected source `18f43f1` passed tracing of the actual built CLI at all four
+cuts and receipt inspection afterward, seven controlled-worker subcases and
+all 136 Rust tests, formatting and clippy
+([run 39071600912](https://github.com/magicmantheace/Synveil/actions/runs/39071600912)).
+Fresh native validation is pending; no guest-interruption completion is claimed.
 Automatic retention remains absent. Guest interruption during release,
 independent integrity anchoring and power-loss testing remain open.
 
