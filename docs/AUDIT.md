@@ -445,8 +445,12 @@ The authorization file is therefore a two-record JSONL receipt on success.
 A failure after receipt publication can leave the intent; a failure after unlink can leave the
 archive absent or an incomplete completion line. Preserve the first intent and
 inspect both locations before retrying with a fresh receipt.
-The active journal and retained copy remain untouched. An incomplete active
-journal still requires separate recovery; releasing its archive does not repair it.
+The active journal must exist as a caller-owned private singly linked regular
+file, opened without following symlinks and exclusively locked. Its bounded
+contents must be structurally valid (an empty active file is allowed). Its inode
+must differ from the archive and snapshot, and its identity is checked again
+before unlink. Missing, malformed, incomplete or unsafe active journals refuse
+release before authorization; active history and the retained copy remain untouched.
 
 There is no automatic deletion, planner request or IPC endpoint. Filesystem
 ownership is the authorization boundary of this offline administrative tool;

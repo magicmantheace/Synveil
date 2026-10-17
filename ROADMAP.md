@@ -184,7 +184,9 @@ Exports preserve source history and do not release the archive slot. A separate
 explicit offline release candidate requires a matching private snapshot, retained
 digest and durable pre-unlink authorization/completion receipt. Host CI at
 `b27fe1d` passed 122 Rust tests, formatting/clippy and bootstrap lint; native
-release-gate validation is pending on its separate feature-branch workflow.
+the initial candidate passed all 44 native steps at `e81d6d5`. A later review fix
+requires a healthy active journal and adds eleven storage-error boundaries plus
+partial-receipt checks; fresh host/native validation of that revision is pending.
 Automatic retention remains absent. Validated retention release,
 independent integrity anchoring and power-loss testing remain open.
 

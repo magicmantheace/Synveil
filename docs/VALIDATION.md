@@ -733,3 +733,28 @@ signal tests skipped), with shell syntax and malformed/missing archive-input
 checks. Native guest execution is pending; the feature branch now triggers a
 separate full native run so it can be validated before merge without cancelling
 the current development-branch run.
+
+## Active-journal release precondition and storage-error boundaries
+
+The initial `e81d6d5` release candidate passed all 44 native steps in
+[run 38995115558](https://github.com/magicmantheace/Synveil/actions/runs/38995115558),
+including the new release gate. Review nevertheless found that an unsafe active
+symlink could survive release as a dangling path. The corrected candidate opens,
+locks and validates the active journal, requires a distinct archive/copy inode,
+and rechecks active identity before unlink. Missing, symlinked, hardlinked,
+directory, FIFO, permissive, incomplete and invalid active paths must preserve
+archive/copy bytes and their own inode/type without publishing authorization.
+A valid empty active journal is allowed. Fresh host/native proof is pending.
+
+A private statically dispatched adapter tests EIO at all eleven release storage
+steps: copy sync, copy-directory sync, anonymous receipt creation, intent write,
+intent sync, publication, receipt-directory sync, archive unlink,
+journal-directory sync, completion write and completion sync. Each error must
+stop later operations, preserve active/copy bytes and inodes, and retain the
+archive until unlink actually succeeds. A published intent can remain after an
+error; post-unlink errors must not recreate history. A final sync error can leave
+complete but unacknowledged completion bytes. Pre-unlink recovery uses a fresh
+receipt, while an absent archive refuses retry without changing old receipts.
+Partial intent writes must remain unpublished; partial completion writes must
+preserve the valid intent and exact incomplete tail. These are host error-return
+and partial-write fixtures, not real device EIO or process/power-loss evidence.
