@@ -174,6 +174,11 @@ passed at [4390a8c](docs/validation/native-4390a8c/README.md). Test-only
 process-kill coverage at four rotation boundaries passed host CI at `f75de2b`
 (115 Rust tests, formatting/clippy); this preserves the host kernel/cache and
 does not establish power-loss durability.
+Full native revalidation passed again at
+[aa17982](docs/validation/native-aa17982/README.md). A later 17-case
+process-cut extension covers first/existing appends and complete unacknowledged
+records around sync boundaries; host CI passed at `72df789` with 117 Rust
+tests, formatting and clippy.
 Real device failure and interrupted filesystem operations remain open.
 Exports preserve source history and do not release the archive slot. Explicit retention release,
 independent integrity anchoring and power-loss testing remain open.
