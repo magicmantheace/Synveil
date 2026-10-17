@@ -408,3 +408,42 @@ archive. Independent exports and host-retained digests then cover both originals
 and both snapshots across verified emulator SIGKILL and reboot. This gate is
 validated in the full [c97f554 native run](validation/native-c97f554/README.md).
 A constructed post-rename layout is not a timed interruption of a live rotation.
+
+## Explicit offline archive release (candidate)
+
+`veil-audit release-archive --path /private/journal --snapshot /copies/snapshot
+--authorization /copies/release.json --digest <retained-blake2b-512>` is an
+explicit filesystem-owner operation. The paths must be absolute without parent
+traversal; both directories must be owned by the caller and mode 0700, and the
+snapshot/authorization directory must differ from the journal directory. The
+command derives only `<active>.1`; it never unlinks the supplied active path.
+It refuses an active basename ending in `.1`, reserved lock names, aliases,
+unsafe files, busy locks, malformed/truncated history and digest/copy mismatch.
+
+The archive and independent singly linked snapshot must be private mode 0600,
+owned by the caller, structurally valid and byte-for-byte identical to the
+separately retained digest. While holding the stable exclusive journal lock,
+archive lock and snapshot inspection locks, the command syncs the copy and its
+directory, then publishes a new mode-0600 authorization receipt using an unnamed
+inode and no-overwrite link. It syncs that receipt and its directory before
+unlinking the archive through the opened journal-directory descriptor and
+syncing that directory. All names and parent identities are checked again
+before unlink. Existing receipts are never replaced or automatically cleaned up.
+
+The persisted `synveil.audit-retention-authorization/v1` receipt records
+`authorized-before-unlink`, digest, size, count, caller UID and archive/copy inode
+identities. It does not claim release completed. Only a successful final
+`synveil.audit-retention-release/v1` report says `released:true`. A failure after
+receipt publication can leave the intent; a failure after unlink can leave the
+archive absent. Inspect both locations before retrying with a fresh receipt.
+The active journal and retained copy remain untouched. An incomplete active
+journal still requires separate recovery; releasing its archive does not repair it.
+
+There is no automatic deletion, planner request or IPC endpoint. Filesystem
+ownership is the authorization boundary of this offline administrative tool;
+future model-driven retention requires typed policy and stronger owner approval.
+A copied digest does not authenticate origin, guarantee an independently backed
+up copy, defeat a malicious owner/root process, or prove device-cache durability.
+The owner must preserve the copy, authorization and independently retained digest.
+Host and native validation of this candidate are pending; the durable-audit
+roadmap item remains open.

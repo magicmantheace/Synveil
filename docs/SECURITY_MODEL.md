@@ -149,3 +149,13 @@ Before Synveil performs autonomous persistent mutations, this document must expa
 - remote administration,
 - secure boot,
 - model/plugin provenance.
+
+## Offline audit retention boundary
+
+The retention release candidate is a direct administrative CLI, authorized by
+filesystem ownership and explicit supplied archive-base, copy, digest and new
+receipt arguments. It has no model/IPC endpoint. It releases only the derived
+archive after durable copy/intent checks, without changing the active journal.
+The stored receipt records authorization before unlink; completion is a separate
+successful report, so failures cannot misrepresent completed deletion. Future
+AI-requested retention must use typed policy and stronger owner authorization.

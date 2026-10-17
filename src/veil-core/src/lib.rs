@@ -17,6 +17,7 @@ pub mod audit;
 pub mod audit_check;
 pub mod audit_export;
 mod audit_json;
+pub mod audit_retention;
 pub mod credential;
 pub mod observer;
 pub mod seat;

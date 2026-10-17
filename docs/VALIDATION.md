@@ -704,3 +704,15 @@ and nonblocking. A regression holds/releases a real lock, requires exactly one
 new record, and verifies that an incomplete tail returns InvalidData unchanged.
 The corrected source passed the fresh `72df789` host run above; the first
 run remains a failed pipeline.
+
+## Offline retention release candidate
+
+The release candidate requires a verified distinct private snapshot and a new
+durable authorization receipt before removing only the derived `.1` archive.
+Host tests require unchanged active bytes/inode and copy, accurate pre-unlink
+receipt semantics, digest/structure mismatch refusal, symlink/permission/alias
+and receipt-collision refusal, and nonblocking busy-lock failure. CLI coverage
+exercises explicit arguments and verifies no event-content disclosure. A full
+journal fixture must resume a second rotation after release while preserving
+the original snapshot. Host CI is pending. Native release, interrupted release,
+real sync/unlink device errors and power-loss behavior remain unvalidated.

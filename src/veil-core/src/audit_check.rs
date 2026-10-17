@@ -33,6 +33,13 @@ pub(crate) fn with_snapshot<T>(
     path: &Path,
     operation: impl FnOnce(&[u8], Value) -> io::Result<T>,
 ) -> io::Result<T> {
+    with_snapshot_file(path, |_, bytes, report| operation(bytes, report))
+}
+
+pub(crate) fn with_snapshot_file<T>(
+    path: &Path,
+    operation: impl FnOnce(&std::fs::File, &[u8], Value) -> io::Result<T>,
+) -> io::Result<T> {
     let _lock = super::audit::directory_lock(path, false)?;
     let file = OpenOptions::new()
         .read(true)
@@ -56,10 +63,10 @@ pub(crate) fn with_snapshot<T>(
     (&file).take(MAX_BYTES + 1).read_to_end(&mut bytes)?;
     let report = inspect_bytes(&bytes)?;
     // Keep both shared locks until the consumer finishes copying/hashing.
-    operation(&bytes, report)
+    operation(&file, &bytes, report)
 }
 
-fn inspect_bytes(bytes: &[u8]) -> io::Result<Value> {
+pub(crate) fn inspect_bytes(bytes: &[u8]) -> io::Result<Value> {
     if bytes.len() as u64 > MAX_BYTES || (!bytes.is_empty() && !bytes.ends_with(b"\n")) {
         return Err(invalid());
     }
