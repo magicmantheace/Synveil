@@ -779,8 +779,10 @@ Baseline file/directory sync occurs only before the cut. Observe interrupted
 state before recovery synchronizes anything. Partial completion preserves the
 valid first intent and a 17-byte incomplete tail; complete unacknowledged
 completion may remain after process loss. No runtime fault flags, receipt repair,
-automatic retry or archive recreation is added. Host CI is pending. Kernel/cache
-survival limits the proof to process loss, not guest/device/cache/power failure.
+automatic retry or archive recreation is added. Corrected timeout revision
+`4f4c0a2248adb95ffc2b9934a8831249af28f3fc` passed all nine cuts, 129 Rust tests,
+formatting and clippy ([run 39046865707](https://github.com/magicmantheace/Synveil/actions/runs/39046865707)).
+Kernel/cache survival limits the proof to process loss, not guest/device/cache/power failure.
 
 The matrix's outer watchdog reserves all nine five-second worker budgets plus
 30 seconds for fixture synchronization and recovery (75 seconds total). It owns

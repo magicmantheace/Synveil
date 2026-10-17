@@ -468,7 +468,7 @@ history and truthful residual receipts; these are simulated errors, not real
 device or crash durability proof. Fresh native validation of the correction is
 running separately. The durable-audit roadmap item remains open.
 
-## Release process-loss matrix (host validation pending)
+## Release process-loss matrix
 
 Test-only subprocess adapters terminate themselves with SIGKILL at nine release
 boundaries: partial anonymous intent, intent file sync, publication,
@@ -484,6 +484,8 @@ release of stable/active/archive/copy locks. A fresh authorization can finish a
 pre-unlink release without changing the old intent. An already removed archive
 must refuse retry without altering the old receipt or retained copy.
 
+All nine cuts passed host CI at `4f4c0a2` with 129 Rust tests, formatting and
+clippy ([run 39046865707](https://github.com/magicmantheace/Synveil/actions/runs/39046865707)).
 The nine-cut matrix runs in a separate exact-filtered test executable to keep
 its forks away from parallel tests' open audit descriptors. All crash controls
 are compiled only into tests. These are userspace process failures while the
