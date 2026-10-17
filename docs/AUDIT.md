@@ -491,3 +491,38 @@ its forks away from parallel tests' open audit descriptors. All crash controls
 are compiled only into tests. These are userspace process failures while the
 host kernel/cache survives, not interrupted kernel operations, guest reboot at
 release boundaries, real device faults or physical power-loss durability.
+
+## Read-only release receipt inspection
+
+After a refused or interrupted release, preserve its receipt and retained copy.
+The offline inspector accepts the same four explicit inputs:
+
+```sh
+veil-audit inspect-release --path /private/journal \
+  --snapshot /private-copies/archive \
+  --authorization /private-copies/release.json --digest "$retained_digest"
+```
+
+It reports `synveil.audit-release-inspection/v1` with one of
+`authorization-only`, `incomplete-completion` or `completion-recorded`.
+It verifies the private snapshot's structure, checksum, size, count and recorded
+inode/device against a bounded, strictly decoded receipt. Both receipt records
+must match the release schemas; duplicate/unknown keys, extra lines and mismatched
+completion claims refuse. An incomplete completion must be a prefix of the
+actual writer's completion line. A partial first intent is invalid.
+
+The existing stable journal lock and snapshot/receipt shared locks exclude
+cooperating release and file writers. The journal scope and copies directories
+must remain private and distinct; receipt and snapshot must be caller-owned,
+mode 0600 and singly linked, opened without following symlinks. Inspection
+creates no lock, repairs no receipt, syncs no file and removes no archive.
+A missing active file does not prevent reading an otherwise valid receipt.
+A missing stable scope lock refuses without recreating it.
+
+Every successful report has `archive_state:"not-inspected"` and
+`authenticated:false`. A completion line can survive an unacknowledged write;
+reading it does not prove its final sync completed or establish current archive
+presence, identity or durable storage. The archive slot may already have been
+reused. Preserve the independently retained digest and inspect current storage
+separately before deciding on a fresh explicit release. This tool grants no
+additional policy authority and does not automatically resume release.

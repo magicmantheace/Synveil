@@ -814,3 +814,22 @@ clippy passed in [run 39052487780](https://github.com/magicmantheace/Synveil/act
 job `117453710277`.
 They supplement the nine-cut process-loss matrix without adding guest live-release
 interruption, real storage faults, cache loss, power-loss or authenticated integrity proof.
+
+## Release receipt inspector candidate
+
+`inspect-release` adds read-only observation of authorization-only, partial
+completion and recorded completion states. Unit fixtures verify that receipt,
+snapshot and surviving histories remain unchanged, including when the active
+file is absent or the archive slot has been reused. Malformed, duplicate-key,
+extra-line, oversize, unsafe-mode/link, mismatched and busy inputs must refuse;
+missing scope locks must remain absent. The nine actual SIGKILL release cuts
+now exercise inspection of their residual receipts before recovery or sync.
+The built CLI checks each state and refuses malformed receipts/foreign output
+flags without echoing event contents.
+
+The native post-reboot release gate now also runs the inspector and requires
+`completion-recorded` with `archive_state:"not-inspected"` before rechecking
+journal/snapshot checksums. Local Python driver checks passed 11 tests with two
+real-process fixtures skipped because this environment proxies process identity.
+Rust and fresh native validation are pending for this candidate. Inspection
+never upgrades a process-cut observation into guest/cache/power-loss proof.

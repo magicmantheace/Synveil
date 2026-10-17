@@ -30,8 +30,13 @@ fn run() -> io::Result<Value> {
             _ => return Err(invalid_args()),
         }
     }
-    if command == "release-archive" && output.is_none() {
-        return veil_core::audit_retention::release_archive(
+    if (command == "release-archive" || command == "inspect-release") && output.is_none() {
+        let operation = if command == "release-archive" {
+            veil_core::audit_retention::release_archive
+        } else {
+            veil_core::audit_retention::inspect_release
+        };
+        return operation(
             &path.ok_or_else(invalid_args)?,
             &snapshot.ok_or_else(invalid_args)?,
             &authorization.ok_or_else(invalid_args)?,
