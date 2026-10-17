@@ -125,7 +125,13 @@ pub fn release_archive(
     authorization: &Path,
     expected: &str,
 ) -> io::Result<Value> {
-    release_with_io(active, snapshot, authorization, expected, &mut FilesystemRetentionIo)
+    release_with_io(
+        active,
+        snapshot,
+        authorization,
+        expected,
+        &mut FilesystemRetentionIo,
+    )
 }
 
 fn release_with_io(
@@ -179,7 +185,9 @@ fn release_with_io(
         return Err(io::Error::last_os_error());
     }
     let mut current = Vec::new();
-    (&active_file).take(MAX_BYTES + 1).read_to_end(&mut current)?;
+    (&active_file)
+        .take(MAX_BYTES + 1)
+        .read_to_end(&mut current)?;
     super::audit_check::inspect_bytes(&current)?;
     let mut name = active.file_name().unwrap().to_os_string();
     name.push(".1");
@@ -493,8 +501,16 @@ mod tests {
     #[test]
     fn unsafe_or_invalid_active_journal_cannot_release_retained_history() {
         for kind in [
-            "missing", "archive-symlink", "copy-symlink", "archive-hardlink",
-            "copy-hardlink", "directory", "fifo", "mode", "partial", "invalid",
+            "missing",
+            "archive-symlink",
+            "copy-symlink",
+            "archive-hardlink",
+            "copy-hardlink",
+            "directory",
+            "fifo",
+            "mode",
+            "partial",
+            "invalid",
         ] {
             let fixture = Fixture::new();
             let archive = fs::read(&fixture.archive).unwrap();
@@ -502,17 +518,41 @@ mod tests {
             fs::remove_file(&fixture.active).unwrap();
             match kind {
                 "missing" => {}
-                "archive-symlink" => std::os::unix::fs::symlink(&fixture.archive, &fixture.active).unwrap(),
-                "copy-symlink" => std::os::unix::fs::symlink(&fixture.copy, &fixture.active).unwrap(),
+                "archive-symlink" => {
+                    std::os::unix::fs::symlink(&fixture.archive, &fixture.active).unwrap()
+                }
+                "copy-symlink" => {
+                    std::os::unix::fs::symlink(&fixture.copy, &fixture.active).unwrap()
+                }
                 "archive-hardlink" => fs::hard_link(&fixture.archive, &fixture.active).unwrap(),
                 "copy-hardlink" => fs::hard_link(&fixture.copy, &fixture.active).unwrap(),
                 "directory" => fs::create_dir(&fixture.active).unwrap(),
                 "fifo" => {
-                    assert!(std::process::Command::new("mkfifo").arg(&fixture.active).status().unwrap().success());
+                    assert!(
+                        std::process::Command::new("mkfifo")
+                            .arg(&fixture.active)
+                            .status()
+                            .unwrap()
+                            .success()
+                    );
                 }
                 _ => {
-                    fs::write(&fixture.active, if kind == "mode" { archive.as_slice() } else if kind == "partial" { b"partial".as_slice() } else { b"invalid\n".as_slice() }).unwrap();
-                    fs::set_permissions(&fixture.active, fs::Permissions::from_mode(if kind == "mode" { 0o644 } else { 0o600 })).unwrap();
+                    fs::write(
+                        &fixture.active,
+                        if kind == "mode" {
+                            archive.as_slice()
+                        } else if kind == "partial" {
+                            b"partial".as_slice()
+                        } else {
+                            b"invalid\n".as_slice()
+                        },
+                    )
+                    .unwrap();
+                    fs::set_permissions(
+                        &fixture.active,
+                        fs::Permissions::from_mode(if kind == "mode" { 0o644 } else { 0o600 }),
+                    )
+                    .unwrap();
                 }
             }
             let before = fs::symlink_metadata(&fixture.active).ok();
@@ -565,7 +605,12 @@ mod tests {
             self.step("write_receipt")?;
             FilesystemRetentionIo.write_receipt(file, record)
         }
-        fn publish_receipt(&mut self, file: &fs::File, directory: &fs::File, name: &CString) -> io::Result<()> {
+        fn publish_receipt(
+            &mut self,
+            file: &fs::File,
+            directory: &fs::File,
+            name: &CString,
+        ) -> io::Result<()> {
             self.step("publish_receipt")?;
             FilesystemRetentionIo.publish_receipt(file, directory, name)
         }
@@ -578,9 +623,17 @@ mod tests {
     #[test]
     fn storage_errors_stop_release_and_preserve_copy_active_and_truthful_receipts() {
         let operations = [
-            "sync_file", "sync_directory", "create_receipt", "write_receipt",
-            "sync_file", "publish_receipt", "sync_directory", "unlink_archive",
-            "sync_directory", "write_receipt", "sync_file",
+            "sync_file",
+            "sync_directory",
+            "create_receipt",
+            "write_receipt",
+            "sync_file",
+            "publish_receipt",
+            "sync_directory",
+            "unlink_archive",
+            "sync_directory",
+            "write_receipt",
+            "sync_file",
         ];
         for fail_at in 1..=operations.len() {
             let fixture = Fixture::new();
@@ -589,14 +642,30 @@ mod tests {
             let archived = fs::read(&fixture.archive).unwrap();
             let archive_inode = fs::metadata(&fixture.archive).unwrap().ino();
             let copy_inode = fs::metadata(&fixture.copy).unwrap().ino();
-            let mut storage = FaultingRetentionIo { fail_at, calls: Vec::new() };
-            let mut result = release_with_io(&fixture.active, &fixture.copy, &fixture.authorization, &fixture.digest, &mut storage);
+            let mut storage = FaultingRetentionIo {
+                fail_at,
+                calls: Vec::new(),
+            };
+            let mut result = release_with_io(
+                &fixture.active,
+                &fixture.copy,
+                &fixture.authorization,
+                &fixture.digest,
+                &mut storage,
+            );
             for _ in 0..100 {
-                if !matches!(&result, Err(error) if error.kind() == io::ErrorKind::WouldBlock && storage.calls.is_empty()) {
+                if !matches!(&result, Err(error) if error.kind() == io::ErrorKind::WouldBlock && storage.calls.is_empty())
+                {
                     break;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(10));
-                result = release_with_io(&fixture.active, &fixture.copy, &fixture.authorization, &fixture.digest, &mut storage);
+                result = release_with_io(
+                    &fixture.active,
+                    &fixture.copy,
+                    &fixture.authorization,
+                    &fixture.digest,
+                    &mut storage,
+                );
             }
             assert_eq!(result.unwrap_err().raw_os_error(), Some(5));
             assert_eq!(storage.calls, operations[..fail_at]);
@@ -612,7 +681,10 @@ mod tests {
             }
             if fail_at >= 7 {
                 let saved = fs::read_to_string(&fixture.authorization).unwrap();
-                let records: Vec<Value> = saved.lines().map(|line| serde_json::from_str(line).unwrap()).collect();
+                let records: Vec<Value> = saved
+                    .lines()
+                    .map(|line| serde_json::from_str(line).unwrap())
+                    .collect();
                 assert_eq!(records[0]["phase"], "authorized-before-unlink");
                 // A final sync error can leave complete unacknowledged bytes.
                 assert_eq!(records.len(), if fail_at == 11 { 2 } else { 1 });
@@ -628,21 +700,34 @@ mod tests {
                 let mut done = false;
                 for _ in 0..100 {
                     match release_archive(&fixture.active, &fixture.copy, &retry, &fixture.digest) {
-                        Err(error) if error.kind() == io::ErrorKind::WouldBlock => std::thread::sleep(std::time::Duration::from_millis(10)),
-                        result => { assert_eq!(result.unwrap()["released"], true); done = true; break; }
+                        Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                            std::thread::sleep(std::time::Duration::from_millis(10))
+                        }
+                        result => {
+                            assert_eq!(result.unwrap()["released"], true);
+                            done = true;
+                            break;
+                        }
                     }
                 }
                 assert!(done);
                 assert!(!fixture.archive.exists());
             } else {
                 let receipt = fs::read(&fixture.authorization).unwrap();
-                assert_eq!(fixture.release_until_uncontended().unwrap_err().kind(), io::ErrorKind::NotFound);
+                assert_eq!(
+                    fixture.release_until_uncontended().unwrap_err().kind(),
+                    io::ErrorKind::NotFound
+                );
                 assert_eq!(fs::read(&fixture.authorization).unwrap(), receipt);
             }
         }
     }
 
-    struct PartialReceiptIo { completion: bool, writes: usize, partial: Vec<u8> }
+    struct PartialReceiptIo {
+        completion: bool,
+        writes: usize,
+        partial: Vec<u8>,
+    }
 
     impl RetentionIo for PartialReceiptIo {
         fn write_receipt(&mut self, file: &mut fs::File, record: &Value) -> io::Result<()> {
@@ -662,14 +747,31 @@ mod tests {
             let fixture = Fixture::new();
             let archived = fs::read(&fixture.archive).unwrap();
             let active = fs::read(&fixture.active).unwrap();
-            let mut storage = PartialReceiptIo { completion, writes: 0, partial: Vec::new() };
-            let mut result = release_with_io(&fixture.active, &fixture.copy, &fixture.authorization, &fixture.digest, &mut storage);
+            let mut storage = PartialReceiptIo {
+                completion,
+                writes: 0,
+                partial: Vec::new(),
+            };
+            let mut result = release_with_io(
+                &fixture.active,
+                &fixture.copy,
+                &fixture.authorization,
+                &fixture.digest,
+                &mut storage,
+            );
             for _ in 0..100 {
-                if !matches!(&result, Err(error) if error.kind() == io::ErrorKind::WouldBlock && storage.writes == 0) {
+                if !matches!(&result, Err(error) if error.kind() == io::ErrorKind::WouldBlock && storage.writes == 0)
+                {
                     break;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(10));
-                result = release_with_io(&fixture.active, &fixture.copy, &fixture.authorization, &fixture.digest, &mut storage);
+                result = release_with_io(
+                    &fixture.active,
+                    &fixture.copy,
+                    &fixture.authorization,
+                    &fixture.digest,
+                    &mut storage,
+                );
             }
             assert_eq!(result.unwrap_err().raw_os_error(), Some(5));
             assert_eq!(fs::read(&fixture.active).unwrap(), active);
@@ -716,7 +818,10 @@ mod tests {
         drop(held);
         let held_active = fs::File::open(&fixture.active).unwrap();
         assert_eq!(unsafe { flock(held_active.as_raw_fd(), 1 | 4) }, 0);
-        assert_eq!(fixture.release().unwrap_err().kind(), io::ErrorKind::WouldBlock);
+        assert_eq!(
+            fixture.release().unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
         assert!(!fixture.authorization.exists());
         assert_eq!(unsafe { flock(held_active.as_raw_fd(), 8) }, 0);
         drop(held_active);
