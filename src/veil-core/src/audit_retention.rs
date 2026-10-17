@@ -451,6 +451,20 @@ mod tests {
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
 
+    // Parallel process-cut tests can inherit an open flock until their exec.
+    // Retry only fixture lock acquisition; production inspection stays nonblocking.
+    fn retry_lock<T>(mut operation: impl FnMut() -> io::Result<T>) -> io::Result<T> {
+        for attempt in 0..=100 {
+            match operation() {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock && attempt < 100 => {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                result => return result,
+            }
+        }
+        unreachable!()
+    }
+
     struct Fixture {
         root: PathBuf,
         active: PathBuf,
@@ -666,7 +680,14 @@ mod tests {
         let receipt = fs::read(&fixture.authorization).unwrap();
         for path in [&fixture.authorization, &fixture.copy] {
             let held = fs::File::open(path).unwrap();
-            assert_eq!(unsafe { flock(held.as_raw_fd(), 2 | 4) }, 0);
+            retry_lock(|| {
+                if unsafe { flock(held.as_raw_fd(), 2 | 4) } == 0 {
+                    Ok(())
+                } else {
+                    Err(io::Error::last_os_error())
+                }
+            })
+            .unwrap();
             assert_eq!(
                 inspect_release(
                     &fixture.active,
@@ -680,7 +701,7 @@ mod tests {
             );
             assert_eq!(unsafe { flock(held.as_raw_fd(), 8) }, 0);
         }
-        let held = super::super::audit::directory_lock(&fixture.active, true)
+        let held = retry_lock(|| super::super::audit::directory_lock(&fixture.active, true))
             .unwrap()
             .unwrap();
         assert_eq!(
