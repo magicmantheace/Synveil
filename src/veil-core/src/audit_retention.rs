@@ -1011,7 +1011,8 @@ mod tests {
                 .stderr(Stdio::piped())
                 .spawn()
                 .unwrap();
-            let (status, diagnostic) = wait_release_worker(child, RELEASE_WORKER_TIMEOUT_SECONDS, false);
+            let (status, diagnostic) =
+                wait_release_worker(child, RELEASE_WORKER_TIMEOUT_SECONDS, false);
             assert_eq!(status.signal(), Some(9), "{phase}: {diagnostic}");
             let checkpoints: Vec<_> = diagnostic
                 .lines()
