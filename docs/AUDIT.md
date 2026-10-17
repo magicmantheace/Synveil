@@ -465,8 +465,10 @@ CI at `da43fc1` (126 Rust tests, formatting/clippy and bootstrap lint;
 [run 39038885162](https://github.com/magicmantheace/Synveil/actions/runs/39038885162)).
 Eleven EIO boundaries and partial intent/completion writes preserve active/copy
 history and truthful residual receipts; these are simulated errors, not real
-device or crash durability proof. Fresh native validation of the correction is
-running separately. The durable-audit roadmap item remains open.
+device or crash durability proof. Corrected source `da43fc1` passed all 44 native
+steps ([evidence](validation/native-da43fc1/README.md)); merged source `8d8dfed`
+passed all 44 steps in [run 39052189785](https://github.com/magicmantheace/Synveil/actions/runs/39052189785).
+The durable-audit roadmap item remains open.
 
 ## Release process-loss matrix
 

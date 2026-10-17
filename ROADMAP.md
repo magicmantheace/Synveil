@@ -196,6 +196,11 @@ power-loss durability. Three additional built-command tests cover receipt replay
 against an identical-byte next archive, invalid arguments and busy file locks;
 host CI at `2261ec5` passed all 132 Rust tests, formatting and clippy
 ([run 39052487780](https://github.com/magicmantheace/Synveil/actions/runs/39052487780)).
+A read-only `inspect-release` candidate verifies retained snapshots and reports
+receipt phases without repairing receipts, recreating scope locks or inferring
+current archive state. Source `39d2627` passed all 136 Rust tests, formatting
+and clippy ([run 39058995249](https://github.com/magicmantheace/Synveil/actions/runs/39058995249));
+fresh native validation remains pending for this extension.
 Automatic retention remains absent. Guest interruption during release,
 independent integrity anchoring and power-loss testing remain open.
 

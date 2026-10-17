@@ -831,5 +831,13 @@ The native post-reboot release gate now also runs the inspector and requires
 `completion-recorded` with `archive_state:"not-inspected"` before rechecking
 journal/snapshot checksums. Local Python driver checks passed 11 tests with two
 real-process fixtures skipped because this environment proxies process identity.
-Rust and fresh native validation are pending for this candidate. Inspection
-never upgrades a process-cut observation into guest/cache/power-loss proof.
+Source `39d26273c9b54fb9c18c73ec0a65e0d0849923fe` passed all 136 Rust tests,
+formatting and clippy in [run 39058995249](https://github.com/magicmantheace/Synveil/actions/runs/39058995249),
+job `117473083817`. Fresh native validation remains pending for this candidate.
+Inspection never upgrades a process-cut observation into guest/cache/power-loss proof.
+
+The preceding CLI-only review correction at `953c368` also passed 132 Rust tests,
+formatting and clippy in [run 39058533152](https://github.com/magicmantheace/Synveil/actions/runs/39058533152)
+before PR #25 merged. It checks actual supplied malformed digest values for
+error disclosure. The prior merged source `8d8dfed` passed all 44 native steps in
+[run 39052189785](https://github.com/magicmantheace/Synveil/actions/runs/39052189785).

@@ -3,7 +3,7 @@ name: Native target build
 on:
   workflow_dispatch:
   push:
-    branches: [phase2/native-core-bootstrap, development/audit-retention-release]
+    branches: [phase2/native-core-bootstrap, development/audit-retention-release, development/audit-release-inspection]
     paths:
       - Cargo.toml
       - Cargo.lock
