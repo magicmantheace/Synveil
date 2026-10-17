@@ -416,10 +416,10 @@ The explicit filesystem-owner operation is:
 ```sh
 veil-audit release-archive --path /private/journal \
   --snapshot /copies/snapshot --authorization /copies/release.json \
-  --digest <retained-blake2b-512>
+  --digest "$RETAINED_DIGEST"
 ```
 
- The paths must be absolute without parent
+The paths must be absolute without parent
 traversal; both directories must be owned by the caller and mode 0700, and the
 snapshot/authorization directory must differ from the journal directory. The
 command derives only `<active>.1`; it never unlinks the supplied active path.
@@ -442,8 +442,7 @@ identities. It does not claim release completed. After unlink and journal-direct
 sync, a second JSON line records `synveil.audit-retention-release/v1` with
 `released:true`; that line is synchronized before the same report is returned.
 The authorization file is therefore a two-record JSONL receipt on success.
-A failure after
-receipt publication can leave the intent; a failure after unlink can leave the
+A failure after receipt publication can leave the intent; a failure after unlink can leave the
 archive absent or an incomplete completion line. Preserve the first intent and
 inspect both locations before retrying with a fresh receipt.
 The active journal and retained copy remain untouched. An incomplete active
@@ -455,5 +454,8 @@ future model-driven retention requires typed policy and stronger owner approval.
 A copied digest does not authenticate origin, guarantee an independently backed
 up copy, defeat a malicious owner/root process, or prove device-cache durability.
 The owner must preserve the copy, authorization and independently retained digest.
-Host and native validation of this candidate are pending; the durable-audit
-roadmap item remains open.
+Host validation at `b27fe1d` passed all 122 Rust tests, formatting and clippy
+([run 38994925827](https://github.com/magicmantheace/Synveil/actions/runs/38994925827)),
+plus bootstrap lint including the release harness. Native execution of the new
+release gate is pending; the feature branch has its own native workflow trigger.
+The durable-audit roadmap item remains open.

@@ -182,8 +182,10 @@ tests, formatting and clippy.
 Real device failure and interrupted filesystem operations remain open.
 Exports preserve source history and do not release the archive slot. A separate
 explicit offline release candidate requires a matching private snapshot, retained
-digest and durable pre-unlink authorization receipt; host/native validation is
-pending. Automatic retention remains absent. Validated retention release,
+digest and durable pre-unlink authorization/completion receipt. Host CI at
+`b27fe1d` passed 122 Rust tests, formatting/clippy and bootstrap lint; native
+release-gate validation is pending on its separate feature-branch workflow.
+Automatic retention remains absent. Validated retention release,
 independent integrity anchoring and power-loss testing remain open.
 
 ## Phase 3 — Observer

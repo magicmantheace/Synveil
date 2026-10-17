@@ -710,11 +710,16 @@ run remains a failed pipeline.
 The release candidate requires a verified distinct private snapshot and a new
 durable authorization receipt before removing only the derived `.1` archive.
 Host tests require unchanged active bytes/inode and copy, accurate pre-unlink
-receipt ordering (authorization then synchronized completion), digest/structure mismatch refusal, symlink/permission/alias
+receipt ordering (authorization then synchronized completion), digest/structure
+mismatch refusal, symlink/permission/alias
 and receipt-collision refusal, and nonblocking busy-lock failure. CLI coverage
 exercises explicit arguments and verifies no event-content disclosure. A full
 journal fixture must resume a second rotation after release while preserving
-the original snapshot. Host CI is pending. Native release, interrupted release,
+the original snapshot. Host CI at `b27fe1d67db4bd2cd5379770b883db4f8b7000ae`
+passed all 122 Rust tests, formatting and clippy
+([run 38994925827](https://github.com/magicmantheace/Synveil/actions/runs/38994925827)).
+[Bootstrap lint 38994928997](https://github.com/magicmantheace/Synveil/actions/runs/38994928997)
+also passed, including real process-cut host fixtures. Native release, interrupted release,
 real sync/unlink device errors and power-loss behavior remain unvalidated.
 
 The native workflow now includes `audit-crash-smoke --rollover
@@ -725,4 +730,6 @@ and renewed active/copy digest verification before the read-success marker.
 The original crash gates retain their preservation-only behavior and log names;
 release uses separate logs. The 11-test harness passed locally (two CI-only
 signal tests skipped), with shell syntax and malformed/missing archive-input
-checks. Native guest execution is pending.
+checks. Native guest execution is pending; the feature branch now triggers a
+separate full native run so it can be validated before merge without cancelling
+the current development-branch run.
