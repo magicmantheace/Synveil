@@ -616,15 +616,19 @@ mod tests {
     // that pre-write contention for fixtures expecting a successful append.
     // Production callers and tests asserting contention still fail immediately.
     fn append_fixture(path: &Path, line: &str) -> io::Result<()> {
+        retry_fixture(|| append_record(path, line))
+    }
+
+    fn retry_fixture<T>(mut operation: impl FnMut() -> io::Result<T>) -> io::Result<T> {
         for _ in 0..100 {
-            match append_record(path, line) {
+            match operation() {
                 Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
                     std::thread::sleep(std::time::Duration::from_millis(10));
                 }
                 result => return result,
             }
         }
-        append_record(path, line)
+        operation()
     }
 
     fn inspect_fixture(path: &Path) -> io::Result<Value> {
@@ -1220,6 +1224,42 @@ mod tests {
                 fs::remove_dir_all(dir).unwrap();
             }
         }
+    }
+
+    #[test]
+    fn verified_archive_release_allows_next_rotation_without_losing_copy() {
+        let dir = test_dir("retention-recovery");
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
+        let journal = dir.join("journal");
+        let old = seed_full_journal(&journal);
+        let next = record("after_rotation", json!({"padding": "y".repeat(8192)})).to_string();
+        append_fixture(&journal, &next).unwrap();
+        let copies = dir.join("copies");
+        fs::create_dir(&copies).unwrap();
+        fs::set_permissions(&copies, fs::Permissions::from_mode(0o700)).unwrap();
+        let archive = archive_path(&journal).unwrap();
+        let snapshot = copies.join("snapshot");
+        let exported =
+            retry_fixture(|| super::super::audit_export::export(&archive, &snapshot)).unwrap();
+        retry_fixture(|| {
+            super::super::audit_retention::release_archive(
+                &journal,
+                &snapshot,
+                &copies.join("release.json"),
+                exported["digest"].as_str().unwrap(),
+            )
+        })
+        .unwrap();
+        assert!(!archive.exists());
+        assert_eq!(fs::read(&snapshot).unwrap(), old);
+        let newer = seed_full_journal(&journal);
+        append_fixture(&journal, &next).unwrap();
+        assert_eq!(fs::read(&archive).unwrap(), newer);
+        assert_eq!(fs::read(&snapshot).unwrap(), old);
+        assert_eq!(fs::read_to_string(&journal).unwrap(), format!("{next}\n"));
+        inspect_fixture(&journal).unwrap();
+        inspect_fixture(&archive).unwrap();
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

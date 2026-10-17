@@ -24,12 +24,12 @@ unsafe extern "C" {
     ) -> i32;
 }
 
-fn output_name(output: &Path) -> io::Result<CString> {
+pub(crate) fn output_name(output: &Path) -> io::Result<CString> {
     let name = output.file_name().ok_or_else(unsafe_output)?;
     CString::new(name.as_bytes()).map_err(|_| unsafe_output())
 }
 
-fn create_output(directory: &fs::File) -> io::Result<fs::File> {
+pub(crate) fn create_output(directory: &fs::File) -> io::Result<fs::File> {
     // Linux O_RDWR | O_TMPFILE | O_CLOEXEC. No pathname exists before publication.
     let flags = 2 | 0o20200000 | 0o2000000;
     let fd = unsafe { openat(directory.as_raw_fd(), c".".as_ptr(), flags, 0o600_u32) };
@@ -40,7 +40,11 @@ fn create_output(directory: &fs::File) -> io::Result<fs::File> {
     Ok(unsafe { fs::File::from_raw_fd(fd) })
 }
 
-fn publish_output(file: &fs::File, directory: &fs::File, name: &CString) -> io::Result<()> {
+pub(crate) fn publish_output(
+    file: &fs::File,
+    directory: &fs::File,
+    name: &CString,
+) -> io::Result<()> {
     // The procfs descriptor link permits unprivileged publication of O_TMPFILE.
     // linkat creates the destination atomically and refuses every existing entry.
     let source = CString::new(format!("/proc/self/fd/{}", file.as_raw_fd())).unwrap();
@@ -59,7 +63,7 @@ fn publish_output(file: &fs::File, directory: &fs::File, name: &CString) -> io::
     Ok(())
 }
 
-fn checksum(bytes: &[u8]) -> String {
+pub(crate) fn checksum(bytes: &[u8]) -> String {
     format!("{:x}", Blake2b512::digest(bytes))
 }
 

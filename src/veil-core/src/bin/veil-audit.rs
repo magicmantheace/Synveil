@@ -14,6 +14,8 @@ fn run() -> io::Result<Value> {
     let command = args.next().ok_or_else(invalid_args)?;
     let mut path = None;
     let mut output = None;
+    let mut snapshot = None;
+    let mut authorization = None;
     let mut digest: Option<OsString> = None;
     while let Some(flag) = args.next() {
         let value = args.next().ok_or_else(invalid_args)?;
@@ -21,8 +23,26 @@ fn run() -> io::Result<Value> {
             Some("--path") if path.is_none() => path = Some(PathBuf::from(value)),
             Some("--output") if output.is_none() => output = Some(PathBuf::from(value)),
             Some("--digest") if digest.is_none() => digest = Some(value),
+            Some("--snapshot") if snapshot.is_none() => snapshot = Some(PathBuf::from(value)),
+            Some("--authorization") if authorization.is_none() => {
+                authorization = Some(PathBuf::from(value))
+            }
             _ => return Err(invalid_args()),
         }
+    }
+    if command == "release-archive" && output.is_none() {
+        return veil_core::audit_retention::release_archive(
+            &path.ok_or_else(invalid_args)?,
+            &snapshot.ok_or_else(invalid_args)?,
+            &authorization.ok_or_else(invalid_args)?,
+            digest
+                .as_ref()
+                .and_then(|value| value.to_str())
+                .ok_or_else(invalid_args)?,
+        );
+    }
+    if snapshot.is_some() || authorization.is_some() {
+        return Err(invalid_args());
     }
     match command.to_str() {
         Some("check") if output.is_none() && digest.is_none() => veil_core::audit_check::inspect(

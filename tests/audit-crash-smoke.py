@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AuditCrashTests(unittest.TestCase):
-    def fixture(self, mode, *, real_cut=False, rollover=False, archive_only=False):
+    def fixture(self, mode, *, real_cut=False, rollover=False, archive_only=False, release=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "tests").mkdir()
@@ -49,6 +49,7 @@ exit "$status"
 mode = os.environ['CRASH_MODE']
 rollover = os.environ['CRASH_ROLLOVER'] == '1'
 archive_only = os.environ['CRASH_ARCHIVE_ONLY'] == '1'
+release = os.environ['CRASH_RELEASE'] == '1'
 disk = pathlib.Path(os.environ['SYNVEIL_QEMU_STATE_DISK'])
 assert 'synveil-audit-crash-' in str(disk)
 round_path = disk.with_suffix('.round')
@@ -94,13 +95,17 @@ if first:
     if mode == 'early-exit': sys.exit(0)
     time.sleep(30)
 else:
-    assert command.count('--digest ' + 'a' * 128) == 2
+    assert command.count('--digest ' + 'a' * 128) == (3 if release else 2)
     assert '/journal' in command and '/copies/snapshot' in command
     assert 'synctl --json status' in command
     if rollover or archive_only:
-        assert command.count('--digest ' + 'b' * 128) == 2
+        assert command.count('--digest ' + 'b' * 128) == (4 if release else 2)
         assert '/journal.1' in command and '/copies/archive' in command
-    if mode in ('lost-data', 'lost-archive'): sys.exit(1)
+    if release:
+        assert 'release-archive --path' in command and '--authorization' in command
+        assert 'authorized-before-unlink' in command and '[ ! -e ' in command
+        assert 'synveil.audit-retention-release/v1' in command
+    if mode in ('lost-data', 'lost-archive', 'release-refused'): sys.exit(1)
     print('SYNVEIL_AUDIT_CRASH_READ_OK', flush=True)
     time.sleep(30)
 ''')
@@ -109,10 +114,12 @@ else:
                 arguments.append("--rollover")
             if archive_only:
                 arguments.append("--archive-only")
+            if release:
+                arguments.append("--release-archive")
             run = subprocess.run(
                 arguments,
                 env={**os.environ, "CRASH_MODE": mode, "CRASH_ROLLOVER": str(int(rollover)),
-                     "CRASH_ARCHIVE_ONLY": str(int(archive_only)), "SYNVEIL_OUT_DIR": str(root / "out"),
+                     "CRASH_ARCHIVE_ONLY": str(int(archive_only)), "CRASH_RELEASE": str(int(release)), "SYNVEIL_OUT_DIR": str(root / "out"),
                      "SYNVEIL_QEMU_STATE_DISK": str(caller)},
                 capture_output=True, text=True, timeout=20,
             )
@@ -150,6 +157,12 @@ else:
         self.assertEqual(code, 0, log + error)
         self.assertIn('SYNVEIL_AUDIT_CRASH_ARCHIVE_DIGEST=', log)
         self.assertIn('SYNVEIL_AUDIT_CRASH_READ_OK', log)
+
+    def test_release_requires_reboot_verification_and_rechecks_retained_bytes(self):
+        code, log, error = self.fixture("pass", rollover=True, release=True)
+        self.assertEqual(code, 0, log + error)
+        for mode in ("release-refused", "lost-archive", "bad-archive-digest"):
+            self.assertNotEqual(self.fixture(mode, rollover=True, release=True)[0], 0)
 
     def test_rollover_refuses_missing_ambiguous_or_lost_archive(self):
         for mode in ("no-archive-digest", "bad-archive-digest", "duplicate-archive-digest", "mixed-archive-digest", "lost-archive"):
@@ -276,7 +289,10 @@ print(json.dumps(report, separators=(',', ':')))
                 module.read_command('a' * 128, digest)
         with self.assertRaises(ValueError):
             module.write_command(True, True)
-        for command in (module.write_command(archive_only=True).replace('; ', ';\n'),
+        with self.assertRaises(ValueError):
+            module.read_command('a' * 128, release_archive=True)
+        for command in (module.read_command('a' * 128, 'b' * 128, True),
+                        module.write_command(archive_only=True).replace('; ', ';\n'),
                         module.write_command().replace('; ', ';\n'),
                         module.write_command(True).replace('; ', ';\n'),
                         module.read_command('a' * 128),

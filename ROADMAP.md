@@ -180,7 +180,15 @@ process-cut extension covers first/existing appends and complete unacknowledged
 records around sync boundaries; host CI passed at `72df789` with 117 Rust
 tests, formatting and clippy.
 Real device failure and interrupted filesystem operations remain open.
-Exports preserve source history and do not release the archive slot. Explicit retention release,
+Exports preserve source history and do not release the archive slot. A separate
+explicit offline release candidate requires a matching private snapshot, retained
+digest and durable pre-unlink authorization/completion receipt. Host CI at
+`b27fe1d` passed 122 Rust tests, formatting/clippy and bootstrap lint. The
+initial candidate passed all 44 native steps at `e81d6d5`. A later review fix
+requires a healthy active journal and adds eleven storage-error boundaries plus
+partial-receipt checks. Corrected source `da43fc1` passed all 126 Rust tests,
+formatting/clippy and bootstrap lint; fresh native validation of that revision is pending.
+Automatic retention remains absent. Validated retention release,
 independent integrity anchoring and power-loss testing remain open.
 
 ## Phase 3 — Observer

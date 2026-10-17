@@ -64,10 +64,37 @@ fn offline_cli_exports_verifies_and_refuses_replacement_or_bad_arguments() {
         vec!["verify", "--digest", "private-input"],
         vec!["check", "--output", "private-input"],
         vec!["check", "--path", "a", "--path", "b"],
+        vec!["check", "--snapshot", "private-input"],
+        vec!["export", "--authorization", "private-input"],
+        vec!["release-archive"],
+        vec!["release-archive", "--path", "a", "--path", "b"],
     ] {
         let result = Command::new(tool).args(arguments).output().unwrap();
         assert!(!result.status.success());
         assert!(!String::from_utf8_lossy(&result.stderr).contains("private-input"));
     }
+    let archive = source.with_file_name("journal.1");
+    fs::copy(&source, &archive).unwrap();
+    let intent = copies.join("release.json");
+    let released = Command::new(tool)
+        .arg("release-archive")
+        .arg("--path")
+        .arg(&source)
+        .arg("--snapshot")
+        .arg(&copy)
+        .arg("--authorization")
+        .arg(&intent)
+        .arg("--digest")
+        .arg(digest)
+        .output()
+        .unwrap();
+    assert!(released.status.success());
+    let released_report: Value = serde_json::from_slice(&released.stdout).unwrap();
+    assert_eq!(released_report["released"], true);
+    assert!(!archive.exists());
+    assert_eq!(fs::read(&source).unwrap(), saved);
+    assert_eq!(fs::read(&copy).unwrap(), saved);
+    assert!(!String::from_utf8_lossy(&released.stdout).contains("secret"));
+    assert!(intent.exists());
     fs::remove_dir_all(root).unwrap();
 }

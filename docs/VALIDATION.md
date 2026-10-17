@@ -704,3 +704,63 @@ and nonblocking. A regression holds/releases a real lock, requires exactly one
 new record, and verifies that an incomplete tail returns InvalidData unchanged.
 The corrected source passed the fresh `72df789` host run above; the first
 run remains a failed pipeline.
+
+## Offline retention release candidate
+
+The release candidate requires a verified distinct private snapshot and a new
+durable authorization receipt before removing only the derived `.1` archive.
+Host tests require unchanged active bytes/inode and copy, accurate pre-unlink
+receipt ordering (authorization then synchronized completion), digest/structure
+mismatch refusal, symlink/permission/alias
+and receipt-collision refusal, and nonblocking busy-lock failure. CLI coverage
+exercises explicit arguments and verifies no event-content disclosure. A full
+journal fixture must resume a second rotation after release while preserving
+the original snapshot. Host CI at `b27fe1d67db4bd2cd5379770b883db4f8b7000ae`
+passed all 122 Rust tests, formatting and clippy
+([run 38994925827](https://github.com/magicmantheace/Synveil/actions/runs/38994925827)).
+[Bootstrap lint 38994928997](https://github.com/magicmantheace/Synveil/actions/runs/38994928997)
+also passed, including real process-cut host fixtures. That host checkpoint
+predates the initial native proof below. Interrupted release, real sync/unlink
+device errors and power-loss behavior remain unvalidated.
+
+The native workflow now includes `audit-crash-smoke --rollover
+--release-archive`: retain separate digests, abruptly stop/reap the emulator,
+verify both journals and snapshots on reboot, then explicitly release only the
+copied archive. Require archive absence, durable pre-unlink receipt semantics,
+and renewed active/copy digest verification before the read-success marker.
+The original crash gates retain their preservation-only behavior and log names;
+release uses separate logs. The 11-test harness passed locally (two CI-only
+signal tests skipped), with shell syntax and malformed/missing archive-input
+checks. Initial native execution passed at `e81d6d5` as recorded below; the
+corrected candidate still requires fresh native proof. The feature branch runs
+separately, without cancelling a development-branch native run.
+
+## Active-journal release precondition and storage-error boundaries
+
+The initial `e81d6d5` release candidate passed all 44 native steps in
+[run 38995115558](https://github.com/magicmantheace/Synveil/actions/runs/38995115558),
+including the new release gate. Review nevertheless found that an unsafe active
+symlink could survive release as a dangling path. The corrected candidate opens,
+locks and validates the active journal, requires a distinct archive/copy inode,
+and rechecks active identity before unlink. Missing, symlinked, hardlinked,
+directory, FIFO, permissive, incomplete and invalid active paths must preserve
+archive/copy bytes and their own inode/type without publishing authorization.
+A valid empty active journal is allowed. Corrected source
+`da43fc1b0e7ca87a4cc96304997cddb539517939` passed all 126 Rust tests, formatting
+and clippy ([host run 39038885162](https://github.com/magicmantheace/Synveil/actions/runs/39038885162)),
+plus [bootstrap lint 39038889259](https://github.com/magicmantheace/Synveil/actions/runs/39038889259).
+Fresh [native run 39038885250](https://github.com/magicmantheace/Synveil/actions/runs/39038885250)
+is pending; the initial successful run is not proof of this correction.
+
+A private statically dispatched adapter tests EIO at all eleven release storage
+steps: copy sync, copy-directory sync, anonymous receipt creation, intent write,
+intent sync, publication, receipt-directory sync, archive unlink,
+journal-directory sync, completion write and completion sync. Each error must
+stop later operations, preserve active/copy bytes and inodes, and retain the
+archive until unlink actually succeeds. A published intent can remain after an
+error; post-unlink errors must not recreate history. A final sync error can leave
+complete but unacknowledged completion bytes. Pre-unlink recovery uses a fresh
+receipt, while an absent archive refuses retry without changing old receipts.
+Partial intent writes must remain unpublished; partial completion writes must
+preserve the valid intent and exact incomplete tail. These are host error-return
+and partial-write fixtures, not real device EIO or process/power-loss evidence.
