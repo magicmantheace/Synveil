@@ -18,15 +18,18 @@ unsafe extern "C" {
 }
 
 fn refused() -> io::Error {
-    io::Error::new(io::ErrorKind::PermissionDenied, "unsafe audit retention input")
+    io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        "unsafe audit retention input",
+    )
 }
 
 fn absolute_normal(path: &Path) -> bool {
     path.is_absolute()
         && path.file_name().is_some()
-        && path.components().all(|part| {
-            matches!(part, Component::RootDir | Component::Normal(_))
-        })
+        && path
+            .components()
+            .all(|part| matches!(part, Component::RootDir | Component::Normal(_)))
 }
 
 fn identity(meta: &fs::Metadata) -> (u64, u64) {
@@ -83,16 +86,27 @@ pub fn release_archive(
     authorization: &Path,
     expected: &str,
 ) -> io::Result<Value> {
-    if ![active, snapshot, authorization].into_iter().all(absolute_normal)
+    if ![active, snapshot, authorization]
+        .into_iter()
+        .all(absolute_normal)
         || active.file_name().unwrap() == ".audit-lock"
-        || active.file_name().unwrap().as_encoded_bytes().ends_with(b".1")
+        || active
+            .file_name()
+            .unwrap()
+            .as_encoded_bytes()
+            .ends_with(b".1")
         || snapshot == authorization
         || authorization.file_name().unwrap() == ".audit-lock"
         || snapshot.parent() != authorization.parent()
         || expected.len() != 128
-        || !expected.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        || !expected
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
     {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid release arguments"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid release arguments",
+        ));
     }
     let parent = active.parent().ok_or_else(refused)?;
     let copies_parent = snapshot.parent().ok_or_else(refused)?;
@@ -119,16 +133,24 @@ pub fn release_archive(
         return Err(io::Error::last_os_error());
     }
     let mut archived = Vec::new();
-    (&archive_file).take(MAX_BYTES + 1).read_to_end(&mut archived)?;
+    (&archive_file)
+        .take(MAX_BYTES + 1)
+        .read_to_end(&mut archived)?;
     let inspected = super::audit_check::inspect_bytes(&archived)?;
     if archived.is_empty() || super::audit_export::checksum(&archived) != expected {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "archive digest mismatch"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "archive digest mismatch",
+        ));
     }
     super::audit_check::with_snapshot_file(snapshot, |copy, bytes, _| {
         let copy_meta = copy.metadata()?;
         same_private_file(snapshot, &copy_meta)?;
         if bytes != archived.as_slice() || identity(&copy_meta) == identity(&archive_meta) {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "snapshot mismatch"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "snapshot mismatch",
+            ));
         }
         // Re-establish copy durability before publishing any release intent.
         copy.sync_all()?;
@@ -288,10 +310,14 @@ mod tests {
         assert_eq!(fs::read(&fixture.active).unwrap(), active);
         assert_eq!(fs::metadata(&fixture.active).unwrap().ino(), active_inode);
         assert_eq!(fs::read(&fixture.copy).unwrap(), copy);
-        let receipt: Value = serde_json::from_slice(&fs::read(&fixture.authorization).unwrap()).unwrap();
+        let receipt: Value =
+            serde_json::from_slice(&fs::read(&fixture.authorization).unwrap()).unwrap();
         assert_eq!(receipt["phase"], "authorized-before-unlink");
         assert_eq!(receipt["digest"], fixture.digest);
-        assert_eq!(fs::metadata(&fixture.authorization).unwrap().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(&fixture.authorization).unwrap().mode() & 0o777,
+            0o600
+        );
         assert!(fixture.release().is_err());
         assert_eq!(fs::read(&fixture.copy).unwrap(), copy);
     }
@@ -320,7 +346,14 @@ mod tests {
 
     #[test]
     fn unsafe_objects_and_existing_receipts_leave_history_intact() {
-        for kind in ["archive-link", "copy-link", "receipt", "receipt-link", "mode", "same-dir"] {
+        for kind in [
+            "archive-link",
+            "copy-link",
+            "receipt",
+            "receipt-link",
+            "mode",
+            "same-dir",
+        ] {
             let fixture = Fixture::new();
             let archived = fs::read(&fixture.archive).unwrap();
             let active = fs::read(&fixture.active).unwrap();
@@ -336,10 +369,21 @@ mod tests {
                     std::os::unix::fs::symlink(&fixture.archive, &fixture.copy).unwrap();
                 }
                 "receipt" => fs::write(&fixture.authorization, b"existing").unwrap(),
-                "receipt-link" => std::os::unix::fs::symlink(&other, &fixture.authorization).unwrap(),
-                "mode" => fs::set_permissions(fixture.copy.parent().unwrap(), fs::Permissions::from_mode(0o755)).unwrap(),
+                "receipt-link" => {
+                    std::os::unix::fs::symlink(&other, &fixture.authorization).unwrap()
+                }
+                "mode" => fs::set_permissions(
+                    fixture.copy.parent().unwrap(),
+                    fs::Permissions::from_mode(0o755),
+                )
+                .unwrap(),
                 "same-dir" => {
-                    let result = release_archive(&fixture.active, &fixture.archive, &fixture.root.join("intent"), &fixture.digest);
+                    let result = release_archive(
+                        &fixture.active,
+                        &fixture.archive,
+                        &fixture.root.join("intent"),
+                        &fixture.digest,
+                    );
                     assert!(result.is_err());
                 }
                 _ => unreachable!(),
@@ -350,7 +394,12 @@ mod tests {
             if kind != "archive-link" {
                 assert_eq!(fs::read(&fixture.archive).unwrap(), archived);
             } else {
-                assert!(fs::symlink_metadata(&fixture.archive).unwrap().file_type().is_symlink());
+                assert!(
+                    fs::symlink_metadata(&fixture.archive)
+                        .unwrap()
+                        .file_type()
+                        .is_symlink()
+                );
             }
             assert_eq!(fs::read(&fixture.active).unwrap(), active);
             assert_eq!(fs::read(&other).unwrap(), b"unrelated");
@@ -366,14 +415,40 @@ mod tests {
         let archived = fs::read(&fixture.archive).unwrap();
         let active = fs::read(&fixture.active).unwrap();
         let held = super::super::audit::directory_lock(&fixture.active, true).unwrap();
-        assert_eq!(fixture.release().unwrap_err().kind(), io::ErrorKind::WouldBlock);
+        assert_eq!(
+            fixture.release().unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
         assert!(!fixture.authorization.exists());
         drop(held);
-        for path in [Path::new("relative"), &fixture.archive, &fixture.root.join(".audit-lock")] {
-            assert!(release_archive(path, &fixture.copy, &fixture.authorization, &fixture.digest).is_err());
+        for path in [
+            Path::new("relative"),
+            &fixture.archive,
+            &fixture.root.join(".audit-lock"),
+        ] {
+            assert!(
+                release_archive(path, &fixture.copy, &fixture.authorization, &fixture.digest)
+                    .is_err()
+            );
         }
-        assert!(release_archive(&fixture.active, &fixture.copy, &fixture.copy, &fixture.digest).is_err());
-        assert!(release_archive(&fixture.active, &fixture.copy, &fixture.copy.with_file_name(".audit-lock"), &fixture.digest).is_err());
+        assert!(
+            release_archive(
+                &fixture.active,
+                &fixture.copy,
+                &fixture.copy,
+                &fixture.digest
+            )
+            .is_err()
+        );
+        assert!(
+            release_archive(
+                &fixture.active,
+                &fixture.copy,
+                &fixture.copy.with_file_name(".audit-lock"),
+                &fixture.digest
+            )
+            .is_err()
+        );
         fixture.unchanged(&archived, &active);
         assert!(!fixture.authorization.exists());
     }

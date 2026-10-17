@@ -238,6 +238,10 @@ jobs:
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: bash build.sh audit-crash-smoke --archive-only --timeout 60
 
+      - name: Release copied audit archive after reboot without changing active history
+        if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
+        run: bash build.sh audit-crash-smoke --rollover --release-archive --timeout 60
+
       - name: One-time root-owned credential enrollment in QEMU state
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |

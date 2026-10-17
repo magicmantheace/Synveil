@@ -716,3 +716,13 @@ exercises explicit arguments and verifies no event-content disclosure. A full
 journal fixture must resume a second rotation after release while preserving
 the original snapshot. Host CI is pending. Native release, interrupted release,
 real sync/unlink device errors and power-loss behavior remain unvalidated.
+
+The native workflow now includes `audit-crash-smoke --rollover
+--release-archive`: retain separate digests, abruptly stop/reap the emulator,
+verify both journals and snapshots on reboot, then explicitly release only the
+copied archive. Require archive absence, durable pre-unlink receipt semantics,
+and renewed active/copy digest verification before the read-success marker.
+The original crash gates retain their preservation-only behavior and log names;
+release uses separate logs. The 11-test harness passed locally (two CI-only
+signal tests skipped), with shell syntax and malformed/missing archive-input
+checks. Native guest execution is pending.

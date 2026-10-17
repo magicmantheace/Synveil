@@ -411,9 +411,15 @@ A constructed post-rename layout is not a timed interruption of a live rotation.
 
 ## Explicit offline archive release (candidate)
 
-`veil-audit release-archive --path /private/journal --snapshot /copies/snapshot
---authorization /copies/release.json --digest <retained-blake2b-512>` is an
-explicit filesystem-owner operation. The paths must be absolute without parent
+The explicit filesystem-owner operation is:
+
+```sh
+veil-audit release-archive --path /private/journal \
+  --snapshot /copies/snapshot --authorization /copies/release.json \
+  --digest <retained-blake2b-512>
+```
+
+ The paths must be absolute without parent
 traversal; both directories must be owned by the caller and mode 0700, and the
 snapshot/authorization directory must differ from the journal directory. The
 command derives only `<active>.1`; it never unlinks the supplied active path.

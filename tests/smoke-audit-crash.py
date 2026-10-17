@@ -79,7 +79,9 @@ def write_command(rollover=False, archive_only=False):
     ) + 'fi\n'
 
 
-def read_command(digest, archive_digest=None):
+def read_command(digest, archive_digest=None, release_archive=False):
+    if release_archive and archive_digest is None:
+        raise ValueError("archive release needs a retained archive digest")
     for expected in (digest,) if archive_digest is None else (digest, archive_digest):
         if re.fullmatch(r"[0-9a-f]{128}", expected) is None:
             raise ValueError("invalid retained digest")
@@ -90,6 +92,17 @@ def read_command(digest, archive_digest=None):
         f'/usr/sbin/veil-audit verify --path /var/lib/synveil/audit-crash-test/{path} '
         f'--digest {expected} >/dev/null' for path, expected in paths
     )
+    if release_archive:
+        store = '/var/lib/synveil/audit-crash-test'
+        verification += (
+            f' &&\n/usr/sbin/veil-audit release-archive --path {store}/journal '
+            f'--snapshot {store}/copies/archive --authorization {store}/copies/release.json '
+            f'--digest {archive_digest} >/dev/null &&\n'
+            f'[ ! -e {store}/journal.1 ] && [ ! -L {store}/journal.1 ] &&\n'
+            f'grep -Fq \'"phase":"authorized-before-unlink"\' {store}/copies/release.json &&\n'
+            f'/usr/sbin/veil-audit verify --path {store}/journal --digest {digest} >/dev/null &&\n'
+            f'/usr/sbin/veil-audit verify --path {store}/copies/archive --digest {archive_digest} >/dev/null'
+        )
     return (
         'if ' + verification + ' &&\n'
         'timeout -s KILL 2 /usr/bin/synctl --json status >/dev/null; then\n'
@@ -109,13 +122,17 @@ def retained_digest(log, label):
 
 
 
-def smoke(timeout, rollover=False, archive_only=False):
+def smoke(timeout, rollover=False, archive_only=False, release_archive=False):
+    if release_archive and not (rollover or archive_only):
+        raise ValueError("archive release needs an archive setup")
     command = write_command(rollover, archive_only)
     out = Path(os.environ.get("SYNVEIL_OUT_DIR", ROOT / "out"))
     logs = out / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     prefix = ("qemu-audit-archive-only-crash" if archive_only else
               "qemu-audit-rollover-crash" if rollover else "qemu-audit-crash")
+    if release_archive:
+        prefix += "-release"
     write_log = logs / f"{prefix}-write.log"
     read_log = logs / f"{prefix}-read.log"
     # Never accept a supplied disk. Keep it alive through both boots and waits.
@@ -133,7 +150,7 @@ def smoke(timeout, rollover=False, archive_only=False):
             return False
         # The expected digest comes from the first boot's host-retained log,
         # never from a digest file potentially changed with the guest disk.
-        return persistence.boot_round(disk, READ_MARKER, read_command(digest, archive_digest),
+        return persistence.boot_round(disk, READ_MARKER, read_command(digest, archive_digest, release_archive),
                                       timeout, read_log, required=READY)
 
 
@@ -145,10 +162,14 @@ def main():
                        help="also retain and verify a completed rollover archive")
     setup.add_argument("--archive-only", action="store_true",
                        help="construct an archive with no active journal before native recovery")
+    parser.add_argument("--release-archive", action="store_true",
+                        help="after reboot verification, explicitly release only the copied archive")
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error("timeout must be positive")
-    passed = smoke(args.timeout, args.rollover, args.archive_only)
+    if args.release_archive and not (args.rollover or args.archive_only):
+        parser.error("--release-archive requires --rollover or --archive-only")
+    passed = smoke(args.timeout, args.rollover, args.archive_only, args.release_archive)
     print("[synveil] acknowledged audit after abrupt QEMU stop " + ("passed" if passed else "failed"))
     return 0 if passed else 1
 

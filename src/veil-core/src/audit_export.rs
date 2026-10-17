@@ -40,7 +40,11 @@ pub(crate) fn create_output(directory: &fs::File) -> io::Result<fs::File> {
     Ok(unsafe { fs::File::from_raw_fd(fd) })
 }
 
-pub(crate) fn publish_output(file: &fs::File, directory: &fs::File, name: &CString) -> io::Result<()> {
+pub(crate) fn publish_output(
+    file: &fs::File,
+    directory: &fs::File,
+    name: &CString,
+) -> io::Result<()> {
     // The procfs descriptor link permits unprivileged publication of O_TMPFILE.
     // linkat creates the destination atomically and refuses every existing entry.
     let source = CString::new(format!("/proc/self/fd/{}", file.as_raw_fd())).unwrap();

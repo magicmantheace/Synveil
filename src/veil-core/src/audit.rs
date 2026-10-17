@@ -1239,13 +1239,16 @@ mod tests {
         fs::set_permissions(&copies, fs::Permissions::from_mode(0o700)).unwrap();
         let archive = archive_path(&journal).unwrap();
         let snapshot = copies.join("snapshot");
-        let exported = retry_fixture(|| super::super::audit_export::export(&archive, &snapshot)).unwrap();
-        retry_fixture(|| super::super::audit_retention::release_archive(
-            &journal,
-            &snapshot,
-            &copies.join("release.json"),
-            exported["digest"].as_str().unwrap(),
-        ))
+        let exported =
+            retry_fixture(|| super::super::audit_export::export(&archive, &snapshot)).unwrap();
+        retry_fixture(|| {
+            super::super::audit_retention::release_archive(
+                &journal,
+                &snapshot,
+                &copies.join("release.json"),
+                exported["digest"].as_str().unwrap(),
+            )
+        })
         .unwrap();
         assert!(!archive.exists());
         assert_eq!(fs::read(&snapshot).unwrap(), old);
