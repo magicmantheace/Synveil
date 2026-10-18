@@ -143,7 +143,8 @@ longer hides a degraded persistent sink. Exact-revision host CI passed at
 `bf9e1fd` ([run 39163064705](https://github.com/magicmantheace/Synveil/actions/runs/39163064705)).
 The existing rollover, tmpfs ENOSPC/read-only and ext4 exhaustion guest gates
 now require truthful healthy/degraded status and failure counts; fresh native
-validation remains pending.
+validation remains pending. Their exact-revision host checks passed at `141e20e`
+([run 39163522216](https://github.com/magicmantheace/Synveil/actions/runs/39163522216)).
 Expanded guest gates for exhausted archive capacity and incomplete tails are
 validated at [3fb0158](docs/validation/native-3fb0158/README.md).
 The isolated tmpfs ENOSPC/recovered-space gate passed native guest validation at

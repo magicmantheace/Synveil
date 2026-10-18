@@ -962,7 +962,9 @@ at `bf9e1fd`, including six-cut tracing of the built release CLI. The rollover,
 tmpfs exhaustion/read-only and ext4 exhaustion guest commands now capture the
 real helper's status and require configured `healthy`/zero or
 `degraded`/nonzero results as appropriate. Their 31 host control-flow tests
-reject incorrect state, configuration and counts. Native guest evidence for
-these assertions remains pending, so this does not complete durable audit or
-establish survival of a successful synchronization across device-cache or
-physical power loss.
+reject incorrect state, configuration and counts. Exact source `141e20e` passed
+all host checks in [run 39163522216](https://github.com/magicmantheace/Synveil/actions/runs/39163522216),
+including the full Rust suite, actual built-CLI tracing, formatting and clippy.
+Native guest evidence for these assertions remains pending, so this does not
+complete durable audit or establish survival of a successful synchronization
+across device-cache or physical power loss.
