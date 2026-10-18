@@ -815,7 +815,7 @@ job `117453710277`.
 They supplement the nine-cut process-loss matrix without adding guest live-release
 interruption, real storage faults, cache loss, power-loss or authenticated integrity proof.
 
-## Release receipt inspector candidate
+## Release receipt inspection
 
 `inspect-release` adds read-only observation of authorization-only, partial
 completion and recorded completion states. Unit fixtures verify that receipt,
@@ -833,7 +833,8 @@ journal/snapshot checksums. Local Python driver checks passed 11 tests with two
 real-process fixtures skipped because this environment proxies process identity.
 Source `39d26273c9b54fb9c18c73ec0a65e0d0849923fe` passed all 136 Rust tests,
 formatting and clippy in [run 39058995249](https://github.com/magicmantheace/Synveil/actions/runs/39058995249),
-job `117473083817`. Fresh native validation remains pending for this candidate.
+job `117473083817`. All 44 native steps passed at
+[9059bf6](validation/native-9059bf6/README.md); the inspector is now merged.
 Inspection never upgrades a process-cut observation into guest/cache/power-loss proof.
 
 The preceding CLI-only review correction at `953c368` also passed 132 Rust tests,
@@ -841,3 +842,56 @@ formatting and clippy in [run 39058533152](https://github.com/magicmantheace/Syn
 before PR #25 merged. It checks actual supplied malformed digest values for
 error disclosure. The prior merged source `8d8dfed` passed all 44 native steps in
 [run 39052189785](https://github.com/magicmantheace/Synveil/actions/runs/39052189785).
+
+## Live release guest interruption candidate
+
+The isolated `audit-release-crash` fixture now targets four live release syscall
+boundaries and eight independent QEMU sessions. Its exact checkpoints, replay
+expectations and scope are defined in [AUDIT.md](AUDIT.md#live-release-guest-interruption-fixture).
+The regular image and native runtime contain no tracing helper or fault controls.
+The new fixture becomes an additional required step in the native workflow.
+
+Local shell recovery tests passed four tests covering all allowed archive/receipt
+states, forbidden completion/presence combinations, corrupt copies, missing or
+ambiguous host-retained digests, cut failure and reboot failure. Fixture staging
+checks passed eight tests, including baseline isolation. The C tracer compiled
+with `-Wall -Wextra -Werror`; argument refusal passed locally, while six real
+tracing subcases skipped because local policy blocks ptrace. Under GitHub Actions,
+tracing unavailability is a failure, not a skip.
+
+Host source `d3a0360cd4ad04564abd131d706f6930d05f1519` passed all four real
+tracing boundaries and both refusal subcases without skips, four shell recovery
+tests, eight staging tests and the full 136-test Rust workspace with formatting
+and clippy in [run 39065469118](https://github.com/magicmantheace/Synveil/actions/runs/39065469118),
+job `117492261989`. The tracing worker in this host suite is a controlled syscall
+fixture, not the native Rust command in a guest. Fresh full native validation
+remains pending. This candidate does not yet establish guest-interruption
+recovery, physical power-loss durability or independent authenticated integrity.
+
+The initial native candidate `798b905` failed the live-release guest step in
+[run 39065683248](https://github.com/magicmantheace/Synveil/actions/runs/39065683248).
+Review identified that the tracer recognized `AT_EMPTY_PATH` publication, while
+production uses `linkat(AT_FDCWD, "/proc/self/fd/<fd>", ..., AT_SYMLINK_FOLLOW)`.
+The earlier controlled worker used the same incorrect assumption as the tracer;
+its passing host result did not establish compatibility with the native command.
+The corrected tracer reads the bounded procfs descriptor source and tracks that
+receipt descriptor. The controlled worker now uses the production publication
+form and rejects the old form as a negative case. A separate host CI step traces
+the actual built `veil-audit` at every cut and runs its read-only inspector on
+each residual receipt. Fresh host and native results remain pending.
+
+
+Corrected source `18f43f16b81ad42e31a30d733675c5c64cab008d` passed
+[host run 39071600912](https://github.com/magicmantheace/Synveil/actions/runs/39071600912),
+job `117510191274`: all four actual built-CLI cuts followed by successful
+inspection of unchanged residual receipts, seven controlled-worker tracing/refusal
+subcases without skips, the recovery/staging suites, all 136 Rust tests,
+formatting and clippy. The new actual-CLI check is a separate post-build host
+step, not a simulation worker or guest proof. Only teardown lock contention is
+retried while a killed tracee closes its descriptors; every other inspector
+failure fails immediately. A fresh full native run is required after the failed
+`798b905` guest candidate. Physical power-loss and authenticated integrity remain open.
+
+Merged inspector source `4cfd054` separately passed all native steps in
+[run 39064960467](https://github.com/magicmantheace/Synveil/actions/runs/39064960467).
+The live-release fixture failure does not invalidate that earlier inspection proof.

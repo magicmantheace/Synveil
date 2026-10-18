@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", choices=("absent", "protocol", "graphical-login", "graphical-locked", "graphical-onboard", "recovery-status"), required=True)
+    parser.add_argument("--case", choices=("absent", "protocol", "graphical-login", "graphical-locked", "graphical-onboard", "recovery-status", "audit-release-crash"), required=True)
     args = parser.parse_args()
     work = Path(os.environ.get("SYNVEIL_WORK_DIR", ROOT / "build/work")).resolve()
     rootfs = Path(os.environ.get("SYNVEIL_ROOTFS_DIR", work / "rootfs")).resolve()
@@ -58,11 +58,12 @@ def main():
         toolchain = Path(os.environ.get("SYNVEIL_TOOLCHAIN_DIR", ROOT / "build/toolchain/out"))
         target = os.environ.get("SYNVEIL_TARGET", "x86_64-synveil-linux-gnu")
         sysroot = os.environ.get("SYNVEIL_SYSROOT", str(toolchain / target / "sysroot"))
-        probe = tree / "usr/libexec/synveil-test/protocol-probe"
+        name = "audit-release-cut" if args.case == "audit-release-crash" else "protocol-probe"
+        probe = tree / "usr/libexec/synveil-test" / name
         probe.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run([str(toolchain / "bin" / (target + "-gcc")),
                         "--sysroot=" + sysroot, "-static", "-O2", "-Wall", "-Wextra", "-Werror",
-                        str(ROOT / "tests/protocol-probe.c"), "-o", str(probe)], check=True)
+                        str(ROOT / "tests" / (name + ".c")), "-o", str(probe)], check=True)
     with (fixture_out / "synveil-initramfs.cpio").open("wb") as packed:
         subprocess.run(["bash", "-o", "pipefail", "-c",
                         "find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0"],
@@ -117,6 +118,18 @@ def main():
             "locked_serial": True,
             "first_user_enrollment": True,
             "persistent_authentication": True,
+        }, indent=2) + "\n")
+    elif args.case == "audit-release-crash":
+        subprocess.run(["python3", str(ROOT / "tests/smoke-audit-release-crash.py"),
+                        "--timeout", "75"], env=env, check=True)
+        proof.write_text(json.dumps({
+            "schema": "synveil.guest-proof/v1", "case": args.case,
+            "git_commit": identity["git_commit"],
+            "fixture_sha256": hashlib.sha256(
+                (fixture_out / "manifests/fixture.json").read_bytes()).hexdigest(),
+            "result": "passed", "independent_qemu_boots": 8,
+            "release_cuts": ["before-unlink", "after-unlink", "unlink-synced", "partial-completion"],
+            "host_page_cache_survives": True, "physical_power_loss": False,
         }, indent=2) + "\n")
     elif args.case == "graphical-login":
         # Separate, never-reused synthetic state volume and fresh test-only
