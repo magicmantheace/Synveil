@@ -843,9 +843,9 @@ before PR #25 merged. It checks actual supplied malformed digest values for
 error disclosure. The prior merged source `8d8dfed` passed all 44 native steps in
 [run 39052189785](https://github.com/magicmantheace/Synveil/actions/runs/39052189785).
 
-## Live release guest interruption candidate
+## Initial live release guest interruption
 
-The isolated `audit-release-crash` fixture now targets four live release syscall
+The initial isolated `audit-release-crash` fixture targeted four live release syscall
 boundaries and eight independent QEMU sessions. Its exact checkpoints, replay
 expectations and scope are defined in [AUDIT.md](AUDIT.md#live-release-guest-interruption-fixture).
 The regular image and native runtime contain no tracing helper or fault controls.
@@ -864,9 +864,8 @@ tracing boundaries and both refusal subcases without skips, four shell recovery
 tests, eight staging tests and the full 136-test Rust workspace with formatting
 and clippy in [run 39065469118](https://github.com/magicmantheace/Synveil/actions/runs/39065469118),
 job `117492261989`. The tracing worker in this host suite is a controlled syscall
-fixture, not the native Rust command in a guest. Fresh full native validation
-remains pending. This candidate does not yet establish guest-interruption
-recovery, physical power-loss durability or independent authenticated integrity.
+fixture, not the native Rust command in a guest. That result alone did not
+establish native guest recovery; the corrected native proof is recorded below.
 
 The initial native candidate `798b905` failed the live-release guest step in
 [run 39065683248](https://github.com/magicmantheace/Synveil/actions/runs/39065683248).
@@ -878,7 +877,7 @@ The corrected tracer reads the bounded procfs descriptor source and tracks that
 receipt descriptor. The controlled worker now uses the production publication
 form and rejects the old form as a negative case. A separate host CI step traces
 the actual built `veil-audit` at every cut and runs its read-only inspector on
-each residual receipt. Fresh host and native results remain pending.
+each residual receipt. The corrected results follow.
 
 
 Corrected source `18f43f16b81ad42e31a30d733675c5c64cab008d` passed
@@ -889,9 +888,36 @@ subcases without skips, the recovery/staging suites, all 136 Rust tests,
 formatting and clippy. The new actual-CLI check is a separate post-build host
 step, not a simulation worker or guest proof. Only teardown lock contention is
 retried while a killed tracee closes its descriptors; every other inspector
-failure fails immediately. A fresh full native run is required after the failed
-`798b905` guest candidate. Physical power-loss and authenticated integrity remain open.
+failure fails immediately. The corrected native run supersedes the failed
+`798b905` guest candidate; physical power-loss and authenticated integrity remain open.
 
 Merged inspector source `4cfd054` separately passed all native steps in
 [run 39064960467](https://github.com/magicmantheace/Synveil/actions/runs/39064960467).
 The live-release fixture failure does not invalidate that earlier inspection proof.
+
+
+Corrected source `d846b81` passed all 45 native steps in
+[run 39071778326](https://github.com/magicmantheace/Synveil/actions/runs/39071778326),
+including all four guest cuts and eight independent boots. The downloaded ZIP's
+SHA256, fixed checkpoint/kill/recovery markers and fixture-manifest hash were
+verified; see [retained evidence](validation/native-d846b81/README.md). The
+post-unlink/pre-directory-sync archive was present after replay, an allowed
+outcome; both later cuts observed archive absence. PR #27 is merged.
+
+## Completion receipt guest-reboot extension candidate
+
+The matrix now additionally stops after the full completion line's final newline
+write returns, and after its subsequent receipt-file fsync returns. Both cuts
+occur before the caller receives the CLI report. The first accepts any valid
+retained authorization/completion prefix after reboot, including a complete but
+unacknowledged line. The synchronized cut requires `completion-recorded`. Both
+require archive absence, retained-copy/active checksums and unchanged old receipts.
+The six-cut matrix uses twelve fresh QEMU boot sessions.
+
+The controlled syscall worker, actual built-CLI host checks, recovery shell
+fixtures and staging proof counts now include both cuts. Local C compilation,
+argument refusal, four recovery shell tests and eight staging tests passed;
+nine tracing subcases skipped locally because ptrace is blocked. CI must execute
+them without skips. Host and fresh native validation for the extension remain
+pending. The four-cut proof above does not cover these new boundaries or
+physical device/cache/power loss.

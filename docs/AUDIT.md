@@ -538,7 +538,9 @@ rootfs or packaged preview. It holds the real release process at a syscall stop
 and emits a fixed checkpoint only after observing the required successful calls.
 The host must see that exact phase, SIGKILL QEMU, confirm wrapper reap, retain
 both journal digests independently and reboot the same disposable state disk.
-Each phase starts with a fresh disk; four phases require eight QEMU boots.
+Each phase starts with a fresh disk. The initial four phases required eight
+QEMU boots and passed at [d846b81](validation/native-d846b81/README.md).
+The current six-cut candidate requires twelve boots.
 
 | Cut | Held boundary | Required recovery observation |
 | --- | --- | --- |
@@ -546,6 +548,8 @@ Each phase starts with a fresh disk; four phases require eight QEMU boots.
 | `after-unlink` | Unlink returned zero, before journal-directory sync | Archive present or absent after replay; authorization-only receipt |
 | `unlink-synced` | Journal-directory fsync returned zero, before completion write | Archive absent; authorization-only receipt |
 | `partial-completion` | Exactly one completion byte written after journal-directory sync | Archive absent; authorization-only or incomplete-completion receipt |
+| `completion-written` | Full completion line's final newline write returned, before file sync | Archive absent; authorization-only, incomplete-completion or completion-recorded receipt |
+| `completion-synced` | Completion-file fsync returned, before caller receives its report | Archive absent; completion-recorded receipt |
 
 The tracer identifies publication, archive unlink and journal sync descriptors;
 it requires intent file sync before publication and authorization-directory sync
@@ -563,7 +567,12 @@ filesystem worker, but the first native candidate failed because that worker and
 tracer assumed a publication syscall different from production. The corrected
 tracer recognizes the production procfs descriptor source; host CI also traces
 the actual built CLI at every cut. This correction passed at `18f43f1`, including
-all four actual CLI stops and read-only receipt inspection afterward. Fresh native
-validation remains pending. The guest fixture
+all four actual CLI stops and read-only receipt inspection afterward. Corrected
+native source `d846b81` passed all 45 steps and the initial four guest cuts;
+the two completion-boundary extensions remain pending validation. The tracer
+recognizes the complete line by its successful final-newline write, then tracks
+the following sync of that same receipt descriptor. Neither stop resumes the
+command to return its report. Reading a complete receipt still does not, by
+itself, establish that its file sync returned. The guest fixture
 targets kernel loss and filesystem replay while the host page cache survives; it does not
 simulate real device errors, volatile-device-cache loss or physical power failure.

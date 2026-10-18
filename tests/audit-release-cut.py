@@ -15,6 +15,8 @@ import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+PHASES = ("before-unlink", "after-unlink", "unlink-synced", "partial-completion",
+          "completion-written", "completion-synced")
 WORKER = r'''
 #define _GNU_SOURCE
 #include <fcntl.h>
@@ -102,7 +104,9 @@ class CutTests(unittest.TestCase):
                 self.assertIsNone(process.poll(), "tracer must hold its live child")
                 self.assertEqual(archive.exists(), phase == "before-unlink")
                 receipt = (root / "copies/release.json").read_bytes()
-                self.assertEqual(receipt, b"intent\n" + (b"c" if phase == "partial-completion" else b""))
+                tail = (b"c" if phase == "partial-completion" else
+                        b"completion\n" if phase.startswith("completion-") else b"")
+                self.assertEqual(receipt, b"intent\n" + tail)
             finally:
                 if process.poll() is None:
                     try:
@@ -113,8 +117,8 @@ class CutTests(unittest.TestCase):
                 process.stdout.close()
                 process.stderr.close()
 
-    def test_all_four_real_syscall_boundaries(self):
-        for phase in ("before-unlink", "after-unlink", "unlink-synced", "partial-completion"):
+    def test_all_six_real_syscall_boundaries(self):
+        for phase in PHASES:
             with self.subTest(phase=phase):
                 self.check(phase)
 
@@ -125,8 +129,8 @@ class CutTests(unittest.TestCase):
 
 
 class NativeCutTests(CutTests):
-    def test_actual_cli_publication_and_all_four_cuts(self):
-        for phase in ("before-unlink", "after-unlink", "unlink-synced", "partial-completion"):
+    def test_actual_cli_publication_and_all_six_cuts(self):
+        for phase in PHASES:
             with self.subTest(phase=phase), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 root.chmod(0o700)
@@ -165,7 +169,11 @@ class NativeCutTests(CutTests):
                 saved = receipt.read_bytes()
                 intent, tail = saved.split(b"\n", 1)
                 self.assertEqual(json.loads(intent)["digest"], digest)
-                self.assertEqual(tail, b"{" if phase == "partial-completion" else b"")
+                if phase.startswith("completion-"):
+                    self.assertTrue(tail.endswith(b"\n"))
+                    self.assertEqual(json.loads(tail)["released"], True)
+                else:
+                    self.assertEqual(tail, b"{" if phase == "partial-completion" else b"")
                 # The tracer can be reaped just before its killed tracee closes
                 # the inherited scope lock. Retry that contention only.
                 for attempt in range(100):
@@ -176,7 +184,8 @@ class NativeCutTests(CutTests):
                         break
                     time.sleep(0.01)
                 result.check_returncode()
-                expected = "incomplete-completion" if phase == "partial-completion" else "authorization-only"
+                expected = ("completion-recorded" if phase.startswith("completion-") else
+                            "incomplete-completion" if phase == "partial-completion" else "authorization-only")
                 self.assertEqual(json.loads(result.stdout)["state"], expected)
                 self.assertEqual(receipt.read_bytes(), saved)
                 self.assertEqual(snapshot.read_bytes(), record)
@@ -188,7 +197,7 @@ if __name__ == "__main__":
     parser.add_argument("--native-binary", type=Path)
     arguments = parser.parse_args()
     NATIVE = str(arguments.native_binary.resolve()) if arguments.native_binary else None
-    suite = (unittest.TestSuite([NativeCutTests("test_actual_cli_publication_and_all_four_cuts")])
+    suite = (unittest.TestSuite([NativeCutTests("test_actual_cli_publication_and_all_six_cuts")])
              if NATIVE else unittest.defaultTestLoader.loadTestsFromTestCase(CutTests))
     result = unittest.TextTestRunner().run(suite)
     sys.exit(0 if result.wasSuccessful() else 1)

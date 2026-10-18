@@ -111,8 +111,8 @@ class GuestFixtureTests(unittest.TestCase):
                     proof_path = out / "guest-fixtures" / case / "manifests/validation.json"
                     if case == "audit-release-crash":
                         proof = json.loads(proof_path.read_text())
-                        self.assertEqual(proof["independent_qemu_boots"], 8)
-                        self.assertEqual(len(proof["release_cuts"]), 4)
+                        self.assertEqual(proof["independent_qemu_boots"], 12)
+                        self.assertEqual(len(proof["release_cuts"]), 6)
                         self.assertTrue(proof["host_page_cache_survives"])
                         self.assertFalse(proof["physical_power_loss"])
                     elif case == "graphical-onboard":

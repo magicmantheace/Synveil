@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("audit_crash", ROOT / "tests/smoke-audit-crash.py")
 audit = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(audit)
-PHASES = ("before-unlink", "after-unlink", "unlink-synced", "partial-completion")
+PHASES = ("before-unlink", "after-unlink", "unlink-synced", "partial-completion",
+          "completion-written", "completion-synced")
 READ_MARKER = b"SYNVEIL_RELEASE_GUEST_RECOVERY_OK"
 STORE = "/var/lib/synveil/audit-crash-test"
 
@@ -28,13 +29,17 @@ def read_command(phase, digest, archive_digest):
                f'--snapshot {STORE}/copies/archive --authorization {STORE}/copies/release.json '
                f'--digest {archive_digest} >/run/release-inspection.json')
     checks += [inspect, 'grep -Fq \'"archive_state":"not-inspected"\' /run/release-inspection.json']
-    if phase == "partial-completion":
+    if phase == "completion-written":
+        checks.append('grep -Eq \'"state":"(authorization-only|incomplete-completion|completion-recorded)"\' /run/release-inspection.json')
+    elif phase == "completion-synced":
+        checks.append('grep -Fq \'"state":"completion-recorded"\' /run/release-inspection.json')
+    elif phase == "partial-completion":
         checks.append('grep -Eq \'"state":"(authorization-only|incomplete-completion)"\' /run/release-inspection.json')
     else:
         checks.append('grep -Fq \'"state":"authorization-only"\' /run/release-inspection.json')
     if phase == "before-unlink":
         checks.append(f'[ -f {STORE}/journal.1 ] && [ ! -L {STORE}/journal.1 ]')
-    elif phase in ("unlink-synced", "partial-completion"):
+    elif phase in ("unlink-synced", "partial-completion", "completion-written", "completion-synced"):
         checks.append(f'[ ! -e {STORE}/journal.1 ] && [ ! -L {STORE}/journal.1 ]')
     # Before journal-directory sync, either replayed namespace is possible.
     # Observe it first, then use a fresh receipt only if an archive survived.

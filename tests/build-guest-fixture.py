@@ -127,8 +127,9 @@ def main():
             "git_commit": identity["git_commit"],
             "fixture_sha256": hashlib.sha256(
                 (fixture_out / "manifests/fixture.json").read_bytes()).hexdigest(),
-            "result": "passed", "independent_qemu_boots": 8,
-            "release_cuts": ["before-unlink", "after-unlink", "unlink-synced", "partial-completion"],
+            "result": "passed", "independent_qemu_boots": 12,
+            "release_cuts": ["before-unlink", "after-unlink", "unlink-synced", "partial-completion",
+                             "completion-written", "completion-synced"],
             "host_page_cache_survives": True, "physical_power_loss": False,
         }, indent=2) + "\n")
     elif args.case == "graphical-login":
