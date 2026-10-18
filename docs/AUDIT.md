@@ -30,6 +30,14 @@ mode 0600 in a root-owned mode 0700 directory. Each successful append calls
 record and the journal's directory entry. Sink failures are reported on the console; they do not disable
 recovery. Sequence numbers remain process-local, not a cross-process ordering.
 
+The versioned core status reports whether persistent audit is configured, the
+latest attempted write's `healthy` or `degraded` result, and a process-local
+failed-write count. A successful later append returns the state to `healthy`
+without erasing the count. This exposes loss of persistent evidence through the
+existing read-only control path while keeping status and console recovery alive.
+It does not prove that a successful sync survived device-cache loss, and the
+counter resets when the emitting process restarts.
+
 The append path rejects symlinks, non-regular files, hardlinks, files with
 unexpected owners or modes, and writable journal directories. Linux
 `O_NOFOLLOW | O_NONBLOCK` prevents following substituted final symlinks

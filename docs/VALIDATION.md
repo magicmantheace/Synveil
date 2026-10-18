@@ -938,3 +938,24 @@ tests, eight staging tests, all 136 Rust tests, formatting and clippy. This
 includes complete-but-unacknowledged records after the final newline and after
 file sync. Only the preceding four-cut native revision has guest proof so far;
 a fresh six-cut/twelve-boot native run remains required.
+
+## Persistent audit sink status candidate
+
+The versioned `status` result now includes the configured persistent-audit
+state and a process-local failed-write count. A configured sink is `healthy`
+only after its latest append and synchronization succeeds; an append, file-sync,
+rotation or directory-sync failure makes it `degraded`. A later successful
+append restores `healthy` while retaining the count. No configured path reports
+`disabled`; `starting` covers the interval before a configured process attempts
+its first write. The core service itself remains ready so recovery can inspect
+the failure.
+
+The real-core host integration requires `healthy` with zero failures for a
+private writable journal and `degraded` with the exact preceding failure count
+for an incomplete journal, while retaining existing console warnings and byte
+preservation checks. After fixture-controlled removal of the damaged pathname,
+the next successful request must report `healthy` without clearing the count.
+The full 136-test Rust workspace, formatting and clippy pass on the pinned 1.99
+toolchain locally. Exact-revision CI and native guest evidence remain pending,
+so this does not complete durable audit or establish survival of a successful
+synchronization across device-cache or physical power loss.

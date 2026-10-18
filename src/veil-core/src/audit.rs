@@ -8,7 +8,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const AUDIT_SCHEMA_V1: &str = "synveil.audit/v1";
@@ -30,6 +30,27 @@ unsafe extern "C" {
 }
 
 static SEQUENCE: AtomicU64 = AtomicU64::new(1);
+static PERSISTENT_WRITE_ATTEMPTED: AtomicBool = AtomicBool::new(false);
+static LAST_PERSISTENT_WRITE_SUCCEEDED: AtomicBool = AtomicBool::new(false);
+static PERSISTENT_WRITE_FAILURES: AtomicU64 = AtomicU64::new(0);
+
+pub fn persistent_status() -> veil_protocol::PersistentAuditStatus {
+    let configured = std::env::var_os("SYNVEIL_AUDIT_PATH").is_some();
+    let state = if !configured {
+        "disabled"
+    } else if !PERSISTENT_WRITE_ATTEMPTED.load(Ordering::SeqCst) {
+        "starting"
+    } else if LAST_PERSISTENT_WRITE_SUCCEEDED.load(Ordering::SeqCst) {
+        "healthy"
+    } else {
+        "degraded"
+    };
+    veil_protocol::PersistentAuditStatus {
+        configured,
+        state: state.to_owned(),
+        failed_writes: PERSISTENT_WRITE_FAILURES.load(Ordering::SeqCst),
+    }
+}
 
 pub fn record(event: &str, fields: Value) -> Value {
     let unix_time_ms = SystemTime::now()
@@ -58,10 +79,19 @@ pub fn emit(event: &str, fields: Value) {
     eprintln!("{line}");
     // Opt-in audit journal, only set by bootstrap after /var is mounted.
     // Console logging remains available even if persistent storage fails.
-    if let Some(path) = std::env::var_os("SYNVEIL_AUDIT_PATH")
-        && let Err(error) = append_record(Path::new(&path), &line)
-    {
-        eprintln!("[synveil-audit] persistent write failed: {error}");
+    if let Some(path) = std::env::var_os("SYNVEIL_AUDIT_PATH") {
+        match append_record(Path::new(&path), &line) {
+            Ok(()) => {
+                LAST_PERSISTENT_WRITE_SUCCEEDED.store(true, Ordering::SeqCst);
+                PERSISTENT_WRITE_ATTEMPTED.store(true, Ordering::SeqCst);
+            }
+            Err(error) => {
+                PERSISTENT_WRITE_FAILURES.fetch_add(1, Ordering::SeqCst);
+                LAST_PERSISTENT_WRITE_SUCCEEDED.store(false, Ordering::SeqCst);
+                PERSISTENT_WRITE_ATTEMPTED.store(true, Ordering::SeqCst);
+                eprintln!("[synveil-audit] persistent write failed: {error}");
+            }
+        }
     }
 }
 

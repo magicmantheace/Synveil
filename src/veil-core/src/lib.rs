@@ -129,6 +129,7 @@ fn status(request: Request) -> Response {
         version: veil_protocol::BUILD_VERSION.to_owned(),
         protocol: CORE_SCHEMA_V1.to_owned(),
         state: "ready".to_owned(),
+        persistent_audit: audit::persistent_status(),
         git_revision: veil_protocol::BUILD_REVISION.map(str::to_owned),
     };
 
@@ -279,6 +280,8 @@ mod tests {
         assert_eq!(result["service"], "veil-core");
         assert_eq!(result["protocol"], CORE_SCHEMA_V1);
         assert_eq!(result["state"], "ready");
+        assert_eq!(result["persistent_audit"]["configured"], false);
+        assert_eq!(result["persistent_audit"]["state"], "disabled");
     }
 
     #[test]
