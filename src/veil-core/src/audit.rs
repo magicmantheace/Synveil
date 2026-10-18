@@ -512,7 +512,7 @@ mod tests {
         let journal = dir.join("journal");
         let original = record("start", json!({})).to_string();
         append_fixture(&journal, &original).unwrap();
-        let held = directory_lock(&journal, true).unwrap();
+        let held = retry_fixture(|| directory_lock(&journal, true)).unwrap();
         assert_eq!(
             append_record(&journal, "blocked").unwrap_err().kind(),
             io::ErrorKind::WouldBlock
@@ -529,7 +529,7 @@ mod tests {
         );
         drop(held);
         inspect_fixture(&journal).unwrap();
-        let reader = directory_lock(&journal, false).unwrap();
+        let reader = retry_fixture(|| directory_lock(&journal, false)).unwrap();
         assert_eq!(
             append_record(&journal, "blocked").unwrap_err().kind(),
             io::ErrorKind::WouldBlock

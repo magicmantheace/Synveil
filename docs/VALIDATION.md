@@ -921,3 +921,11 @@ nine tracing subcases skipped locally because ptrace is blocked. CI must execute
 them without skips. Host and fresh native validation for the extension remain
 pending. The four-cut proof above does not cover these new boundaries or
 physical device/cache/power loss.
+
+The initial extension host run `39161261783` passed the new controlled tracing
+suite, then exposed transient `WouldBlock` during positive setup of
+`stable_directory_lock_blocks_readers_and_writers_without_mutation`. That setup
+now uses the existing test-only bounded contention retry, which waits for
+parallel forked children to close inherited descriptors at exec. Deliberate
+contention assertions still call production operations directly and must refuse
+immediately; no runtime lock or retry behavior changes.
