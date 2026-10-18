@@ -918,8 +918,7 @@ The controlled syscall worker, actual built-CLI host checks, recovery shell
 fixtures and staging proof counts now include both cuts. Local C compilation,
 argument refusal, four recovery shell tests and eight staging tests passed;
 nine tracing subcases skipped locally because ptrace is blocked. CI must execute
-them without skips. Host and fresh native validation for the extension remain
-pending. The four-cut proof above does not cover these new boundaries or
+them without skips. Fresh native validation for the extension remains pending. The four-cut proof above does not cover these new boundaries or
 physical device/cache/power loss.
 
 The initial extension host run `39161261783` passed the new controlled tracing
@@ -929,3 +928,13 @@ now uses the existing test-only bounded contention retry, which waits for
 parallel forked children to close inherited descriptors at exec. Deliberate
 contention assertions still call production operations directly and must refuse
 immediately; no runtime lock or retry behavior changes.
+
+
+Corrected extension source `f04ade734c4acb80f321005e393684847378701e`
+passed [host run 39161435398](https://github.com/magicmantheace/Synveil/actions/runs/39161435398),
+job `117775393623`: nine controlled-worker subcases without skips, all six
+actual built-CLI cuts and subsequent receipt inspection, four recovery shell
+tests, eight staging tests, all 136 Rust tests, formatting and clippy. This
+includes complete-but-unacknowledged records after the final newline and after
+file sync. Only the preceding four-cut native revision has guest proof so far;
+a fresh six-cut/twelve-boot native run remains required.

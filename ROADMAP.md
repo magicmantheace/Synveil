@@ -216,7 +216,10 @@ All 45 native steps and all four live guest cuts passed at
 [d846b81](docs/validation/native-d846b81/README.md), including eight independent
 QEMU boots and verified downloaded evidence. The fixture is now merged.
 A six-cut extension adds full completion-write and completion-file-sync boundaries
-and twelve guest boots; host and native validation are pending for that extension.
+and twelve guest boots. Host source `f04ade7` passed nine controlled-worker
+subcases, all six built-CLI cuts and receipt inspections, all 136 Rust tests,
+formatting and clippy ([run 39161435398](https://github.com/magicmantheace/Synveil/actions/runs/39161435398)).
+Fresh native validation remains pending for that extension.
 Automatic retention, real device-error/cache-loss tests, independent integrity
 anchoring and physical power-loss testing remain open.
 
