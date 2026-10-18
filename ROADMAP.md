@@ -139,8 +139,11 @@ authenticate records or prove completeness. Its exact-revision native guest
 validation passed at [262d275](docs/validation/native-262d275/README.md).
 The core status schema now exposes whether persistent audit is configured, the
 latest process-local write result and a failed-write counter, so a ready core no
-longer hides a degraded persistent sink. Host integration covers healthy and
-incomplete-journal states; exact-revision CI and guest validation remain pending.
+longer hides a degraded persistent sink. Exact-revision host CI passed at
+`bf9e1fd` ([run 39163064705](https://github.com/magicmantheace/Synveil/actions/runs/39163064705)).
+The existing rollover, tmpfs ENOSPC/read-only and ext4 exhaustion guest gates
+now require truthful healthy/degraded status and failure counts; fresh native
+validation remains pending.
 Expanded guest gates for exhausted archive capacity and incomplete tails are
 validated at [3fb0158](docs/validation/native-3fb0158/README.md).
 The isolated tmpfs ENOSPC/recovered-space gate passed native guest validation at

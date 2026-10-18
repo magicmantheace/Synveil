@@ -37,6 +37,11 @@ without erasing the count. This exposes loss of persistent evidence through the
 existing read-only control path while keeping status and console recovery alive.
 It does not prove that a successful sync survived device-cache loss, and the
 counter resets when the emitting process restarts.
+The rollover-capacity, incomplete-tail, tmpfs ENOSPC/read-only and ext4 ENOSPC
+guest gates require matching `healthy` or `degraded` status and zero/nonzero
+failure counts from the real helper core. Their host control-flow fixtures
+reject incorrect state, configuration and counts; fresh target/QEMU execution
+is still required.
 
 The append path rejects symlinks, non-regular files, hardlinks, files with
 unexpected owners or modes, and writable journal directories. Linux

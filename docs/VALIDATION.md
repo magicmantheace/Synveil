@@ -955,7 +955,14 @@ private writable journal and `degraded` with the exact preceding failure count
 for an incomplete journal, while retaining existing console warnings and byte
 preservation checks. After fixture-controlled removal of the damaged pathname,
 the next successful request must report `healthy` without clearing the count.
-The full 136-test Rust workspace, formatting and clippy pass on the pinned 1.99
-toolchain locally. Exact-revision CI and native guest evidence remain pending,
-so this does not complete durable audit or establish survival of a successful
-synchronization across device-cache or physical power loss.
+The full 136-test Rust workspace, formatting and clippy passed on the pinned
+1.99 toolchain locally and in exact-revision host run
+[39163064705](https://github.com/magicmantheace/Synveil/actions/runs/39163064705)
+at `bf9e1fd`, including six-cut tracing of the built release CLI. The rollover,
+tmpfs exhaustion/read-only and ext4 exhaustion guest commands now capture the
+real helper's status and require configured `healthy`/zero or
+`degraded`/nonzero results as appropriate. Their 31 host control-flow tests
+reject incorrect state, configuration and counts. Native guest evidence for
+these assertions remains pending, so this does not complete durable audit or
+establish survival of a successful synchronization across device-cache or
+physical power loss.
