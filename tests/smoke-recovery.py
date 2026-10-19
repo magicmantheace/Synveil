@@ -401,6 +401,7 @@ SCENARIOS = {
                 "grep -Fq 'total_ticks' /tmp/synveil-observe.json && "
                 "grep -Fq '\"busy_basis_points\"' /tmp/synveil-observe.json && "
                 "grep -Fq '\"sample_window_ms\"' /tmp/synveil-observe.json && "
+                "grep -Fq '\"omitted_logical_cpus\":0,\"sample_window_ms\"' /tmp/synveil-observe.json && "
                 "grep -Fq '\"frequency\"' /tmp/synveil-observe.json && "
                 "grep -Fq 'total_threads' /tmp/synveil-observe.json && "
                 "grep -Fq 'average_1m' /tmp/synveil-observe.json && "

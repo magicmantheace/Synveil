@@ -1019,3 +1019,14 @@ invalid. Host fixtures cover primary and fallback files, ordering, absent
 cpufreq directories, busy-policy errors and malformed values. The native
 observer gate requires the frequency object even when QEMU exposes no cpufreq
 driver. Exact-revision host and target/QEMU validation remain required.
+
+## Per-logical-CPU utilization candidate
+
+The observer parser now validates every logical CPU accounting row in both
+samples, matches stable numeric CPU IDs, and derives a bounded busy-basis-point
+record for each CPU over the aggregate sample window. Host tests cover distinct
+busy and idle CPUs, numeric ordering, malformed rows, duplicate identifiers,
+topology changes, guest-time accounting, iowait decreases and counter rollback.
+The native guest gate requires the per-CPU utilization fields from the real
+`synctl --json observe` response. Exact-revision host and target/QEMU validation
+remain required.

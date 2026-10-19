@@ -321,8 +321,10 @@ permits iowait to decrease, so that case does not fail the observation. A
 malformed or backward non-guest counter other than iowait does fail it. Guest
 and guest_nice are excluded from totals because Linux already includes them in
 user and nice. The cumulative `total_ticks` and `idle_ticks` come from the later
-sample. This is an aggregate live window, not per-process attribution, per-CPU
-utilization or historical storage.
+sample. The same interval now includes bounded, numerically sorted per-logical-
+CPU busy basis points. A stable CPU with zero delta or decreasing iowait remains
+present with explicit `unavailable` status. This is a live window, not
+per-process attribution or historical storage.
 
 Exact revision `255101d0c5329bba12546466480ec748ec1e3097` passed the full
 native workflow, including the QEMU observer gate against the real native core
