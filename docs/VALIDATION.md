@@ -974,6 +974,12 @@ real helper's status and require configured `healthy`/zero or
 reject incorrect state, configuration and counts. Exact source `141e20e` passed
 all host checks in [run 39163522216](https://github.com/magicmantheace/Synveil/actions/runs/39163522216),
 including the full Rust suite, actual built-CLI tracing, formatting and clippy.
-Native guest evidence for these assertions remains pending, so this does not
-complete durable audit or establish survival of a successful synchronization
-across device-cache or physical power loss.
+Exact source `141e20e8b558a7ef36016f684acfad958694b072` then passed all
+45 native steps in
+[run 39163522194](https://github.com/magicmantheace/Synveil/actions/runs/39163522194),
+job `117781621003`. The downloaded ZIP's SHA256 and clean-revision build
+manifests matched; retained rollover, tmpfs and ext4 logs contained every
+required health transition and one final pass marker each. See
+[retained evidence](validation/native-141e20e/README.md). This does not complete
+durable audit or establish survival of a successful synchronization across
+device-cache or physical power loss.

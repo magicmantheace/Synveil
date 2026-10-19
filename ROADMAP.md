@@ -142,8 +142,10 @@ latest process-local write result and a failed-write counter, so a ready core no
 longer hides a degraded persistent sink. Exact-revision host CI passed at
 `bf9e1fd` ([run 39163064705](https://github.com/magicmantheace/Synveil/actions/runs/39163064705)).
 The existing rollover, tmpfs ENOSPC/read-only and ext4 exhaustion guest gates
-now require truthful healthy/degraded status and failure counts; fresh native
-validation remains pending. Their exact-revision host checks passed at `141e20e`
+now require truthful healthy/degraded status and failure counts. All 45 native
+steps passed at [141e20e](docs/validation/native-141e20e/README.md), including
+those three real-core guest gates; the downloaded evidence was digest-verified.
+The exact-revision host checks also passed
 ([run 39163522216](https://github.com/magicmantheace/Synveil/actions/runs/39163522216)).
 Expanded guest gates for exhausted archive capacity and incomplete tails are
 validated at [3fb0158](docs/validation/native-3fb0158/README.md).
