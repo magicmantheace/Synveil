@@ -219,7 +219,10 @@ A six-cut extension adds full completion-write and completion-file-sync boundari
 and twelve guest boots. Host source `f04ade7` passed nine controlled-worker
 subcases, all six built-CLI cuts and receipt inspections, all 136 Rust tests,
 formatting and clippy ([run 39161435398](https://github.com/magicmantheace/Synveil/actions/runs/39161435398)).
-Fresh native validation remains pending for that extension.
+All 45 native steps and all six cuts passed at
+[cbf272c](docs/validation/native-cbf272c/README.md), including twelve independent
+QEMU boots and verified downloaded evidence. The completion-write cut retained
+a valid receipt prefix and the completion-sync cut retained the complete receipt.
 Automatic retention, real device-error/cache-loss tests, independent integrity
 anchoring and physical power-loss testing remain open.
 
