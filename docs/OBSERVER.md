@@ -20,6 +20,9 @@ AI recommendations or operating-system policy changes.
   Zero total delta, a topology change, or an iowait decrease returns
   `{"status":"unavailable"}` without inventing a percentage. A backward
   non-guest counter other than iowait is invalid.
+  `synctl` validates the versioned utilization object, strictly increasing CPU
+  IDs, per-CPU status and basis-point bounds before accepting a successful
+  observe response.
 - `cpu.frequency`: kernel-reported current per-logical-CPU frequency from Linux
   cpufreq sysfs, in integer kHz. It is not an independent hardware measurement.
   `scaling_cur_freq` is preferred and `cpuinfo_cur_freq` is the fallback.

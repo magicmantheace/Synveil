@@ -1028,5 +1028,7 @@ record for each CPU over the aggregate sample window. Host tests cover distinct
 busy and idle CPUs, numeric ordering, malformed rows, duplicate identifiers,
 topology changes, guest-time accounting, iowait decreases and counter rollback.
 The native guest gate requires the per-CPU utilization fields from the real
-`synctl --json observe` response. Exact-revision host and target/QEMU validation
-remain required.
+`synctl --json observe` response. The client structurally validates the
+versioned result, sorted IDs, per-record status and bounded values before it can
+exit successfully. Exact-revision host and target/QEMU validation remain
+required.

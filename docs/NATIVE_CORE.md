@@ -325,6 +325,8 @@ sample. The same interval now includes bounded, numerically sorted per-logical-
 CPU busy basis points. A stable CPU with zero delta or decreasing iowait remains
 present with explicit `unavailable` status. This is a live window, not
 per-process attribution or historical storage.
+The native client rejects a successful observe response unless the utilization
+schema, sorted logical CPU IDs, record statuses and basis-point bounds validate.
 
 Exact revision `255101d0c5329bba12546466480ec748ec1e3097` passed the full
 native workflow, including the QEMU observer gate against the real native core
