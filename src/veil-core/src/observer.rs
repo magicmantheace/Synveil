@@ -67,11 +67,21 @@ fn parse_cpu_frequency(input: &str) -> io::Result<u64> {
     Ok(frequency)
 }
 
+fn cpu_frequency_is_unavailable(error: &io::Error) -> bool {
+    matches!(
+        error.kind(),
+        io::ErrorKind::ResourceBusy | io::ErrorKind::WouldBlock
+    )
+}
+
 fn read_cpu_frequency_file(cpu: &Path) -> io::Result<Option<u64>> {
     for name in ["scaling_cur_freq", "cpuinfo_cur_freq"] {
         match fs::read_to_string(cpu.join("cpufreq").join(name)) {
             Ok(value) => return parse_cpu_frequency(&value).map(Some),
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) if cpu_frequency_is_unavailable(&error) => {
+                return Ok(None);
+            }
             Err(error) => return Err(error),
         }
     }
@@ -678,6 +688,16 @@ mod tests {
         assert_eq!(invalid["status"], "invalid");
         assert_eq!(invalid["logical_cpus"], json!([]));
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn cpu_frequency_treats_inactive_policy_errors_as_unavailable() {
+        for kind in [io::ErrorKind::ResourceBusy, io::ErrorKind::WouldBlock] {
+            assert!(cpu_frequency_is_unavailable(&io::Error::from(kind)));
+        }
+        assert!(!cpu_frequency_is_unavailable(&io::Error::from(
+            io::ErrorKind::PermissionDenied
+        )));
     }
 
     #[test]

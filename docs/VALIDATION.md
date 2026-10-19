@@ -1013,8 +1013,9 @@ CPU busy time, not per-CPU or per-process attribution or historical telemetry.
 The observer reads bounded current-frequency values from Linux cpufreq sysfs,
 preferring `scaling_cur_freq` and falling back to `cpuinfo_cur_freq`. Frequencies
 are integer kHz and sorted by numeric logical CPU ID. Missing drivers and offline
-CPUs remain explicit through `unavailable` or `partial` status; malformed data
-makes only the optional frequency object invalid. Host fixtures cover primary and
-fallback files, ordering, absent cpufreq directories and malformed values. The
-native observer gate requires the frequency object even when QEMU exposes no
-cpufreq driver. Exact-revision host and target/QEMU validation remain required.
+CPUs and temporarily busy policies remain explicit through `unavailable` or
+`partial` status; malformed data makes only the optional frequency object
+invalid. Host fixtures cover primary and fallback files, ordering, absent
+cpufreq directories, busy-policy errors and malformed values. The native
+observer gate requires the frequency object even when QEMU exposes no cpufreq
+driver. Exact-revision host and target/QEMU validation remain required.

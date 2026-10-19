@@ -21,8 +21,9 @@ AI recommendations or operating-system policy changes.
   cpufreq sysfs, in integer kHz. It is not an independent hardware measurement.
   `scaling_cur_freq` is preferred and `cpuinfo_cur_freq` is the fallback.
   Systems without a cpufreq driver report `status: unavailable`;
-  offline or unsupported logical CPUs make an otherwise populated result
-  `partial`. Output is numerically sorted and bounded to 4096 logical CPUs.
+  offline, temporarily busy or unsupported logical CPUs make an otherwise
+  populated result `partial`. Output is numerically sorted and bounded to 4096
+  logical CPUs.
 - `memory.total_bytes`, `memory.available_bytes`: Linux MemTotal and
   MemAvailable read from `/proc/meminfo`, converted from kB to bytes with
   overflow checks.
