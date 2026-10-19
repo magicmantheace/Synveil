@@ -936,8 +936,17 @@ job `117775393623`: nine controlled-worker subcases without skips, all six
 actual built-CLI cuts and subsequent receipt inspection, four recovery shell
 tests, eight staging tests, all 136 Rust tests, formatting and clippy. This
 includes complete-but-unacknowledged records after the final newline and after
-file sync. Only the preceding four-cut native revision has guest proof so far;
-a fresh six-cut/twelve-boot native run remains required.
+file sync. Exact source `cbf272ce007a0ad7a15a346289fbd6f3c484cc8f`
+then passed all 45 steps in
+[native run 39161628602](https://github.com/magicmantheace/Synveil/actions/runs/39161628602),
+job `117775955379`, including all six cuts across twelve independent boots.
+The downloaded artifact, fixture hash and unique checkpoint, kill/reap and
+recovery markers were verified; see
+[retained evidence](validation/native-cbf272c/README.md). The first two cuts
+observed archive presence after reboot and the four later cuts observed absence.
+This remains guest kernel-loss/filesystem-replay evidence with host page cache;
+it is not physical power-loss, volatile-device-cache, real device-error or
+independently authenticated integrity proof.
 
 ## Persistent audit sink status candidate
 

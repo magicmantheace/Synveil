@@ -553,7 +553,8 @@ The host must see that exact phase, SIGKILL QEMU, confirm wrapper reap, retain
 both journal digests independently and reboot the same disposable state disk.
 Each phase starts with a fresh disk. The initial four phases required eight
 QEMU boots and passed at [d846b81](validation/native-d846b81/README.md).
-The current six-cut candidate requires twelve boots.
+The six-cut matrix passed across twelve boots at
+[cbf272c](validation/native-cbf272c/README.md).
 
 | Cut | Held boundary | Required recovery observation |
 | --- | --- | --- |
@@ -582,7 +583,8 @@ tracer recognizes the production procfs descriptor source; host CI also traces
 the actual built CLI at every cut. This correction passed at `18f43f1`, including
 all four actual CLI stops and read-only receipt inspection afterward. Corrected
 native source `d846b81` passed all 45 steps and the initial four guest cuts;
-the two completion-boundary extensions remain pending validation. The tracer
+native source `cbf272c` passed all 45 steps and the two completion-boundary
+extensions across twelve independent boots. The tracer
 recognizes the complete line by its successful final-newline write, then tracks
 the following sync of that same receipt descriptor. Neither stop resumes the
 command to return its report. Reading a complete receipt still does not, by
