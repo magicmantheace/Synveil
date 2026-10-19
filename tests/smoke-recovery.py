@@ -399,6 +399,8 @@ SCENARIOS = {
                 "grep -Fq 'synveil.observe/v1' /tmp/synveil-observe.json && "
                 "grep -Fq 'total_bytes' /tmp/synveil-observe.json && "
                 "grep -Fq 'total_ticks' /tmp/synveil-observe.json && "
+                "grep -Fq '\"busy_basis_points\"' /tmp/synveil-observe.json && "
+                "grep -Fq '\"sample_window_ms\"' /tmp/synveil-observe.json && "
                 "grep -Fq 'total_threads' /tmp/synveil-observe.json && "
                 "grep -Fq 'average_1m' /tmp/synveil-observe.json && "
                 "grep -Fq 'sectors_read_512b' /tmp/synveil-observe.json && "
