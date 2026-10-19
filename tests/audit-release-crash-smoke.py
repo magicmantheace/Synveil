@@ -81,6 +81,10 @@ class RecoveryTests(unittest.TestCase):
             ('unlink-synced', False, 'authorization-only'),
             ('partial-completion', False, 'authorization-only'),
             ('partial-completion', False, 'incomplete-completion'),
+            ('completion-written', False, 'authorization-only'),
+            ('completion-written', False, 'incomplete-completion'),
+            ('completion-written', False, 'completion-recorded'),
+            ('completion-synced', False, 'completion-recorded'),
         ]:
             with self.subTest(phase=phase, present=present, state=state):
                 self.assertTrue(self.command(phase, present, state))
@@ -91,6 +95,10 @@ class RecoveryTests(unittest.TestCase):
             ('unlink-synced', True, 'authorization-only', False),
             ('partial-completion', True, 'incomplete-completion', False),
             ('partial-completion', False, 'completion-recorded', False),
+            ('completion-written', True, 'completion-recorded', False),
+            ('completion-synced', False, 'authorization-only', False),
+            ('completion-synced', False, 'incomplete-completion', False),
+            ('completion-synced', True, 'completion-recorded', False),
             ('after-unlink', False, 'invalid', False),
             ('after-unlink', False, 'authorization-only', True),
         ]:
@@ -139,8 +147,8 @@ class RecoveryTests(unittest.TestCase):
                         patch.object(smoke.audit, 'create_state_disk', side_effect=create), \
                         patch.object(smoke.audit.persistence, 'boot_round', side_effect=boot):
                     self.assertEqual(smoke.smoke(1), fault is None)
-                self.assertEqual(len(calls), 8 if fault is None else 2 if fault == 'read-failed' else 1)
-                self.assertEqual(len(set(disks)), 4 if fault is None else 1)
+                self.assertEqual(len(calls), 12 if fault is None else 2 if fault == 'read-failed' else 1)
+                self.assertEqual(len(set(disks)), 6 if fault is None else 1)
 
 
 if __name__ == '__main__':

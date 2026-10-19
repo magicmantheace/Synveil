@@ -66,10 +66,11 @@ static void checkpoint(const char *phase) {
 }
 
 int main(int argc, char **argv) {
-    const char *phases[] = {"before-unlink", "after-unlink", "unlink-synced", "partial-completion"};
+    const char *phases[] = {"before-unlink", "after-unlink", "unlink-synced", "partial-completion",
+                            "completion-written", "completion-synced"};
     int phase = -1;
     if (argc != 5) return 2;
-    for (int i = 0; i < 4; ++i) if (!strcmp(argv[1], phases[i])) phase = i;
+    for (int i = 0; i < (int)(sizeof(phases) / sizeof(phases[0])); ++i) if (!strcmp(argv[1], phases[i])) phase = i;
     if (phase < 0 || argv[2][0] != '/' || argv[3][0] != '/' ||
         strlen(argv[3]) > 1024 || strlen(argv[4]) != 128) return 2;
     for (size_t i = 0; i < 128; ++i)
@@ -92,6 +93,8 @@ int main(int argc, char **argv) {
     }
     int status, receipt_fd = -1, journal_fd = -1, published = 0, removed = 0, synced = 0;
     int pending_publish = 0, pending_unlink = 0, pending_sync = 0, pending_write = 0;
+    int completion_written = 0, pending_completion = 0, pending_completion_sync = 0;
+    unsigned long long pending_write_size = 0;
     int copies_fd = -1, authorization_synced = 0, last_synced_fd = -1, pending_fsync = -1;
     unsigned long options = PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEEXEC | PTRACE_O_EXITKILL;
     alarm(30); /* A timeout cannot count as a checkpoint. EXITKILL terminates the tracee. */
@@ -112,6 +115,7 @@ int main(int argc, char **argv) {
             info.arch != AUDIT_ARCH_X86_64) goto fail;
         if (info.op == PTRACE_SYSCALL_INFO_ENTRY) {
             pending_publish = pending_unlink = pending_sync = pending_write = 0;
+            pending_completion = pending_completion_sync = 0;
             pending_fsync = info.entry.nr == SYS_fsync ? (int)info.entry.args[0] : -1;
             if (info.entry.nr == SYS_linkat &&
                 (int)info.entry.args[0] == AT_FDCWD &&
@@ -134,6 +138,8 @@ int main(int argc, char **argv) {
             }
             if (removed && info.entry.nr == SYS_fsync &&
                 (int)info.entry.args[0] == journal_fd) pending_sync = 1;
+            if (completion_written && info.entry.nr == SYS_fsync &&
+                (int)info.entry.args[0] == receipt_fd) pending_completion_sync = 1;
             if (synced && info.entry.nr == SYS_write &&
                 (int)info.entry.args[0] == receipt_fd && info.entry.args[2] > 0 && phase == 3) {
                 struct user_regs_struct regs;
@@ -141,6 +147,15 @@ int main(int argc, char **argv) {
                 regs.rdx = 1; /* Write only the first completion byte. */
                 if (ptrace(PTRACE_SETREGS, child, NULL, &regs)) goto fail;
                 pending_write = 1;
+            } else if (synced && phase >= 4 && info.entry.nr == SYS_write &&
+                       (int)info.entry.args[0] == receipt_fd && info.entry.args[2] > 0) {
+                unsigned char byte;
+                unsigned long long last = info.entry.args[1] + info.entry.args[2] - 1;
+                if (last < info.entry.args[1] || !remote_byte(child, last, &byte)) goto fail;
+                if (byte == '\n') {
+                    pending_completion = 1;
+                    pending_write_size = info.entry.args[2];
+                }
             }
         } else if (info.op == PTRACE_SYSCALL_INFO_EXIT) {
             if ((pending_publish || pending_unlink || pending_sync) && info.exit.rval != 0) goto fail;
@@ -156,6 +171,15 @@ int main(int argc, char **argv) {
             if (pending_sync) {
                 synced = 1;
                 if (phase == 2) checkpoint(phases[phase]);
+            }
+            if (pending_completion && info.exit.rval > 0 &&
+                (unsigned long long)info.exit.rval == pending_write_size) {
+                completion_written = 1;
+                if (phase == 4) checkpoint(phases[phase]);
+            }
+            if (pending_completion_sync) {
+                if (info.exit.rval != 0) goto fail;
+                if (phase == 5) checkpoint(phases[phase]);
             }
             if (pending_write) {
                 if (info.exit.rval != 1) goto fail;

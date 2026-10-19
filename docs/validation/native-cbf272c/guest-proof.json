@@ -1,0 +1,18 @@
+{
+  "schema": "synveil.guest-proof/v1",
+  "case": "audit-release-crash",
+  "git_commit": "cbf272ce007a0ad7a15a346289fbd6f3c484cc8f",
+  "fixture_sha256": "f7e51c640f4c4bc4dcfff9b2dd72854b03f2b4dff95539419916654fc3dfebe6",
+  "result": "passed",
+  "independent_qemu_boots": 12,
+  "release_cuts": [
+    "before-unlink",
+    "after-unlink",
+    "unlink-synced",
+    "partial-completion",
+    "completion-written",
+    "completion-synced"
+  ],
+  "host_page_cache_survives": true,
+  "physical_power_loss": false
+}

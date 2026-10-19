@@ -1,0 +1,264 @@
+{
+  "schema": "synveil.workflow-evidence/v1",
+  "revision": "d846b81f59fb3f8e5f83c7dcfa4446d6a0e9962d",
+  "run_id": 39071778326,
+  "url": "https://github.com/magicmantheace/Synveil/actions/runs/39071778326",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 117510707415,
+      "name": "compile-and-audit",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Check out Synveil",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Install bootstrap host dependencies",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Validate build tooling",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Install and authenticate pinned Rust sources",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Build isolated Synveil toolchain",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Compile and audit native binaries",
+          "conclusion": "success"
+        },
+        {
+          "number": 8,
+          "name": "Show native artifact identity",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Build native rootfs and boot image",
+          "conclusion": "success"
+        },
+        {
+          "number": 10,
+          "name": "Require native core status in QEMU",
+          "conclusion": "success"
+        },
+        {
+          "number": 11,
+          "name": "Verify structured read-only observer in guest",
+          "conclusion": "success"
+        },
+        {
+          "number": 12,
+          "name": "Require recovery shell after core crash",
+          "conclusion": "success"
+        },
+        {
+          "number": 13,
+          "name": "Restart core and retain recovery after restart exhaustion",
+          "conclusion": "success"
+        },
+        {
+          "number": 14,
+          "name": "Reject malformed IPC and retain healthy status in guest",
+          "conclusion": "success"
+        },
+        {
+          "number": 15,
+          "name": "Recover in guest with core binary absent",
+          "conclusion": "success"
+        },
+        {
+          "number": 16,
+          "name": "Prove isolated read-only recovery with core seat and desktop missing",
+          "conclusion": "success"
+        },
+        {
+          "number": 17,
+          "name": "Recover from absent or invalid QEMU state disk",
+          "conclusion": "success"
+        },
+        {
+          "number": 18,
+          "name": "Require locked seat and no default password on ephemeral VM",
+          "conclusion": "success"
+        },
+        {
+          "number": 19,
+          "name": "Validate virtual framebuffer in headless QEMU",
+          "conclusion": "success"
+        },
+        {
+          "number": 20,
+          "name": "Recover graphical menu after one crash with serial shell alive",
+          "conclusion": "success"
+        },
+        {
+          "number": 21,
+          "name": "Terminate the demo shell when the graphical launcher crashes",
+          "conclusion": "success"
+        },
+        {
+          "number": 22,
+          "name": "Verify non-root VT demo terminal identity in guest",
+          "conclusion": "success"
+        },
+        {
+          "number": 23,
+          "name": "Validate opt-in QEMU DHCP configuration",
+          "conclusion": "success"
+        },
+        {
+          "number": 24,
+          "name": "Verify state survives two separate QEMU boots",
+          "conclusion": "success"
+        },
+        {
+          "number": 25,
+          "name": "Preserve audit history through rollover capacity and incomplete tails",
+          "conclusion": "success"
+        },
+        {
+          "number": 26,
+          "name": "Recover native audit after isolated exhaustion and read-only storage",
+          "conclusion": "success"
+        },
+        {
+          "number": 27,
+          "name": "Recover audit appends and export after disposable ext4 exhaustion",
+          "conclusion": "success"
+        },
+        {
+          "number": 28,
+          "name": "Preserve acknowledged audit and snapshot after abrupt emulator stop",
+          "conclusion": "success"
+        },
+        {
+          "number": 29,
+          "name": "Preserve completed rollover and both snapshots after abrupt stop",
+          "conclusion": "success"
+        },
+        {
+          "number": 30,
+          "name": "Recover archive-only layout and preserve both journals after abrupt stop",
+          "conclusion": "success"
+        },
+        {
+          "number": 31,
+          "name": "Release copied audit archive after reboot without changing active history",
+          "conclusion": "success"
+        },
+        {
+          "number": 32,
+          "name": "Recover live archive release across four guest interruptions",
+          "conclusion": "success"
+        },
+        {
+          "number": 33,
+          "name": "One-time root-owned credential enrollment in QEMU state",
+          "conclusion": "success"
+        },
+        {
+          "number": 34,
+          "name": "Verify graphical settings load across separate QEMU boots",
+          "conclusion": "success"
+        },
+        {
+          "number": 35,
+          "name": "Revoke authenticated nonroot terminal on seat broker crash",
+          "conclusion": "success"
+        },
+        {
+          "number": 36,
+          "name": "Prove authenticated preview refuses unauthenticated root serial",
+          "conclusion": "success"
+        },
+        {
+          "number": 37,
+          "name": "Authenticate via real framebuffer and revoke on GUI crash",
+          "conclusion": "success"
+        },
+        {
+          "number": 38,
+          "name": "Enroll first owner graphically with locked serial and reboot",
+          "conclusion": "success"
+        },
+        {
+          "number": 39,
+          "name": "Package validated authenticated VM without copying test credentials",
+          "conclusion": "success"
+        },
+        {
+          "number": 40,
+          "name": "Independently enroll and log in using packaged VM artifacts",
+          "conclusion": "success"
+        },
+        {
+          "number": 41,
+          "name": "Archive only guest-tested authenticated VM with pristine state",
+          "conclusion": "success"
+        },
+        {
+          "number": 42,
+          "name": "Retain authenticated QEMU preview download",
+          "conclusion": "success"
+        },
+        {
+          "number": 43,
+          "name": "Preserve native build evidence",
+          "conclusion": "success"
+        },
+        {
+          "number": 86,
+          "name": "Post Check out Synveil",
+          "conclusion": "success"
+        },
+        {
+          "number": 87,
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 12116937406,
+      "name": "authenticated-qemu-preview-d846b81f59fb3f8e5f83c7dcfa4446d6a0e9962d",
+      "digest": "sha256:6ae41f113e3b67e232980e09ea51e538d673781a7ada3b1d6b5eb236e4928a45",
+      "size_in_bytes": 23921633,
+      "expires_at": "2026-10-24T22:32:00Z"
+    },
+    {
+      "id": 12116683063,
+      "name": "native-target-d846b81f59fb3f8e5f83c7dcfa4446d6a0e9962d",
+      "digest": "sha256:b498ca40d108f2117eb7460ea5475b08d8915eac7fecee76f941c9250da43438",
+      "size_in_bytes": 16801824,
+      "expires_at": "2026-10-24T22:32:02Z"
+    }
+  ],
+  "verified_artifact_sha256": "b498ca40d108f2117eb7460ea5475b08d8915eac7fecee76f941c9250da43438",
+  "observed_archive_after_reboot": {
+    "before-unlink": "present",
+    "after-unlink": "present",
+    "unlink-synced": "absent",
+    "partial-completion": "absent"
+  }
+}

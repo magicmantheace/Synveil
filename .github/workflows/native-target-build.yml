@@ -3,7 +3,7 @@ name: Native target build
 on:
   workflow_dispatch:
   push:
-    branches: [phase2/native-core-bootstrap, development/audit-retention-release, development/audit-release-inspection, development/audit-release-guest-crash]
+    branches: [phase2/native-core-bootstrap, development/audit-retention-release, development/audit-release-inspection, development/audit-release-guest-crash, development/audit-release-completion-reboot]
     paths:
       - Cargo.toml
       - Cargo.lock
@@ -244,7 +244,7 @@ jobs:
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: bash build.sh audit-crash-smoke --rollover --release-archive --timeout 60
 
-      - name: Recover live archive release across four guest interruptions
+      - name: Recover live archive release across six guest interruptions
         if: ${{ !cancelled() && steps.native_image.outcome == 'success' }}
         run: |
           set -o pipefail

@@ -212,9 +212,19 @@ Corrected source `18f43f1` passed tracing of the actual built CLI at all four
 cuts and receipt inspection afterward, seven controlled-worker subcases and
 all 136 Rust tests, formatting and clippy
 ([run 39071600912](https://github.com/magicmantheace/Synveil/actions/runs/39071600912)).
-Fresh native validation is pending; no guest-interruption completion is claimed.
-Automatic retention remains absent. Guest interruption during release,
-independent integrity anchoring and power-loss testing remain open.
+All 45 native steps and all four live guest cuts passed at
+[d846b81](docs/validation/native-d846b81/README.md), including eight independent
+QEMU boots and verified downloaded evidence. The fixture is now merged.
+A six-cut extension adds full completion-write and completion-file-sync boundaries
+and twelve guest boots. Host source `f04ade7` passed nine controlled-worker
+subcases, all six built-CLI cuts and receipt inspections, all 136 Rust tests,
+formatting and clippy ([run 39161435398](https://github.com/magicmantheace/Synveil/actions/runs/39161435398)).
+All 45 native steps and all six cuts passed at
+[cbf272c](docs/validation/native-cbf272c/README.md), including twelve independent
+QEMU boots and verified downloaded evidence. The completion-write cut retained
+a valid receipt prefix and the completion-sync cut retained the complete receipt.
+Automatic retention, real device-error/cache-loss tests, independent integrity
+anchoring and physical power-loss testing remain open.
 
 ## Phase 3 — Observer
 

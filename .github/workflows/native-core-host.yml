@@ -26,6 +26,7 @@ on:
       - development/audit-retention-cli-recovery
       - development/audit-release-inspection
       - development/audit-release-guest-crash
+      - development/audit-release-completion-reboot
       - development/login-idle-keyboard
       - development/qmp-chord-hold
       - development/archive-stream-integrity
@@ -149,7 +150,7 @@ jobs:
       - name: Test workspace
         run: cargo test --workspace --all-targets --locked
 
-      - name: Trace the built release CLI at all four interruption boundaries
+      - name: Trace the built release CLI at all six interruption boundaries
         run: python3 tests/audit-release-cut.py --native-binary target/debug/veil-audit
 
       - name: Lint workspace
