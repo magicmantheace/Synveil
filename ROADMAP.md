@@ -241,7 +241,10 @@ anchoring and physical power-loss testing remain open.
 **Goal:** give Synveil a structured view of its machine.
 
 - [ ] CPU metrics
-  - Read-only cumulative CPU counters and logical count implemented; live utilization sampling remains open.
+  - Read-only cumulative CPU counters and logical count are implemented. The
+    observer now also samples aggregate busy time across a 100 ms minimum
+    `/proc/stat` window and reports fixed-point basis points with the actual
+    monotonic window. Host validation passed; native QEMU validation remains open.
 - [ ] memory/pressure metrics
   - Read-only MemTotal/MemAvailable and bounded Linux PSI CPU, memory, and I/O
     stall snapshots implemented. Host/guest validation of PSI is required;
@@ -270,7 +273,7 @@ anchoring and physical power-loss testing remain open.
 - [ ] `synctl observe`
   - CPU/memory/uptime schema passed native QEMU at
     [810f66d](docs/validation/native-810f66d/README.md); additional metrics,
-    utilization deltas and historical aggregation remain open.
+    live-utilization target validation and historical aggregation remain open.
 
 **Exit:** the system can describe current workload and resource pressure through structured APIs without parsing human CLI output.
 

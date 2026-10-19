@@ -983,3 +983,19 @@ required health transition and one final pass marker each. See
 [retained evidence](validation/native-141e20e/README.md). This does not complete
 durable audit or establish survival of a successful synchronization across
 device-cache or physical power loss.
+
+## Live aggregate CPU utilization candidate
+
+The read-only observer now takes two aggregate `/proc/stat` samples across a
+minimum 100 ms interval and reports busy time as integer basis points together
+with the actual monotonic sample window. It validates every Linux CPU counter
+for monotonicity. A zero-delta interval or logical-topology change reports
+`unavailable` without inventing a percentage; malformed or backward counters
+fail the observation. Cumulative counters come from the later sample.
+
+Host cases cover a 25.00 percent delta, zero delta, topology change and an
+individual counter regression. The full 138-test Rust workspace, formatting,
+clippy and all 31 recovery control-flow tests pass locally on the pinned host
+toolchain. The native observer gate now requires the utilization and window
+fields. Fresh target/QEMU validation remains required; this is aggregate CPU
+busy time, not per-CPU or per-process attribution or historical telemetry.

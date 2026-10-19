@@ -306,6 +306,21 @@ latest write fails. `failed_writes` is a monotonic process-local counter; it is
 not retained across core restarts. The service remains `ready` while the audit
 sink is degraded so console recovery and status inspection remain available.
 
+## Read-only observation
+
+`synctl --json observe` reads Linux kernel interfaces directly. Aggregate CPU
+utilization is derived from two validated `/proc/stat` samples separated by a
+minimum 100 ms sleep. `cpu.utilization.status` is `ready` with
+`busy_basis_points` in the inclusive range 0 through 10000 and the actual
+monotonic `sample_window_ms`. Basis points make the counter-derived precision
+explicit: 2500 means 25.00 percent busy across all logical CPUs.
+
+If the logical CPU topology changes between samples or no counter advances,
+utilization is `unavailable` and no value is invented. A malformed or backward
+kernel counter fails the observation. The cumulative `total_ticks` and
+`idle_ticks` remain available from the later sample. This is an aggregate live
+window, not per-process attribution, per-CPU utilization or historical storage.
+
 ## Error response envelope
 
 Conceptual response:
