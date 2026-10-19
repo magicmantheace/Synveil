@@ -245,8 +245,10 @@ anchoring and physical power-loss testing remain open.
     observer now also samples aggregate busy time across a 100 ms minimum
     `/proc/stat` window and reports fixed-point basis points with the actual
     monotonic window. Exact-revision host and native QEMU validation passed at
-    [255101d](docs/validation/native-255101d/README.md). Per-CPU attribution,
-    frequency reporting and historical aggregation remain open.
+    [255101d](docs/validation/native-255101d/README.md). Bounded per-logical-CPU
+    current frequency is now read from cpufreq sysfs when the kernel exposes it.
+    Host and native QEMU validation of the frequency schema remain open; per-CPU
+    utilization attribution and historical aggregation are not implemented.
 - [ ] memory/pressure metrics
   - Read-only MemTotal/MemAvailable and bounded Linux PSI CPU, memory, and I/O
     stall snapshots implemented. Host/guest validation of PSI is required;

@@ -329,6 +329,14 @@ native workflow, including the QEMU observer gate against the real native core
 and client. The downloaded evidence and clean-revision manifests are recorded
 at [native-255101d](validation/native-255101d/README.md).
 
+`cpu.frequency` reports bounded, numerically sorted per-logical-CPU current
+frequency in kHz from Linux cpufreq sysfs. This is the kernel-reported value,
+not an independent hardware measurement. `scaling_cur_freq` is preferred;
+`cpuinfo_cur_freq` is used when the scaling value is absent. Missing drivers and
+offline CPUs are explicit through `unavailable` or `partial` status. Malformed
+kernel values make only the optional frequency object `invalid`; they do not
+discard otherwise valid memory, load, pressure or cumulative CPU observations.
+
 ## Error response envelope
 
 Conceptual response:

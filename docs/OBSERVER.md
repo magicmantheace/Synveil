@@ -17,6 +17,12 @@ AI recommendations or operating-system policy changes.
   Zero total delta, a topology change, or an iowait decrease returns
   `{"status":"unavailable"}` without inventing a percentage. A backward
   non-guest counter other than iowait is invalid.
+- `cpu.frequency`: kernel-reported current per-logical-CPU frequency from Linux
+  cpufreq sysfs, in integer kHz. It is not an independent hardware measurement.
+  `scaling_cur_freq` is preferred and `cpuinfo_cur_freq` is the fallback.
+  Systems without a cpufreq driver report `status: unavailable`;
+  offline or unsupported logical CPUs make an otherwise populated result
+  `partial`. Output is numerically sorted and bounded to 4096 logical CPUs.
 - `memory.total_bytes`, `memory.available_bytes`: Linux MemTotal and
   MemAvailable read from `/proc/meminfo`, converted from kB to bytes with
   overflow checks.
@@ -42,8 +48,8 @@ See the [retained evidence](validation/native-255101d/README.md).
 ## Deliberately not claimed
 
 Per-CPU and per-process utilization, process inventory and lifecycle tracking,
-resource history and long-term aggregation are separate roadmap items. The
-observer does not yet implement these metrics.
+thermal and energy data, resource history and long-term aggregation are separate
+roadmap items. The observer does not yet implement these metrics.
 
 ## Linux pressure stall information (PSI)
 

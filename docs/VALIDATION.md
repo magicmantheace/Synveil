@@ -1007,3 +1007,14 @@ both manifests identify the clean tested revision, and the retained guest log
 contains `SYNVEIL_OBSERVE_OK` after requiring the utilization and window fields.
 See [retained evidence](validation/native-255101d/README.md). This is aggregate
 CPU busy time, not per-CPU or per-process attribution or historical telemetry.
+
+## Per-logical-CPU frequency candidate
+
+The observer reads bounded current-frequency values from Linux cpufreq sysfs,
+preferring `scaling_cur_freq` and falling back to `cpuinfo_cur_freq`. Frequencies
+are integer kHz and sorted by numeric logical CPU ID. Missing drivers and offline
+CPUs remain explicit through `unavailable` or `partial` status; malformed data
+makes only the optional frequency object invalid. Host fixtures cover primary and
+fallback files, ordering, absent cpufreq directories and malformed values. The
+native observer gate requires the frequency object even when QEMU exposes no
+cpufreq driver. Exact-revision host and target/QEMU validation remain required.
