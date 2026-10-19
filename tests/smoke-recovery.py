@@ -404,6 +404,7 @@ SCENARIOS = {
                 "grep -Fq '\"logical_cpus\"' /tmp/synveil-observe.json && "
                 "grep -Fq '\"frequency\"' /tmp/synveil-observe.json && "
                 "grep -Fq '\"thermal\"' /tmp/synveil-observe.json && "
+                "grep -Fq '\"energy\"' /tmp/synveil-observe.json && "
                 "grep -Fq 'total_threads' /tmp/synveil-observe.json && "
                 "grep -Fq 'average_1m' /tmp/synveil-observe.json && "
                 "grep -Fq 'sectors_read_512b' /tmp/synveil-observe.json && "

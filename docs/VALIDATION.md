@@ -1044,3 +1044,15 @@ QEMU observer gate requires the thermal object even when the virtual machine
 exposes no thermal zones.
 Exact-revision host and target/QEMU validation remain required. Power and energy
 measurements, hardware alarm interpretation and cooling policy remain open.
+
+## Powercap energy observation candidate
+
+The observer reads at most 256 Linux powercap zones, sorts hierarchical numeric
+zone IDs and reports bounded names, cumulative microjoules and maximum counter
+range. Missing and unreadable zones are explicit; malformed labels, counters or
+out-of-range energy invalidate only the optional energy object. Host fixtures
+cover hierarchical ordering, partial availability, absence and malformed range
+relationships. The QEMU observer gate requires the energy object even when the
+virtual machine exposes no powercap zones. Exact-revision host and target/QEMU
+validation remain required; instantaneous power and power-limit control remain
+open.

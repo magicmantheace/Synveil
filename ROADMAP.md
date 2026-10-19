@@ -275,8 +275,9 @@ anchoring and physical power-loss testing remain open.
     connection inventory, network traffic inspection and history remain open.
 - [ ] thermal/power interface where available
   - Bounded read-only Linux thermal-zone temperatures are implemented with
-    explicit unavailable/invalid states. Host and native validation remain
-    open; energy and power measurements are not implemented.
+    explicit unavailable/invalid states. Bounded Linux powercap zones now expose
+    raw cumulative energy and wrap ranges where available. Host and native
+    validation remain open; interval power measurements are not implemented.
 - [ ] event normalization
 - [ ] ephemeral telemetry storage
 - [ ] historical aggregation

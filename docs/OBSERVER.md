@@ -39,6 +39,10 @@ AI recommendations or operating-system policy changes.
   `status: unavailable`; unreadable zones are counted and make a populated
   result `partial`, while malformed zone data reports `invalid` without
   discarding the other observation fields.
+- `energy`: bounded Linux powercap zones with stable sysfs IDs, bounded names,
+  cumulative `energy_uj` and `max_energy_range_uj`. Counters may wrap at the
+  reported range and do not represent instantaneous power. Missing or unreadable
+  zones are explicit; malformed counters invalidate only this optional object.
 - `uptime_seconds`: kernel time since boot from `/proc/uptime`.
 - `load.average_1m`, `load.average_5m`, `load.average_15m`:
   Linux scheduler load averages from `/proc/loadavg`. These are neither
@@ -60,9 +64,9 @@ See the [retained evidence](validation/native-255101d/README.md).
 
 ## Deliberately not claimed
 
-Per-process utilization, process inventory and lifecycle tracking,
-energy and power data, resource history and long-term aggregation are separate
-roadmap items. The observer does not yet implement these metrics.
+Per-process utilization, process inventory and lifecycle tracking, instantaneous
+power, resource history and long-term aggregation are separate roadmap items.
+The observer does not yet implement these metrics.
 
 ## Linux pressure stall information (PSI)
 

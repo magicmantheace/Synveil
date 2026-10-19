@@ -350,6 +350,12 @@ in millidegrees Celsius. Missing support and wholly unreadable zones are
 this object `invalid`. This is a current kernel sensor snapshot, not a cooling
 recommendation, hardware alarm or policy action.
 
+The optional top-level `energy` object reads bounded Linux powercap zones. Each
+record contains the stable sysfs zone ID, bounded kernel name, cumulative
+microjoules and the counter's maximum wrap range. Unavailable zones are counted;
+malformed values invalidate only this object. These raw counters are not watts,
+do not provide history, and do not authorize power-limit changes.
+
 ## Error response envelope
 
 Conceptual response:
