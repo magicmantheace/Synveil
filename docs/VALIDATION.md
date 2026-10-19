@@ -988,13 +988,15 @@ device-cache or physical power loss.
 
 The read-only observer now takes two aggregate `/proc/stat` samples across a
 minimum 100 ms interval and reports busy time as integer basis points together
-with the actual monotonic sample window. It validates every Linux CPU counter
-for monotonicity. A zero-delta interval or logical-topology change reports
-`unavailable` without inventing a percentage; malformed or backward counters
-fail the observation. Cumulative counters come from the later sample.
+with the actual monotonic sample window. Guest counters are excluded because
+Linux already includes them in user/nice. A zero-delta interval,
+logical-topology change or permitted iowait decrease reports `unavailable`
+without inventing a percentage; malformed or backward non-guest counters other
+than iowait fail the observation. Cumulative counters come from the later sample.
 
-Host cases cover a 25.00 percent delta, zero delta, topology change and an
-individual counter regression. The full 138-test Rust workspace, formatting,
+Host cases cover a 25.00 percent delta, guest-time accounting, iowait decrease,
+zero delta, topology change and an individual counter regression. The full
+140-test Rust workspace, formatting,
 clippy and all 31 recovery control-flow tests pass locally on the pinned host
 toolchain. The native observer gate now requires the utilization and window
 fields. Fresh target/QEMU validation remains required; this is aggregate CPU

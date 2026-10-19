@@ -315,11 +315,14 @@ minimum 100 ms sleep. `cpu.utilization.status` is `ready` with
 monotonic `sample_window_ms`. Basis points make the counter-derived precision
 explicit: 2500 means 25.00 percent busy across all logical CPUs.
 
-If the logical CPU topology changes between samples or no counter advances,
-utilization is `unavailable` and no value is invented. A malformed or backward
-kernel counter fails the observation. The cumulative `total_ticks` and
-`idle_ticks` remain available from the later sample. This is an aggregate live
-window, not per-process attribution, per-CPU utilization or historical storage.
+If the logical CPU topology changes between samples, no counter advances or
+iowait decreases, utilization is `unavailable` and no value is invented. Linux
+permits iowait to decrease, so that case does not fail the observation. A
+malformed or backward non-guest counter other than iowait does fail it. Guest
+and guest_nice are excluded from totals because Linux already includes them in
+user and nice. The cumulative `total_ticks` and `idle_ticks` come from the later
+sample. This is an aggregate live window, not per-process attribution, per-CPU
+utilization or historical storage.
 
 ## Error response envelope
 

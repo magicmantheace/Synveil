@@ -8,6 +8,8 @@ use std::time::{Duration, Instant};
 
 const OBSERVE_SCHEMA_V1: &str = "synveil.observe/v1";
 const CPU_SAMPLE_INTERVAL: Duration = Duration::from_millis(100);
+const CPU_ACCOUNTING_FIELDS: usize = 8;
+const CPU_IOWAIT_FIELD: usize = 4;
 
 /// Read kernel files directly, never by scraping output from command-line tools.
 pub fn sample() -> io::Result<Value> {
@@ -94,10 +96,15 @@ fn parse_cpu_stat(input: &str) -> io::Result<CpuStat> {
     if ticks.len() < 4 {
         return Err(invalid_data("not enough CPU counters"));
     }
-    let total = ticks.iter().try_fold(0u64, |sum, tick| {
-        sum.checked_add(*tick)
-            .ok_or_else(|| invalid_data("CPU counter overflow"))
-    })?;
+    // Linux already includes guest and guest_nice in user and nice. Only the
+    // first eight fields are distinct accounting categories; including the
+    // guest fields would double-count time spent running virtual CPUs.
+    let total = ticks[..ticks.len().min(CPU_ACCOUNTING_FIELDS)]
+        .iter()
+        .try_fold(0u64, |sum, tick| {
+            sum.checked_add(*tick)
+                .ok_or_else(|| invalid_data("CPU counter overflow"))
+        })?;
     // idle + iowait are the conventional Linux non-busy fields.
     let idle = ticks[3]
         .checked_add(ticks.get(4).copied().unwrap_or_default())
@@ -130,13 +137,22 @@ fn parse_cpu_utilization(before: &str, after: &str, sample_window_ms: u64) -> io
     if before.logical != after.logical || before.ticks.len() != after.ticks.len() {
         return Ok(json!({"status": "unavailable"}));
     }
-    if before
+    for (index, (before, after)) in before
         .ticks
         .iter()
         .zip(&after.ticks)
-        .any(|(before, after)| after < before)
+        .take(CPU_ACCOUNTING_FIELDS)
+        .enumerate()
     {
-        return Err(invalid_data("CPU counter moved backwards"));
+        if after < before {
+            // Linux documents that iowait may legitimately decrease because
+            // its attribution is not reliable. The interval cannot yield a
+            // trustworthy busy percentage, but the observation is not bad.
+            if index == CPU_IOWAIT_FIELD {
+                return Ok(json!({"status": "unavailable"}));
+            }
+            return Err(invalid_data("CPU counter moved backwards"));
+        }
     }
     let total = after
         .total
@@ -487,6 +503,23 @@ mod tests {
         assert_eq!(utilization["status"], "ready");
         assert_eq!(utilization["busy_basis_points"], 2500);
         assert_eq!(utilization["sample_window_ms"], 101);
+    }
+
+    #[test]
+    fn cpu_utilization_does_not_double_count_guest_time() {
+        let before = "cpu  100 0 0 100 0 0 0 0 0 0\ncpu0 100 0 0 100 0 0 0 0 0 0\n";
+        let after = "cpu  110 0 0 110 0 0 0 0 10 0\ncpu0 110 0 0 110 0 0 0 0 10 0\n";
+        let utilization = parse_cpu_utilization(before, after, 100).unwrap();
+        assert_eq!(utilization["status"], "ready");
+        assert_eq!(utilization["busy_basis_points"], 5000);
+    }
+
+    #[test]
+    fn cpu_utilization_withholds_a_window_when_iowait_decreases() {
+        let before = "cpu  100 0 0 100 10 0 0 0 0 0\ncpu0 100 0 0 100 10 0 0 0 0 0\n";
+        let after = "cpu  110 0 0 110 9 0 0 0 0 0\ncpu0 110 0 0 110 9 0 0 0 0 0\n";
+        let utilization = parse_cpu_utilization(before, after, 100).unwrap();
+        assert_eq!(utilization["status"], "unavailable");
     }
 
     #[test]

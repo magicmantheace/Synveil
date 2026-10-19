@@ -7,9 +7,16 @@ AI recommendations or operating-system policy changes.
 ## Schema: `synveil.observe/v1`
 
 - `cpu.logical_count`: logical CPUs from `/proc/stat`.
-- `cpu.total_ticks`, `cpu.idle_ticks`: monotonically cumulative kernel
-  counters; `idle_ticks` includes iowait. A single read is **not** an
-  instantaneous CPU utilization percentage.
+- `cpu.total_ticks`, `cpu.idle_ticks`: cumulative kernel counters from the
+  later sample. `total_ticks` excludes `guest` and `guest_nice`, which Linux
+  already includes in `user` and `nice`; `idle_ticks` includes iowait.
+- `cpu.utilization`: aggregate busy time derived from two `/proc/stat`
+  samples separated by at least 100 ms. A ready result contains integer
+  `busy_basis_points` from 0 through 10000 and the measured monotonic
+  `sample_window_ms`; 2500 means 25.00 percent busy across all logical CPUs.
+  Zero total delta, a topology change, or an iowait decrease returns
+  `{"status":"unavailable"}` without inventing a percentage. A backward
+  non-guest counter other than iowait is invalid.
 - `memory.total_bytes`, `memory.available_bytes`: Linux MemTotal and
   MemAvailable read from `/proc/meminfo`, converted from kB to bytes with
   overflow checks.
@@ -33,10 +40,9 @@ fields and is pending rerun.
 
 ## Deliberately not claimed
 
-CPU utilization sampling requires a time delta; process inventory and
-lifecycle tracking, PSI pressure, I/O, networking, resource history and
-long-term aggregation are separate roadmap items. The observer does not
-yet implement these metrics.
+Per-CPU and per-process utilization, process inventory and lifecycle tracking,
+resource history and long-term aggregation are separate roadmap items. The
+observer does not yet implement these metrics.
 
 ## Linux pressure stall information (PSI)
 
