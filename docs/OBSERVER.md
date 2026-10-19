@@ -34,9 +34,10 @@ required procfs input returns a structured error; it never silently
 substitutes fake zero values. The implementation reads kernel files
 directly without starting shell commands.
 
-Host tests cover valid parsing and malformed/inconsistent counters. The
-native QEMU `observe` guest smoke was extended to require the new load
-fields and is pending rerun.
+Host tests cover valid parsing and malformed/inconsistent counters. The native
+QEMU `observe` guest gate passed at exact revision `255101d`, requiring the
+versioned schema and live utilization fields from the real command response.
+See the [retained evidence](validation/native-255101d/README.md).
 
 ## Deliberately not claimed
 

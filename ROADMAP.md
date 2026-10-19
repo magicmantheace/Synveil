@@ -244,7 +244,9 @@ anchoring and physical power-loss testing remain open.
   - Read-only cumulative CPU counters and logical count are implemented. The
     observer now also samples aggregate busy time across a 100 ms minimum
     `/proc/stat` window and reports fixed-point basis points with the actual
-    monotonic window. Host validation passed; native QEMU validation remains open.
+    monotonic window. Exact-revision host and native QEMU validation passed at
+    [255101d](docs/validation/native-255101d/README.md). Per-CPU attribution,
+    frequency reporting and historical aggregation remain open.
 - [ ] memory/pressure metrics
   - Read-only MemTotal/MemAvailable and bounded Linux PSI CPU, memory, and I/O
     stall snapshots implemented. Host/guest validation of PSI is required;
@@ -253,7 +255,8 @@ anchoring and physical power-loss testing remain open.
   - Read-only 1/5/15-minute Linux load averages and runnable/total thread
     counts are now parsed with strict schema checks. They are not CPU
     utilization or process inventory; full lifecycle metrics remain open.
-    The expanded QEMU observer check is pending.
+    The expanded observer schema passed QEMU at
+    [255101d](docs/validation/native-255101d/README.md).
 - [ ] disk/I/O metrics
   - Raw, per-device read/write counts, 512-byte sector counters, in-flight I/O,
     and cumulative busy time are exposed read-only by `synctl observe`.
@@ -273,7 +276,9 @@ anchoring and physical power-loss testing remain open.
 - [ ] `synctl observe`
   - CPU/memory/uptime schema passed native QEMU at
     [810f66d](docs/validation/native-810f66d/README.md); additional metrics,
-    live-utilization target validation and historical aggregation remain open.
+    including live aggregate utilization, passed native QEMU at
+    [255101d](docs/validation/native-255101d/README.md). Historical aggregation
+    remains open.
 
 **Exit:** the system can describe current workload and resource pressure through structured APIs without parsing human CLI output.
 

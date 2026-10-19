@@ -996,8 +996,14 @@ than iowait fail the observation. Cumulative counters come from the later sample
 
 Host cases cover a 25.00 percent delta, guest-time accounting, iowait decrease,
 zero delta, topology change and an individual counter regression. The full
-140-test Rust workspace, formatting,
-clippy and all 31 recovery control-flow tests pass locally on the pinned host
-toolchain. The native observer gate now requires the utilization and window
-fields. Fresh target/QEMU validation remains required; this is aggregate CPU
-busy time, not per-CPU or per-process attribution or historical telemetry.
+140-test Rust workspace, formatting, clippy and all 31 recovery control-flow
+tests passed locally and in exact-revision host run
+[39253717313](https://github.com/magicmantheace/Synveil/actions/runs/39253717313).
+Exact source `255101d0c5329bba12546466480ec748ec1e3097` then passed all 45
+native steps in
+[run 39253717232](https://github.com/magicmantheace/Synveil/actions/runs/39253717232),
+job `118064035542`. The downloaded native artifact matched its published SHA256;
+both manifests identify the clean tested revision, and the retained guest log
+contains `SYNVEIL_OBSERVE_OK` after requiring the utilization and window fields.
+See [retained evidence](validation/native-255101d/README.md). This is aggregate
+CPU busy time, not per-CPU or per-process attribution or historical telemetry.

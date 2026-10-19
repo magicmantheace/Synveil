@@ -324,6 +324,11 @@ user and nice. The cumulative `total_ticks` and `idle_ticks` come from the later
 sample. This is an aggregate live window, not per-process attribution, per-CPU
 utilization or historical storage.
 
+Exact revision `255101d0c5329bba12546466480ec748ec1e3097` passed the full
+native workflow, including the QEMU observer gate against the real native core
+and client. The downloaded evidence and clean-revision manifests are recorded
+at [native-255101d](validation/native-255101d/README.md).
+
 ## Error response envelope
 
 Conceptual response:
