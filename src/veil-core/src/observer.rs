@@ -13,6 +13,7 @@ const CPU_ACCOUNTING_FIELDS: usize = 8;
 const CPU_IOWAIT_FIELD: usize = 4;
 const MAX_CPU_FREQUENCY_ENTRIES: usize = 4096;
 const MAX_CPU_UTILIZATION_ENTRIES: usize = 4096;
+const MAX_THERMAL_ZONES: usize = 256;
 
 /// Read kernel files directly, never by scraping output from command-line tools.
 pub fn sample() -> io::Result<Value> {
@@ -27,6 +28,7 @@ pub fn sample() -> io::Result<Value> {
     let mut snapshot = parse_sample(&meminfo, &stat, &uptime, &loadavg)?;
     snapshot["cpu"]["utilization"] = parse_cpu_utilization(&stat_before, &stat, sample_window_ms)?;
     snapshot["cpu"]["frequency"] = read_cpu_frequency(Path::new("/sys/devices/system/cpu"));
+    snapshot["thermal"] = read_thermal_zones(Path::new("/sys/class/thermal"));
     // Disk counters are optional on restricted procfs mounts; an unavailable
     // source must not prevent CPU/memory health from being reported.
     snapshot["disk"] = match fs::read_to_string("/proc/diskstats") {
@@ -142,6 +144,120 @@ fn read_cpu_frequency(root: &Path) -> Value {
         "logical_cpus": logical_cpus,
         "unavailable_logical_cpus": unavailable_logical_cpus,
         "omitted_logical_cpus": omitted_logical_cpus,
+    })
+}
+
+fn thermal_zone_id(name: &std::ffi::OsStr) -> Option<u32> {
+    let suffix = name.to_str()?.strip_prefix("thermal_zone")?;
+    if suffix.is_empty() || !suffix.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    suffix.parse().ok()
+}
+
+fn parse_thermal_type(input: &str) -> io::Result<&str> {
+    let zone_type = input.trim();
+    if zone_type.is_empty()
+        || zone_type.len() > 128
+        || !zone_type
+            .bytes()
+            .all(|byte| byte.is_ascii() && !byte.is_ascii_control())
+    {
+        return Err(invalid_data("invalid thermal zone type"));
+    }
+    Ok(zone_type)
+}
+
+fn parse_thermal_temperature(input: &str) -> io::Result<i64> {
+    let mut fields = input.split_whitespace();
+    let temperature = fields
+        .next()
+        .ok_or_else(|| invalid_data("missing thermal zone temperature"))?
+        .parse::<i64>()
+        .map_err(|_| invalid_data("invalid thermal zone temperature"))?;
+    if fields.next().is_some() {
+        return Err(invalid_data("invalid thermal zone temperature"));
+    }
+    Ok(temperature)
+}
+
+fn read_thermal_zone(path: &Path) -> io::Result<Option<(String, i64)>> {
+    let zone_type = match fs::read_to_string(path.join("type")) {
+        Ok(value) => parse_thermal_type(&value)?.to_owned(),
+        Err(_) => return Ok(None),
+    };
+    let temperature = match fs::read_to_string(path.join("temp")) {
+        Ok(value) => parse_thermal_temperature(&value)?,
+        Err(_) => return Ok(None),
+    };
+    Ok(Some((zone_type, temperature)))
+}
+
+/// Read optional Linux thermal-zone temperatures without changing governors,
+/// trip points or cooling state.
+fn read_thermal_zones(root: &Path) -> Value {
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(_) => return json!({"status": "unavailable", "zones": []}),
+    };
+    let mut zones = Vec::<(u32, PathBuf)>::new();
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => return json!({"status": "invalid", "zones": []}),
+        };
+        if let Some(id) = thermal_zone_id(&entry.file_name()) {
+            zones.push((id, entry.path()));
+        }
+    }
+    zones.sort_unstable_by_key(|(id, _)| *id);
+    let omitted_zones = zones.len().saturating_sub(MAX_THERMAL_ZONES);
+    zones.truncate(MAX_THERMAL_ZONES);
+    if zones.is_empty() {
+        return json!({
+            "status": "unavailable",
+            "zones": [],
+            "unavailable_zones": 0,
+            "omitted_zones": 0,
+        });
+    }
+
+    let mut observed = Vec::with_capacity(zones.len());
+    let mut unavailable_zones = 0usize;
+    for (id, path) in zones {
+        let (zone_type, temperature_millicelsius) = match read_thermal_zone(&path) {
+            Ok(Some(zone)) => zone,
+            Ok(None) => {
+                unavailable_zones += 1;
+                continue;
+            }
+            Err(_) => return json!({"status": "invalid", "zones": []}),
+        };
+        observed.push(json!({
+            "id": id,
+            "type": zone_type,
+            "temperature_millicelsius": temperature_millicelsius,
+        }));
+    }
+    if observed.is_empty() {
+        return json!({
+            "status": "unavailable",
+            "zones": [],
+            "unavailable_zones": unavailable_zones,
+            "omitted_zones": omitted_zones,
+        });
+    }
+    json!({
+        "status": if omitted_zones > 0 {
+            "truncated"
+        } else if unavailable_zones > 0 {
+            "partial"
+        } else {
+            "ready"
+        },
+        "zones": observed,
+        "unavailable_zones": unavailable_zones,
+        "omitted_zones": omitted_zones,
     })
 }
 
@@ -784,6 +900,50 @@ mod tests {
         assert!(!cpu_frequency_is_unavailable(&io::Error::from(
             io::ErrorKind::PermissionDenied
         )));
+    }
+
+    #[test]
+    fn thermal_zones_report_sorted_signed_millicelsius() {
+        let root = frequency_fixture();
+        for (zone, kind, temperature) in [
+            ("thermal_zone2", "x86_pkg_temp\n", "42000\n"),
+            ("thermal_zone0", "ambient sensor\n", "-500\n"),
+        ] {
+            let directory = root.join(zone);
+            fs::create_dir(&directory).unwrap();
+            fs::write(directory.join("type"), kind).unwrap();
+            fs::write(directory.join("temp"), temperature).unwrap();
+        }
+        fs::create_dir(root.join("thermal_zone1")).unwrap();
+        fs::create_dir(root.join("cooling_device0")).unwrap();
+
+        let thermal = read_thermal_zones(&root);
+        assert_eq!(thermal["status"], "partial");
+        assert_eq!(thermal["zones"][0]["id"], 0);
+        assert_eq!(thermal["zones"][0]["type"], "ambient sensor");
+        assert_eq!(thermal["zones"][0]["temperature_millicelsius"], -500);
+        assert_eq!(thermal["zones"][1]["id"], 2);
+        assert_eq!(thermal["zones"][1]["temperature_millicelsius"], 42_000);
+        assert_eq!(thermal["unavailable_zones"], 1);
+        assert_eq!(thermal["omitted_zones"], 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn thermal_zones_distinguish_absence_from_invalid_kernel_data() {
+        let root = frequency_fixture();
+        let unavailable = read_thermal_zones(&root);
+        assert_eq!(unavailable["status"], "unavailable");
+        assert_eq!(unavailable["unavailable_zones"], 0);
+
+        let directory = root.join("thermal_zone0");
+        fs::create_dir(&directory).unwrap();
+        fs::write(directory.join("type"), "acpitz\n").unwrap();
+        fs::write(directory.join("temp"), "45000 trailing\n").unwrap();
+        let invalid = read_thermal_zones(&root);
+        assert_eq!(invalid["status"], "invalid");
+        assert_eq!(invalid["zones"], json!([]));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

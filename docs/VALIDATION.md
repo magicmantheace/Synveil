@@ -1032,3 +1032,15 @@ The native guest gate requires the per-CPU utilization fields from the real
 versioned result, sorted IDs, per-record status and bounded values before it can
 exit successfully. Exact-revision host and target/QEMU validation remain
 required.
+
+## Thermal-zone observation candidate
+
+The observer reads at most 256 Linux thermal zones, sorts their numeric IDs and
+reports signed kernel temperatures in millidegrees Celsius with bounded type
+labels. Missing thermal support and unreadable zones are explicit; malformed
+zone data invalidates only the optional thermal object. Host fixtures cover
+ordering, signed values, partial availability, absence and malformed values. The
+QEMU observer gate requires the thermal object even when the virtual machine
+exposes no thermal zones.
+Exact-revision host and target/QEMU validation remain required. Power and energy
+measurements, hardware alarm interpretation and cooling policy remain open.

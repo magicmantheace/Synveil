@@ -138,6 +138,7 @@ if mode == 'pass':
         assert 'busy_basis_points' in command and 'sample_window_ms' in command
         assert 'logical_cpus' in command
         assert 'frequency' in command
+        assert 'thermal' in command
         assert 'total_threads' in command and 'average_1m' in command
         assert 'sectors_read_512b' in command and 'rx_bytes' in command
         assert 'pressure' in command and 'io' in command

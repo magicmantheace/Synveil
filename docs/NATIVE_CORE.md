@@ -342,6 +342,14 @@ or `partial` status. Malformed kernel values make only the optional frequency
 object `invalid`; they do not discard otherwise valid memory, load, pressure or
 cumulative CPU observations.
 
+The optional top-level `thermal` object reads `/sys/class/thermal/thermal_zone*`
+without changing governors, trip points or cooling state. Up to 256 zones are
+sorted by numeric kernel ID and report the kernel type plus signed temperature
+in millidegrees Celsius. Missing support and wholly unreadable zones are
+`unavailable`; an unreadable subset is `partial`. Malformed zone data makes only
+this object `invalid`. This is a current kernel sensor snapshot, not a cooling
+recommendation, hardware alarm or policy action.
+
 ## Error response envelope
 
 Conceptual response:
