@@ -947,3 +947,39 @@ observed archive presence after reboot and the four later cuts observed absence.
 This remains guest kernel-loss/filesystem-replay evidence with host page cache;
 it is not physical power-loss, volatile-device-cache, real device-error or
 independently authenticated integrity proof.
+
+## Persistent audit sink status candidate
+
+The versioned `status` result now includes the configured persistent-audit
+state and a process-local failed-write count. A configured sink is `healthy`
+only after its latest append and synchronization succeeds; an append, file-sync,
+rotation or directory-sync failure makes it `degraded`. A later successful
+append restores `healthy` while retaining the count. No configured path reports
+`disabled`; `starting` covers the interval before a configured process attempts
+its first write. The core service itself remains ready so recovery can inspect
+the failure.
+
+The real-core host integration requires `healthy` with zero failures for a
+private writable journal and `degraded` with the exact preceding failure count
+for an incomplete journal, while retaining existing console warnings and byte
+preservation checks. After fixture-controlled removal of the damaged pathname,
+the next successful request must report `healthy` without clearing the count.
+The full 136-test Rust workspace, formatting and clippy passed on the pinned
+1.99 toolchain locally and in exact-revision host run
+[39163064705](https://github.com/magicmantheace/Synveil/actions/runs/39163064705)
+at `bf9e1fd`, including six-cut tracing of the built release CLI. The rollover,
+tmpfs exhaustion/read-only and ext4 exhaustion guest commands now capture the
+real helper's status and require configured `healthy`/zero or
+`degraded`/nonzero results as appropriate. Their 31 host control-flow tests
+reject incorrect state, configuration and counts. Exact source `141e20e` passed
+all host checks in [run 39163522216](https://github.com/magicmantheace/Synveil/actions/runs/39163522216),
+including the full Rust suite, actual built-CLI tracing, formatting and clippy.
+Exact source `141e20e8b558a7ef36016f684acfad958694b072` then passed all
+45 native steps in
+[run 39163522194](https://github.com/magicmantheace/Synveil/actions/runs/39163522194),
+job `117781621003`. The downloaded ZIP's SHA256 and clean-revision build
+manifests matched; retained rollover, tmpfs and ext4 logs contained every
+required health transition and one final pass marker each. See
+[retained evidence](validation/native-141e20e/README.md). This does not complete
+durable audit or establish survival of a successful synchronization across
+device-cache or physical power loss.

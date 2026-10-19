@@ -108,6 +108,9 @@ if mode == 'pass':
         assert '$3=="ext4"' in command and '/var/lib/synveil/audit-ext4-test' in command
         assert 'StorageFull' in command and 'audit_probe resumed' in command
         assert 'export-recovered.json' in command and 'veil-audit verify' in command
+        assert 'persistent_audit' in command and '"configured": true' in command
+        assert 'failed_writes' in command
+        assert 'SYNVEIL_EXPECT_AUDIT_STATE' in command
         assert 'remount' not in command and 'umount' not in command
         assert max(map(len, command.splitlines())) < 1024
     elif case == 'audit-enospc':
@@ -117,6 +120,8 @@ if mode == 'pass':
         assert 'Read-only file system' in command and 'audit_probe writable' in command
         assert 'StorageFull' in command and 'ReadOnlyFilesystem' in command
         assert 'export-recovered.json' in command and 'veil-audit verify' in command
+        assert 'persistent_audit' in command and 'failed_writes' in command
+        assert 'SYNVEIL_EXPECT_AUDIT_STATE' in command
         assert 'umount' in command and 'sha256sum' in command
         assert max(map(len, command.splitlines())) < 1024
     elif case == 'audit-rotation':
@@ -124,6 +129,8 @@ if mode == 'pass':
         assert 'veil-audit check --path' in command and 'sha256sum' in command
         assert 'veil-audit export --path' in command and 'veil-audit verify --path' in command
         assert '4194304' in command and 'records' in command
+        assert 'persistent_audit' in command and 'failed_writes' in command
+        assert 'SYNVEIL_EXPECT_AUDIT_STATE' in command
         assert max(map(len, command.splitlines())) < 1024
     elif case == 'observe':
         assert 'synctl --json observe' in command
@@ -251,7 +258,9 @@ elif mode == 'timeout':
                      "rw-failed", "ro-remount-failed", "rw-remount-failed",
                      "full-export-succeeds", "full-export-partial", "wrong-full-error",
                      "readonly-export-succeeds", "readonly-export-partial",
-                     "recovered-export-fails", "recovered-copy-differs")
+                     "recovered-export-fails", "recovered-copy-differs",
+                     "wrong-audit-state", "zero-audit-failures",
+                     "healthy-audit-failures", "wrong-audit-config")
         ext4_modes = tuple(mode for mode in modes if not mode.startswith(("ro-", "rw-", "readonly-"))
                            and mode != "unmount-failed") + ("wrong-fstype", "wrong-device", "missing-mount",
                                                            "wrong-fill-error", "main-unhealthy")
@@ -272,7 +281,20 @@ elif 'remount,rw' in sys.argv:
     marker.unlink()
 ''',
                     "umount": '#!/bin/sh\n[ "$ENOSPC_MODE" != unmount-failed ]\n',
-                    "client": '#!/bin/sh\n[ "$ENOSPC_MODE" != main-unhealthy ] || [ "$1" = --socket ]\n',
+                    "client": '''#!/bin/sh
+[ "$ENOSPC_MODE" != main-unhealthy ] || [ "$1" = --socket ] || exit 1
+state=${SYNVEIL_EXPECT_AUDIT_STATE:-healthy}
+failed=0
+configured=true
+if [ "$state" = degraded ]; then failed=3; fi
+if [ "$ENOSPC_MODE" = wrong-audit-state ]; then
+    if [ "$state" = healthy ]; then state=degraded; else state=healthy; fi
+fi
+if [ "$ENOSPC_MODE" = zero-audit-failures ]; then failed=0; fi
+if [ "$ENOSPC_MODE" = healthy-audit-failures ] && [ "$state" = healthy ]; then failed=3; fi
+if [ "$ENOSPC_MODE" = wrong-audit-config ]; then configured=false; fi
+printf '{"persistent_audit": {"configured": %s, "state": "%s", "failed_writes": %s}}\n' "$configured" "$state" "$failed"
+''',
 
                     "dd": '''#!/usr/bin/env python3
 import os, pathlib, sys
@@ -374,7 +396,8 @@ print(json.dumps(report, separators=(',', ':')))
         # This proves gate control flow, not native durability or QEMU behavior.
         for mode in ("pass", "capacity-corrupt", "tail-repair", "capacity-silent",
                      "tail-silent", "accept-tail", "helper-failed", "export-failed",
-                     "verify-accepts-tamper", "export-overwrites"):
+                     "verify-accepts-tamper", "export-overwrites", "wrong-audit-state",
+                     "zero-audit-failures", "healthy-audit-failures", "wrong-audit-config"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 core = root / "core"
@@ -427,7 +450,19 @@ elif sys.argv[1] == 'verify':
 print(json.dumps(report, separators=(',', ':')))
 ''')
                 client = root / "client"
-                client.write_text("#!/bin/sh\nexit 0\n")
+                client.write_text('''#!/bin/sh
+state=${SYNVEIL_EXPECT_AUDIT_STATE:-healthy}
+failed=0
+configured=true
+if [ "$state" = degraded ]; then failed=3; fi
+if [ "$AUDIT_FIXTURE_MODE" = wrong-audit-state ]; then
+    if [ "$state" = healthy ]; then state=degraded; else state=healthy; fi
+fi
+if [ "$AUDIT_FIXTURE_MODE" = zero-audit-failures ]; then failed=0; fi
+if [ "$AUDIT_FIXTURE_MODE" = healthy-audit-failures ] && [ "$state" = healthy ]; then failed=3; fi
+if [ "$AUDIT_FIXTURE_MODE" = wrong-audit-config ]; then configured=false; fi
+printf '{"persistent_audit": {"configured": %s, "state": "%s", "failed_writes": %s}}\n' "$configured" "$state" "$failed"
+''')
                 for executable in (core, inspector, client):
                     executable.chmod(0o700)
                 command = module.AUDIT_ROTATION[3].replace(

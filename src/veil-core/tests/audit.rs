@@ -73,6 +73,26 @@ fn exercise_core_journal(incomplete: bool) {
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let response = decode_response(&read_frame(&mut reader).unwrap().unwrap()).unwrap();
     assert!(response.ok);
+    let status = response.result.as_ref().unwrap();
+    assert_eq!(status["persistent_audit"]["configured"], true);
+    assert_eq!(
+        status["persistent_audit"]["state"],
+        if incomplete { "degraded" } else { "healthy" }
+    );
+    assert_eq!(
+        status["persistent_audit"]["failed_writes"],
+        if incomplete { 3 } else { 0 }
+    );
+    let damaged = journal.with_extension("damaged");
+    if incomplete {
+        std::fs::rename(&journal, &damaged).unwrap();
+        let request = Request::new("audit-recovered", "status", json!({}));
+        stream.write_all(&encode_line(&request).unwrap()).unwrap();
+        let response = decode_response(&read_frame(&mut reader).unwrap().unwrap()).unwrap();
+        let status = response.result.unwrap();
+        assert_eq!(status["persistent_audit"]["state"], "healthy");
+        assert_eq!(status["persistent_audit"]["failed_writes"], 3);
+    }
     drop(reader);
     drop(stream);
     let output = core.0.take().unwrap().wait_with_output().unwrap();
@@ -108,7 +128,7 @@ fn exercise_core_journal(incomplete: bool) {
     assert_eq!(request["fields"]["method"], "status");
     if incomplete {
         assert_eq!(
-            std::fs::read(&journal).unwrap(),
+            std::fs::read(&damaged).unwrap(),
             b"preserved-partial-record"
         );
     } else {
@@ -128,6 +148,9 @@ fn exercise_core_journal(incomplete: bool) {
         "journal must be owner-readable only"
     );
     std::fs::remove_file(journal).unwrap();
+    if incomplete {
+        std::fs::remove_file(damaged).unwrap();
+    }
     std::fs::remove_file(directory.join(".audit-lock")).unwrap();
     std::fs::remove_dir(directory).unwrap();
 }

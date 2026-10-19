@@ -123,8 +123,16 @@ pub struct CoreStatus {
     pub version: String,
     pub protocol: String,
     pub state: String,
+    pub persistent_audit: PersistentAuditStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub git_revision: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistentAuditStatus {
+    pub configured: bool,
+    pub state: String,
+    pub failed_writes: u64,
 }
 
 pub fn decode_request(bytes: &[u8]) -> Result<Request, ProtocolError> {

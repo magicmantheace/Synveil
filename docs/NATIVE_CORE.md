@@ -288,12 +288,23 @@ Conceptual response:
     "service": "veil-core",
     "version": "0.1.0-dev",
     "protocol": "synveil.core/v1",
-    "state": "ready"
+    "state": "ready",
+    "persistent_audit": {
+      "configured": true,
+      "state": "healthy",
+      "failed_writes": 0
+    }
   }
 }
 ```
 
-The first status result should contain only deterministic service/build information. It should not fabricate health claims about components it cannot actually inspect.
+The status result contains deterministic service/build information and the
+current process's directly observed persistent-audit sink state. Audit state is
+`disabled` when no path is configured, `starting` before the first configured
+write, `healthy` after the latest write succeeds, and `degraded` after the
+latest write fails. `failed_writes` is a monotonic process-local counter; it is
+not retained across core restarts. The service remains `ready` while the audit
+sink is degraded so console recovery and status inspection remain available.
 
 ## Error response envelope
 
