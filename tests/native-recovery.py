@@ -135,6 +135,7 @@ if mode == 'pass':
     elif case == 'observe':
         assert 'synctl --json observe' in command
         assert 'synveil.observe/v1' in command
+        assert 'busy_basis_points' in command and 'sample_window_ms' in command
         assert 'total_threads' in command and 'average_1m' in command
         assert 'sectors_read_512b' in command and 'rx_bytes' in command
         assert 'pressure' in command and 'io' in command

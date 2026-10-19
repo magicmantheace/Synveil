@@ -28,6 +28,7 @@ on:
       - development/audit-release-guest-crash
       - development/audit-release-completion-reboot
       - development/audit-sink-health
+      - development/observer-cpu-utilization
       - development/login-idle-keyboard
       - development/qmp-chord-hold
       - development/archive-stream-integrity

@@ -3,16 +3,26 @@
 use serde_json::{Value, json};
 use std::fs;
 use std::io;
+use std::thread;
+use std::time::{Duration, Instant};
 
 const OBSERVE_SCHEMA_V1: &str = "synveil.observe/v1";
+const CPU_SAMPLE_INTERVAL: Duration = Duration::from_millis(100);
+const CPU_ACCOUNTING_FIELDS: usize = 8;
+const CPU_IOWAIT_FIELD: usize = 4;
 
 /// Read kernel files directly, never by scraping output from command-line tools.
 pub fn sample() -> io::Result<Value> {
     let meminfo = fs::read_to_string("/proc/meminfo")?;
+    let stat_before = fs::read_to_string("/proc/stat")?;
+    let sample_started = Instant::now();
+    thread::sleep(CPU_SAMPLE_INTERVAL);
     let stat = fs::read_to_string("/proc/stat")?;
+    let sample_window_ms = u64::try_from(sample_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let uptime = fs::read_to_string("/proc/uptime")?;
     let loadavg = fs::read_to_string("/proc/loadavg")?;
     let mut snapshot = parse_sample(&meminfo, &stat, &uptime, &loadavg)?;
+    snapshot["cpu"]["utilization"] = parse_cpu_utilization(&stat_before, &stat, sample_window_ms)?;
     // Disk counters are optional on restricted procfs mounts; an unavailable
     // source must not prevent CPU/memory health from being reported.
     snapshot["disk"] = match fs::read_to_string("/proc/diskstats") {
@@ -60,7 +70,14 @@ fn meminfo_kib(input: &str, name: &str) -> io::Result<u64> {
         .ok_or_else(|| invalid_data("memory metric overflows bytes"))
 }
 
-fn parse_cpu_stat(input: &str) -> io::Result<(u64, u64, usize)> {
+struct CpuStat {
+    ticks: Vec<u64>,
+    total: u64,
+    idle: u64,
+    logical: Vec<String>,
+}
+
+fn parse_cpu_stat(input: &str) -> io::Result<CpuStat> {
     let mut lines = input.lines();
     let summary = lines
         .next()
@@ -79,10 +96,15 @@ fn parse_cpu_stat(input: &str) -> io::Result<(u64, u64, usize)> {
     if ticks.len() < 4 {
         return Err(invalid_data("not enough CPU counters"));
     }
-    let total = ticks.iter().try_fold(0u64, |sum, tick| {
-        sum.checked_add(*tick)
-            .ok_or_else(|| invalid_data("CPU counter overflow"))
-    })?;
+    // Linux already includes guest and guest_nice in user and nice. Only the
+    // first eight fields are distinct accounting categories; including the
+    // guest fields would double-count time spent running virtual CPUs.
+    let total = ticks[..ticks.len().min(CPU_ACCOUNTING_FIELDS)]
+        .iter()
+        .try_fold(0u64, |sum, tick| {
+            sum.checked_add(*tick)
+                .ok_or_else(|| invalid_data("CPU counter overflow"))
+        })?;
     // idle + iowait are the conventional Linux non-busy fields.
     let idle = ticks[3]
         .checked_add(ticks.get(4).copied().unwrap_or_default())
@@ -94,11 +116,67 @@ fn parse_cpu_stat(input: &str) -> io::Result<(u64, u64, usize)> {
                 .strip_prefix("cpu")
                 .filter(|suffix| !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit()))
         })
-        .count();
-    if logical == 0 {
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    if logical.is_empty() {
         return Err(invalid_data("no logical CPU lines"));
     }
-    Ok((total, idle, logical))
+    Ok(CpuStat {
+        ticks,
+        total,
+        idle,
+        logical,
+    })
+}
+
+/// Report aggregate busy time over two monotonic Linux CPU counter samples.
+/// Fixed-point basis points avoid implying more precision than the jiffy delta.
+fn parse_cpu_utilization(before: &str, after: &str, sample_window_ms: u64) -> io::Result<Value> {
+    let before = parse_cpu_stat(before)?;
+    let after = parse_cpu_stat(after)?;
+    if before.logical != after.logical || before.ticks.len() != after.ticks.len() {
+        return Ok(json!({"status": "unavailable"}));
+    }
+    for (index, (before, after)) in before
+        .ticks
+        .iter()
+        .zip(&after.ticks)
+        .take(CPU_ACCOUNTING_FIELDS)
+        .enumerate()
+    {
+        if after < before {
+            // Linux documents that iowait may legitimately decrease because
+            // its attribution is not reliable. The interval cannot yield a
+            // trustworthy busy percentage, but the observation is not bad.
+            if index == CPU_IOWAIT_FIELD {
+                return Ok(json!({"status": "unavailable"}));
+            }
+            return Err(invalid_data("CPU counter moved backwards"));
+        }
+    }
+    let total = after
+        .total
+        .checked_sub(before.total)
+        .ok_or_else(|| invalid_data("total CPU counter moved backwards"))?;
+    let idle = after
+        .idle
+        .checked_sub(before.idle)
+        .ok_or_else(|| invalid_data("idle CPU counter moved backwards"))?;
+    if total == 0 {
+        return Ok(json!({"status": "unavailable"}));
+    }
+    let busy = total
+        .checked_sub(idle)
+        .ok_or_else(|| invalid_data("idle CPU delta exceeds total"))?;
+    let busy_basis_points =
+        ((u128::from(busy) * 10_000) + u128::from(total / 2)) / u128::from(total);
+    let busy_basis_points =
+        u64::try_from(busy_basis_points).map_err(|_| invalid_data("CPU utilization overflows"))?;
+    Ok(json!({
+        "status": "ready",
+        "busy_basis_points": busy_basis_points,
+        "sample_window_ms": sample_window_ms,
+    }))
 }
 
 fn parse_uptime(input: &str) -> io::Result<f64> {
@@ -375,7 +453,7 @@ fn parse_sample(meminfo: &str, stat: &str, uptime: &str, loadavg: &str) -> io::R
     if available_bytes > total_bytes || total_bytes == 0 {
         return Err(invalid_data("inconsistent memory totals"));
     }
-    let (total_ticks, idle_ticks, logical_count) = parse_cpu_stat(stat)?;
+    let cpu = parse_cpu_stat(stat)?;
     let uptime_seconds = parse_uptime(uptime)?;
     let load = parse_loadavg(loadavg)?;
     Ok(json!({
@@ -385,9 +463,9 @@ fn parse_sample(meminfo: &str, stat: &str, uptime: &str, loadavg: &str) -> io::R
             "available_bytes": available_bytes
         },
         "cpu": {
-            "logical_count": logical_count,
-            "total_ticks": total_ticks,
-            "idle_ticks": idle_ticks
+            "logical_count": cpu.logical.len(),
+            "total_ticks": cpu.total,
+            "idle_ticks": cpu.idle
         },
         "uptime_seconds": uptime_seconds,
         "load": load
@@ -403,7 +481,7 @@ mod tests {
     const LOAD: &str = "1.50 0.40 0.20 2/120 4217\n";
 
     #[test]
-    fn parses_structured_snapshot_without_guessing_utilization() {
+    fn parses_structured_cumulative_snapshot() {
         let result = parse_sample(MEMINFO, STAT, "12.50 10.00\n", LOAD).unwrap();
         assert_eq!(result["schema"], OBSERVE_SCHEMA_V1);
         assert_eq!(result["memory"]["total_bytes"], 33_554_432u64);
@@ -416,6 +494,45 @@ mod tests {
         assert_eq!(result["load"]["average_5m"], 0.4);
         assert_eq!(result["load"]["runnable"], 2);
         assert_eq!(result["load"]["total_threads"], 120);
+    }
+
+    #[test]
+    fn cpu_utilization_uses_validated_counter_deltas() {
+        let after = "cpu  121 2 40 1120 40 11 11 0 0 0\ncpu0 60 1 20 560 20 5 6 0 0 0\ncpu1 61 1 20 560 20 6 5 0 0 0\n";
+        let utilization = parse_cpu_utilization(STAT, after, 101).unwrap();
+        assert_eq!(utilization["status"], "ready");
+        assert_eq!(utilization["busy_basis_points"], 2500);
+        assert_eq!(utilization["sample_window_ms"], 101);
+    }
+
+    #[test]
+    fn cpu_utilization_does_not_double_count_guest_time() {
+        let before = "cpu  100 0 0 100 0 0 0 0 0 0\ncpu0 100 0 0 100 0 0 0 0 0 0\n";
+        let after = "cpu  110 0 0 110 0 0 0 0 10 0\ncpu0 110 0 0 110 0 0 0 0 10 0\n";
+        let utilization = parse_cpu_utilization(before, after, 100).unwrap();
+        assert_eq!(utilization["status"], "ready");
+        assert_eq!(utilization["busy_basis_points"], 5000);
+    }
+
+    #[test]
+    fn cpu_utilization_withholds_a_window_when_iowait_decreases() {
+        let before = "cpu  100 0 0 100 10 0 0 0 0 0\ncpu0 100 0 0 100 10 0 0 0 0 0\n";
+        let after = "cpu  110 0 0 110 9 0 0 0 0 0\ncpu0 110 0 0 110 9 0 0 0 0 0\n";
+        let utilization = parse_cpu_utilization(before, after, 100).unwrap();
+        assert_eq!(utilization["status"], "unavailable");
+    }
+
+    #[test]
+    fn cpu_utilization_refuses_regression_and_withholds_empty_or_changed_samples() {
+        let no_delta = parse_cpu_utilization(STAT, STAT, 100).unwrap();
+        assert_eq!(no_delta["status"], "unavailable");
+
+        let one_cpu = "cpu  101 2 30 1000 10 1 1 0 0 0\ncpu0 101 2 30 1000 10 1 1 0 0 0\n";
+        let changed = parse_cpu_utilization(STAT, one_cpu, 100).unwrap();
+        assert_eq!(changed["status"], "unavailable");
+
+        let regression = "cpu  100 2 31 1010 10 1 1 0 0 0\ncpu0 50 1 15 505 5 0 1 0 0 0\ncpu1 50 1 16 505 5 1 0 0 0\n";
+        assert!(parse_cpu_utilization(STAT, regression, 100).is_err());
     }
 
     #[test]

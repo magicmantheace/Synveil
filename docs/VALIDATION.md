@@ -983,3 +983,27 @@ required health transition and one final pass marker each. See
 [retained evidence](validation/native-141e20e/README.md). This does not complete
 durable audit or establish survival of a successful synchronization across
 device-cache or physical power loss.
+
+## Live aggregate CPU utilization candidate
+
+The read-only observer now takes two aggregate `/proc/stat` samples across a
+minimum 100 ms interval and reports busy time as integer basis points together
+with the actual monotonic sample window. Guest counters are excluded because
+Linux already includes them in user/nice. A zero-delta interval,
+logical-topology change or permitted iowait decrease reports `unavailable`
+without inventing a percentage; malformed or backward non-guest counters other
+than iowait fail the observation. Cumulative counters come from the later sample.
+
+Host cases cover a 25.00 percent delta, guest-time accounting, iowait decrease,
+zero delta, topology change and an individual counter regression. The full
+140-test Rust workspace, formatting, clippy and all 31 recovery control-flow
+tests passed locally and in exact-revision host run
+[39253717313](https://github.com/magicmantheace/Synveil/actions/runs/39253717313).
+Exact source `255101d0c5329bba12546466480ec748ec1e3097` then passed all 45
+native steps in
+[run 39253717232](https://github.com/magicmantheace/Synveil/actions/runs/39253717232),
+job `118064035542`. The downloaded native artifact matched its published SHA256;
+both manifests identify the clean tested revision, and the retained guest log
+contains `SYNVEIL_OBSERVE_OK` after requiring the utilization and window fields.
+See [retained evidence](validation/native-255101d/README.md). This is aggregate
+CPU busy time, not per-CPU or per-process attribution or historical telemetry.
