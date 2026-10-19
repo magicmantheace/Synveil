@@ -643,7 +643,8 @@ mod tests {
     }
 
     // Forked test processes can inherit an open flock until exec. Retry only
-    // that pre-write contention for fixtures expecting a successful append.
+    // that pre-write contention for fixture operations whose intended result
+    // is not lock contention.
     // Production callers and tests asserting contention still fail immediately.
     fn append_fixture(path: &Path, line: &str) -> io::Result<()> {
         retry_fixture(|| append_record(path, line))
@@ -836,7 +837,7 @@ mod tests {
         let mut storage = FaultingIo::new(1);
         storage.partial_write = true;
         assert_eq!(
-            append_record_with_io(&journal, &next, &mut storage)
+            retry_fixture(|| append_record_with_io(&journal, &next, &mut storage))
                 .unwrap_err()
                 .raw_os_error(),
             Some(5)
@@ -844,7 +845,9 @@ mod tests {
         let expected = format!("{original}\n{}", &next[..17]);
         assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
         assert_eq!(
-            append_record(&journal, "retry").unwrap_err().kind(),
+            retry_fixture(|| append_record(&journal, "retry"))
+                .unwrap_err()
+                .kind(),
             io::ErrorKind::InvalidData
         );
         assert_eq!(fs::read_to_string(&journal).unwrap(), expected);
