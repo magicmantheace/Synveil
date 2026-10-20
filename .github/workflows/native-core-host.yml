@@ -34,6 +34,7 @@ on:
       - development/observer-thermal
       - development/observer-process-snapshot
       - development/observer-energy
+      - development/observer-psi-validation
       - development/login-idle-keyboard
       - development/qmp-chord-hold
       - development/archive-stream-integrity
