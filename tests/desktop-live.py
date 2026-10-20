@@ -146,20 +146,20 @@ class DesktopLiveProfileTests(unittest.TestCase):
             "desktop_smoke", ROOT / "tests/smoke-desktop-live.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        self.assertEqual(module.probe_status(b"EFI loading\\n"), "pending")
-        self.assertEqual(module.probe_status(b"SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS\\n"),
+        self.assertEqual(module.probe_status(b"EFI loading\n"), "pending")
+        self.assertEqual(module.probe_status(b"SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS\n"),
                          "passed")
         self.assertEqual(module.probe_status(
-            b"SYNVEIL_QEMU_DESKTOP_PROBE_FAILED\\n"
-            b"SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS\\n"), "failed")
+            b"SYNVEIL_QEMU_DESKTOP_PROBE_FAILED\n"
+            b"SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS\n"), "failed")
         self.assertEqual(module.probe_status(
-            b"X-SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS-Y\\n"), "pending")
+            b"X-SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS-Y\n"), "pending")
         image = self.root / "screen.ppm"
         # Deterministic RGB gradient, 320x200, not a single flat color.
         pixels = bytes((n % 256 for n in range(320 * 200 * 3)))
-        image.write_bytes(b"P6\\n320 200\\n255\\n" + pixels)
+        image.write_bytes(b"P6\n320 200\n255\n" + pixels)
         self.assertTrue(module.screenshot_is_nonblank(image))
-        image.write_bytes(b"P6\\n320 200\\n255\\n" + bytes(320 * 200 * 3))
+        image.write_bytes(b"P6\n320 200\n255\n" + bytes(320 * 200 * 3))
         self.assertFalse(module.screenshot_is_nonblank(image))
 
     def test_shell_syntax(self):
