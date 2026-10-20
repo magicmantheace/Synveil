@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
 """No-network, no-privilege tests for the opt-in multiwindow desktop preview."""
+import importlib.util
 import os
 from pathlib import Path
 import shutil
@@ -19,7 +20,9 @@ class DesktopLiveProfileTests(unittest.TestCase):
         (self.root / "tools").mkdir(parents=True)
         (self.root / "experiments/desktop-live").mkdir(parents=True)
         shutil.copy2(ROOT / "tools/desktop_live.sh", self.root / "tools/desktop_live.sh")
-        for name in ("packages.list.chroot", "live-config.conf", "lightdm.conf"):
+        for name in ("packages.list.chroot", "live-config.conf", "lightdm.conf",
+                     "guest-proof-session.sh", "guest-proof-relay.sh",
+                     "guest-proof.desktop", "guest-proof.service"):
             shutil.copy2(ROOT / "experiments/desktop-live" / name,
                          self.root / "experiments/desktop-live" / name)
         self.bin = self.root / "fake-bin"
@@ -112,6 +115,52 @@ class DesktopLiveProfileTests(unittest.TestCase):
         result = self.invoke("build", uid="0")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(iso.read_bytes(), b"already exists")
+
+    def test_proof_is_session_only_and_reports_actual_window_operations(self):
+        self.assertEqual(self.invoke("configure").returncode, 0)
+        base = self.root / "out/desktop-live/config/includes.chroot"
+        session = base / "usr/local/bin/synveil-guest-proof-session"
+        reporter = base / "usr/local/libexec/synveil-guest-proof-relay"
+        autostart = base / "etc/xdg/autostart/synveil-guest-proof.desktop"
+        service = base / "etc/systemd/system/synveil-guest-proof.service"
+        wants = base / "etc/systemd/system/multi-user.target.wants/synveil-guest-proof.service"
+        for p in (session, reporter):
+            self.assertTrue(p.is_file())
+            self.assertTrue(p.stat().st_mode & 0o111)
+            subprocess.run(["sh", "-n", str(p)], check=True)
+        self.assertIn("Exec=/usr/local/bin/synveil-guest-proof-session",
+                      autostart.read_text())
+        self.assertIn("ExecStart=/usr/local/libexec/synveil-guest-proof-relay",
+                      service.read_text())
+        self.assertTrue(wants.is_symlink())
+        self.assertEqual(wants.resolve(), service.resolve())
+        text = session.read_text()
+        for operation in ("wmctrl -ir", "xwininfo -id", "xdotool windowminimize",
+                          "xprop -id", "thunar", "xfce4-terminal"):
+            self.assertIn(operation, text)
+        self.assertIn("SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS", text)
+        self.assertIn("SYNVEIL_QEMU_DESKTOP_PROBE_FAILED", text)
+
+    def test_qemu_status_requires_exact_guest_marker_and_real_scanout(self):
+        spec = importlib.util.spec_from_file_location(
+            "desktop_smoke", ROOT / "tests/smoke-desktop-live.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertEqual(module.probe_status(b"EFI loading\\n"), "pending")
+        self.assertEqual(module.probe_status(b"SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS\\n"),
+                         "passed")
+        self.assertEqual(module.probe_status(
+            b"SYNVEIL_QEMU_DESKTOP_PROBE_FAILED\\n"
+            b"SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS\\n"), "failed")
+        self.assertEqual(module.probe_status(
+            b"X-SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS-Y\\n"), "pending")
+        image = self.root / "screen.ppm"
+        # Deterministic RGB gradient, 320x200, not a single flat color.
+        pixels = bytes((n % 256 for n in range(320 * 200 * 3)))
+        image.write_bytes(b"P6\\n320 200\\n255\\n" + pixels)
+        self.assertTrue(module.screenshot_is_nonblank(image))
+        image.write_bytes(b"P6\\n320 200\\n255\\n" + bytes(320 * 200 * 3))
+        self.assertFalse(module.screenshot_is_nonblank(image))
 
     def test_shell_syntax(self):
         subprocess.run(["bash", "-n", str(self.root / "tools/desktop_live.sh")],
