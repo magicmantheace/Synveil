@@ -140,6 +140,7 @@ if mode == 'pass':
         assert 'frequency' in command
         assert 'thermal' in command
         assert 'processes' in command and 'start_time_ticks' in command
+        assert 'energy' in command
         assert 'total_threads' in command and 'average_1m' in command
         assert 'sectors_read_512b' in command and 'rx_bytes' in command
         assert 'pressure' in command and 'io' in command

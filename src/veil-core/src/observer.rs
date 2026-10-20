@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Read-only structured Linux observations. No shell commands or mutations.
 use serde_json::{Value, json};
+use std::collections::{HashSet, VecDeque};
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -17,6 +18,8 @@ const MAX_THERMAL_ZONES: usize = 256;
 const MAX_PROCESS_ENTRIES: usize = 128;
 const MAX_PROCESS_SCAN_ENTRIES: usize = 16384;
 const MAX_PROCESS_STAT_BYTES: usize = 4096;
+const MAX_POWERCAP_ZONES: usize = 256;
+const MAX_POWERCAP_SCAN_ENTRIES: usize = 4096;
 
 /// Read kernel files directly, never by scraping output from command-line tools.
 pub fn sample() -> io::Result<Value> {
@@ -33,6 +36,7 @@ pub fn sample() -> io::Result<Value> {
     snapshot["cpu"]["frequency"] = read_cpu_frequency(Path::new("/sys/devices/system/cpu"));
     snapshot["thermal"] = read_thermal_zones(Path::new("/sys/class/thermal"));
     snapshot["processes"] = read_processes(Path::new("/proc"));
+    snapshot["energy"] = read_powercap_zones(Path::new("/sys/class/powercap"));
     // Disk counters are optional on restricted procfs mounts; an unavailable
     // source must not prevent CPU/memory health from being reported.
     snapshot["disk"] = match fs::read_to_string("/proc/diskstats") {
@@ -262,6 +266,202 @@ fn read_thermal_zones(root: &Path) -> Value {
         "zones": observed,
         "unavailable_zones": unavailable_zones,
         "omitted_zones": omitted_zones,
+    })
+}
+
+fn powercap_controller_name(name: &std::ffi::OsStr) -> Option<String> {
+    let name = name.to_str()?;
+    if name.len() > 128 {
+        return None;
+    }
+    if name.is_empty()
+        || !name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return None;
+    }
+    Some(name.to_owned())
+}
+
+fn powercap_zone_id(name: &std::ffi::OsStr) -> Option<(String, Vec<u32>)> {
+    let name = name.to_str()?;
+    if name.len() > 128 {
+        return None;
+    }
+    let mut fields = name.split(':');
+    let controller = powercap_controller_name(std::ffi::OsStr::new(fields.next()?))?;
+    let ids = fields
+        .map(|field| {
+            if field.is_empty() || !field.bytes().all(|byte| byte.is_ascii_digit()) {
+                return None;
+            }
+            field.parse::<u32>().ok()
+        })
+        .collect::<Option<Vec<_>>>()?;
+    if ids.is_empty() {
+        return None;
+    }
+    Some((controller, ids))
+}
+
+fn parse_powercap_label(input: &str) -> io::Result<&str> {
+    let label = input.trim();
+    if label.is_empty()
+        || label.len() > 128
+        || !label
+            .bytes()
+            .all(|byte| byte.is_ascii() && !byte.is_ascii_control())
+    {
+        return Err(invalid_data("invalid powercap zone label"));
+    }
+    Ok(label)
+}
+
+fn parse_powercap_counter(input: &str, allow_zero: bool) -> io::Result<u64> {
+    let mut fields = input.split_whitespace();
+    let value = fields
+        .next()
+        .ok_or_else(|| invalid_data("missing powercap counter"))?
+        .parse::<u64>()
+        .map_err(|_| invalid_data("invalid powercap counter"))?;
+    if (!allow_zero && value == 0) || fields.next().is_some() {
+        return Err(invalid_data("invalid powercap counter"));
+    }
+    Ok(value)
+}
+
+fn read_powercap_zone(path: &Path) -> io::Result<Option<(String, u64, u64)>> {
+    let name = match fs::read_to_string(path.join("name")) {
+        Ok(value) => parse_powercap_label(&value)?.to_owned(),
+        Err(_) => return Ok(None),
+    };
+    let energy_uj = match fs::read_to_string(path.join("energy_uj")) {
+        Ok(value) => parse_powercap_counter(&value, true)?,
+        Err(_) => return Ok(None),
+    };
+    let max_energy_range_uj = match fs::read_to_string(path.join("max_energy_range_uj")) {
+        Ok(value) => parse_powercap_counter(&value, false)?,
+        Err(_) => return Ok(None),
+    };
+    if energy_uj > max_energy_range_uj {
+        return Err(invalid_data("powercap energy exceeds wrap range"));
+    }
+    Ok(Some((name, energy_uj, max_energy_range_uj)))
+}
+
+/// Read cumulative Linux powercap energy counters. These values can wrap and
+/// are not an instantaneous power measurement or a policy control surface.
+fn read_powercap_zones(root: &Path) -> Value {
+    match fs::read_dir(root) {
+        Ok(_) => {}
+        Err(_) => return json!({"status": "unavailable", "zones": []}),
+    }
+
+    let mut zones = Vec::<(String, Vec<u32>, String, PathBuf)>::new();
+    let mut pending = VecDeque::from([root.to_path_buf()]);
+    let mut visited = HashSet::new();
+    if let Ok(path) = root.canonicalize() {
+        visited.insert(path);
+    }
+    let mut scanned_entries = 0usize;
+    let mut scan_truncated = false;
+
+    'directories: while let Some(directory) = pending.pop_front() {
+        let entries = match fs::read_dir(&directory) {
+            Ok(entries) => entries,
+            Err(_) => return json!({"status": "invalid", "zones": []}),
+        };
+        for entry in entries {
+            if scanned_entries == MAX_POWERCAP_SCAN_ENTRIES {
+                scan_truncated = true;
+                break 'directories;
+            }
+            scanned_entries += 1;
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(_) => return json!({"status": "invalid", "zones": []}),
+            };
+            let name = entry.file_name();
+            let zone_id = powercap_zone_id(&name);
+            let is_root_controller = directory == root && powercap_controller_name(&name).is_some();
+            if zone_id.is_none() && !is_root_controller {
+                continue;
+            }
+
+            let path = entry.path();
+            let is_directory = fs::metadata(&path)
+                .map(|metadata| metadata.is_dir())
+                .unwrap_or(false);
+            let canonical = is_directory.then(|| path.canonicalize().ok()).flatten();
+            if canonical
+                .as_ref()
+                .is_some_and(|canonical| visited.contains(canonical))
+            {
+                continue;
+            }
+            if let Some((controller, ids)) = zone_id {
+                zones.push((
+                    controller,
+                    ids,
+                    name.to_string_lossy().into_owned(),
+                    path.clone(),
+                ));
+            }
+            if let Some(canonical) = canonical {
+                visited.insert(canonical);
+                pending.push_back(path);
+            }
+        }
+    }
+    zones.sort_unstable_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
+    let omitted_zones = zones.len().saturating_sub(MAX_POWERCAP_ZONES);
+    zones.truncate(MAX_POWERCAP_ZONES);
+    if zones.is_empty() {
+        return json!({
+            "status": if scan_truncated { "truncated" } else { "unavailable" },
+            "zones": [],
+            "unavailable_zones": 0,
+            "omitted_zones": 0,
+            "scan_truncated": scan_truncated,
+        });
+    }
+
+    let mut observed = Vec::with_capacity(zones.len());
+    let mut unavailable_zones = 0usize;
+    for (_, _, id, path) in zones {
+        match read_powercap_zone(&path) {
+            Ok(Some((name, energy_uj, max_energy_range_uj))) => observed.push(json!({
+                "id": id,
+                "name": name,
+                "energy_uj": energy_uj,
+                "max_energy_range_uj": max_energy_range_uj,
+            })),
+            Ok(None) => unavailable_zones += 1,
+            Err(_) => return json!({"status": "invalid", "zones": []}),
+        }
+    }
+    if observed.is_empty() {
+        return json!({
+            "status": if scan_truncated { "truncated" } else { "unavailable" },
+            "zones": [],
+            "unavailable_zones": unavailable_zones,
+            "omitted_zones": omitted_zones,
+            "scan_truncated": scan_truncated,
+        });
+    }
+    json!({
+        "status": if omitted_zones > 0 || scan_truncated {
+            "truncated"
+        } else if unavailable_zones > 0 {
+            "partial"
+        } else {
+            "ready"
+        },
+        "zones": observed,
+        "unavailable_zones": unavailable_zones,
+        "omitted_zones": omitted_zones,
+        "scan_truncated": scan_truncated,
     })
 }
 
@@ -1179,6 +1379,55 @@ mod tests {
     }
 
     #[test]
+    fn powercap_reports_sorted_cumulative_energy_and_unavailable_zones() {
+        let root = frequency_fixture();
+        let controller = root.join("intel-rapl");
+        fs::create_dir(&controller).unwrap();
+        for (parent, zone, name, energy, range) in [
+            (
+                &controller,
+                "intel-rapl:2",
+                "package-2\n",
+                "400\n",
+                "1000\n",
+            ),
+            (
+                &controller.join("intel-rapl:0"),
+                "intel-rapl:0:1",
+                "dram\n",
+                "25\n",
+                "500\n",
+            ),
+            (
+                &controller,
+                "intel-rapl:0",
+                "package-0\n",
+                "300\n",
+                "1000\n",
+            ),
+        ] {
+            let directory = parent.join(zone);
+            fs::create_dir_all(&directory).unwrap();
+            fs::write(directory.join("name"), name).unwrap();
+            fs::write(directory.join("energy_uj"), energy).unwrap();
+            fs::write(directory.join("max_energy_range_uj"), range).unwrap();
+        }
+        fs::create_dir(controller.join("intel-rapl:1")).unwrap();
+
+        let energy = read_powercap_zones(&root);
+        assert_eq!(energy["status"], "partial");
+        assert_eq!(energy["zones"][0]["id"], "intel-rapl:0");
+        assert_eq!(energy["zones"][1]["id"], "intel-rapl:0:1");
+        assert_eq!(energy["zones"][1]["name"], "dram");
+        assert_eq!(energy["zones"][1]["energy_uj"], 25);
+        assert_eq!(energy["zones"][2]["id"], "intel-rapl:2");
+        assert_eq!(energy["unavailable_zones"], 1);
+        assert_eq!(energy["omitted_zones"], 0);
+        assert_eq!(energy["scan_truncated"], false);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn process_stat_rejects_mismatch_truncation_and_invalid_ranges() {
         let valid = "7 (worker) S 1 7 7 0 -1 4194304 10 0 0 0 20 5 0 0 20 0 2 0 100 4096 2\n";
         assert!(parse_process_stat(valid.as_bytes(), 7).is_ok());
@@ -1227,6 +1476,20 @@ mod tests {
         assert_eq!(processes["omitted_processes"], 2);
         assert_eq!(processes["scan_truncated"], false);
         assert!(serde_json::to_vec(&processes).unwrap().len() <= 48 * 1024);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn powercap_distinguishes_absence_from_malformed_counters() {
+        let root = frequency_fixture();
+        assert_eq!(read_powercap_zones(&root)["status"], "unavailable");
+
+        let directory = root.join("intel-rapl:0");
+        fs::create_dir(&directory).unwrap();
+        fs::write(directory.join("name"), "package-0\n").unwrap();
+        fs::write(directory.join("energy_uj"), "1001\n").unwrap();
+        fs::write(directory.join("max_energy_range_uj"), "1000\n").unwrap();
+        assert_eq!(read_powercap_zones(&root)["status"], "invalid");
         fs::remove_dir_all(root).unwrap();
     }
 

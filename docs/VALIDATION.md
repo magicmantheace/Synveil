@@ -1098,3 +1098,23 @@ start-time identity. See
 [retained evidence](validation/native-2a0a90e/README.md).
 Lifecycle events, interval deltas, persistent history and process control remain
 open.
+
+## Powercap energy observation
+
+The observer reads at most 256 Linux powercap zones from a bounded traversal of
+control-type and nested zone directories, sorts hierarchical numeric zone IDs,
+and reports bounded names, cumulative microjoules and maximum counter range.
+Canonical directory targets are deduplicated and traversal is capped at 4,096
+entries. Missing and unreadable zones are explicit; malformed labels, counters
+or out-of-range energy invalidate only the optional energy object. Host fixtures
+cover nested hierarchy, ordering, partial availability, absence and malformed
+range relationships. The QEMU observer gate requires the energy object even
+when the virtual machine exposes no powercap zones. Exact revision
+`bca81e5866c6797efcd029796f506737222e0a01` passed host and all 45 native
+workflow steps. The downloaded native artifact matched the published SHA256,
+both build manifests identify the clean tested revision, and the guest log
+contains `SYNVEIL_OBSERVE_OK` after requiring the energy object. See
+[retained evidence](validation/native-bca81e5/README.md). QEMU exercised the
+unavailable-zone result; positive and partial readings remain host-fixture
+evidence. Instantaneous power, power-limit control, and physical-hardware
+validation remain open.
