@@ -368,6 +368,27 @@ real native core and client, though that virtual machine exposed no thermal
 zones. The digest-verified artifact and clean-revision manifests are recorded at
 [native-b5f5cae](validation/native-b5f5cae/README.md).
 
+The optional top-level `processes` object reads a bounded point-in-time view of
+numeric `/proc` entries. Records are sorted by PID and combine PID with kernel
+`start_time_ticks` so later consumers can distinguish PID reuse. They expose
+parent/process-group/session IDs, state, cumulative user/system ticks, virtual
+bytes, resident pages, thread count and nice value. The scan reads at most 16384
+directory entries and returns at most 128 process records. Process exit races
+are counted as unavailable records. Command lines, environments and executable
+paths are never opened. The command name embedded in `stat` is used only to
+locate the following fields and is not returned, so arbitrary non-UTF-8 names
+remain observable. Before returning, the core removes highest-PID records and
+increments the omitted count until the entire response, including the caller's
+ID and all other metrics, fits the 64 KiB protocol frame. This is a current
+snapshot, not lifecycle history or interval utilization. The native client
+validates the bounded schema before accepting a successful observation.
+
+Exact revision `2a0a90edfaeae0b215d734a822653ee7cfea1d15` passed the full
+native workflow. The QEMU observer gate required the process object and
+`start_time_ticks` through the real native core and client. The digest-verified
+artifact and clean-revision manifests are recorded at
+[native-2a0a90e](validation/native-2a0a90e/README.md).
+
 The optional top-level `energy` object reads bounded Linux powercap zones. It
 walks control-type and nested zone directories with a bounded, deduplicated
 scan. Each record contains the stable sysfs zone ID, bounded kernel name,

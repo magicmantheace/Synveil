@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use serde_json::json;
+use serde_json::{Value, json};
 use std::fs;
 use std::io::{self, BufReader, Read, Write};
 use std::os::unix::fs::{DirBuilderExt, FileTypeExt, PermissionsExt};
@@ -98,7 +98,19 @@ fn observe(request: Request) -> Response {
         );
     }
     match observer::sample() {
-        Ok(value) => Response::success(request.id, value),
+        Ok(value) => {
+            let mut response = Response::success(request.id, value);
+            if fit_observe_response(&mut response).is_err() {
+                return Response::failure(
+                    response.id,
+                    ProtocolError::new(
+                        ErrorCode::InternalFailure,
+                        "kernel observation exceeds protocol response limit",
+                    ),
+                );
+            }
+            response
+        }
         Err(_) => Response::failure(
             request.id,
             ProtocolError::new(
@@ -106,6 +118,45 @@ fn observe(request: Request) -> Response {
                 "could not read kernel observations",
             ),
         ),
+    }
+}
+
+/// Keep the actual response, including its caller-provided ID and every other
+/// observation object, within the wire limit. Process records are PID-sorted,
+/// so removing from the end preserves ordering and the lowest-PID prefix.
+fn fit_observe_response(response: &mut Response) -> Result<(), ProtocolError> {
+    loop {
+        match encode_line(response) {
+            Ok(_) => return Ok(()),
+            Err(error) if error.code == ErrorCode::MessageTooLarge => {
+                let Some(processes) = response
+                    .result
+                    .as_mut()
+                    .and_then(|result| result.get_mut("processes"))
+                    .and_then(Value::as_object_mut)
+                else {
+                    return Err(error);
+                };
+                let removed = processes
+                    .get_mut("records")
+                    .and_then(Value::as_array_mut)
+                    .and_then(Vec::pop)
+                    .is_some();
+                if !removed {
+                    return Err(error);
+                }
+                let Some(omitted) = processes
+                    .get("omitted_processes")
+                    .and_then(Value::as_u64)
+                    .and_then(|count| count.checked_add(1))
+                else {
+                    return Err(error);
+                };
+                processes.insert("omitted_processes".to_owned(), json!(omitted));
+                processes.insert("status".to_owned(), json!("truncated"));
+            }
+            Err(error) => return Err(error),
+        }
     }
 }
 
@@ -308,6 +359,37 @@ mod tests {
             assert!(result["memory"]["total_bytes"].as_u64().unwrap() > 0);
             assert!(result["cpu"]["total_ticks"].as_u64().unwrap() > 0);
         }
+    }
+
+    #[test]
+    fn observe_truncates_processes_to_fit_the_complete_protocol_response() {
+        let records = (1..=128)
+            .map(|pid| json!({"pid": pid, "fixture": "x".repeat(256)}))
+            .collect::<Vec<_>>();
+        let mut response = Response::success(
+            "\"\\\n".repeat(42),
+            json!({
+                "schema": "synveil.observe/v1",
+                "fixture_other_metrics": "x".repeat(48 * 1024),
+                "processes": {
+                    "status": "ready",
+                    "records": records,
+                    "unavailable_processes": 0,
+                    "omitted_processes": 0,
+                    "scan_truncated": false,
+                },
+            }),
+        );
+
+        fit_observe_response(&mut response).unwrap();
+        let encoded = encode_line(&response).unwrap();
+        assert!(encoded.len() <= veil_protocol::MAX_MESSAGE_BYTES + 1);
+        let processes = &response.result.as_ref().unwrap()["processes"];
+        let retained = processes["records"].as_array().unwrap().len() as u64;
+        let omitted = processes["omitted_processes"].as_u64().unwrap();
+        assert!(retained < 128);
+        assert_eq!(retained + omitted, 128);
+        assert_eq!(processes["status"], "truncated");
     }
 
     #[test]

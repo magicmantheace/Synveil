@@ -265,8 +265,15 @@ anchoring and physical power-loss testing remain open.
 - [ ] process lifecycle and resource metrics
   - Read-only 1/5/15-minute Linux load averages and runnable/total thread
     counts are now parsed with strict schema checks. They are not CPU
-    utilization or process inventory; full lifecycle metrics remain open.
-    The expanded observer schema passed QEMU at
+    utilization. A bounded, PID-sorted process snapshot now reports stable
+    PID/start-time identity, scheduling state, topology and cumulative CPU plus
+    point-in-time memory counters without opening command lines, environments or
+    executable paths. The name embedded in `stat` is not returned.
+    The core trims the highest-PID records when necessary so the complete
+    response remains within the protocol frame limit. Exact-revision host and
+    native QEMU validation passed at
+    [2a0a90e](docs/validation/native-2a0a90e/README.md). Lifecycle event/delta
+    tracking remains open. The earlier load schema passed QEMU at
     [255101d](docs/validation/native-255101d/README.md).
 - [ ] disk/I/O metrics
   - Raw, per-device read/write counts, 512-byte sector counters, in-flight I/O,

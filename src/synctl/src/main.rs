@@ -228,6 +228,101 @@ fn validate_observe_result(result: &Value) -> io::Result<()> {
         _ => Err(invalid()),
     }?;
 
+    let processes = result.get("processes").ok_or_else(invalid)?;
+    let records = processes
+        .get("records")
+        .and_then(Value::as_array)
+        .ok_or_else(invalid)?;
+    let unavailable = processes
+        .get("unavailable_processes")
+        .and_then(Value::as_u64)
+        .ok_or_else(invalid)?;
+    let omitted = processes
+        .get("omitted_processes")
+        .and_then(Value::as_u64)
+        .ok_or_else(invalid)?;
+    let scan_truncated = processes
+        .get("scan_truncated")
+        .and_then(Value::as_bool)
+        .ok_or_else(invalid)?;
+    match processes.get("status").and_then(Value::as_str) {
+        Some("ready")
+            if !records.is_empty() && unavailable == 0 && omitted == 0 && !scan_truncated => {}
+        Some("partial")
+            if !records.is_empty() && unavailable > 0 && omitted == 0 && !scan_truncated => {}
+        Some("truncated") if omitted > 0 || scan_truncated => {}
+        Some("unavailable") if records.is_empty() && omitted == 0 && !scan_truncated => {}
+        Some("invalid")
+            if records.is_empty() && unavailable == 0 && omitted == 0 && !scan_truncated => {}
+        _ => return Err(invalid()),
+    }
+    let mut previous_pid = None;
+    for record in records {
+        let pid = record
+            .get("pid")
+            .and_then(Value::as_u64)
+            .filter(|pid| *pid > 0 && *pid <= u64::from(u32::MAX))
+            .ok_or_else(invalid)?;
+        if previous_pid.is_some_and(|previous| pid <= previous) {
+            return Err(invalid());
+        }
+        previous_pid = Some(pid);
+        for field in ["parent_pid", "process_group_id", "session_id"] {
+            if record
+                .get(field)
+                .and_then(Value::as_u64)
+                .filter(|value| *value <= u64::from(u32::MAX))
+                .is_none()
+            {
+                return Err(invalid());
+            }
+        }
+        let state = record.get("state").and_then(Value::as_str).filter(|state| {
+            state.len() == 1
+                && matches!(
+                    state.as_bytes()[0],
+                    b'R' | b'S'
+                        | b'D'
+                        | b'Z'
+                        | b'T'
+                        | b't'
+                        | b'X'
+                        | b'x'
+                        | b'K'
+                        | b'W'
+                        | b'P'
+                        | b'I'
+                )
+        });
+        if state.is_none() {
+            return Err(invalid());
+        }
+        for field in [
+            "user_ticks",
+            "system_ticks",
+            "start_time_ticks",
+            "virtual_memory_bytes",
+            "resident_pages",
+        ] {
+            if record.get(field).and_then(Value::as_u64).is_none() {
+                return Err(invalid());
+            }
+        }
+        if record
+            .get("thread_count")
+            .and_then(Value::as_u64)
+            .filter(|threads| *threads > 0)
+            .is_none()
+            || record
+                .get("nice")
+                .and_then(Value::as_i64)
+                .filter(|nice| (-20..=19).contains(nice))
+                .is_none()
+        {
+            return Err(invalid());
+        }
+    }
+
     let pressure = result.get("pressure").ok_or_else(invalid)?;
     for (field, require_full) in [("cpu", false), ("memory", true), ("io", true)] {
         if !pressure
@@ -246,7 +341,7 @@ fn print_help() {
          \n\
          Commands:\n\
            status    Query veil-core deterministic service status\n\
-           observe   Read kernel CPU, memory, load, disk and network counters"
+           observe   Read bounded kernel resource and process counters"
     );
 }
 
@@ -266,6 +361,22 @@ mod tests {
             "cpu": {"status": "ready", "some": record.clone(), "full": null},
             "memory": {"status": "ready", "some": record.clone(), "full": record.clone()},
             "io": {"status": "ready", "some": record.clone(), "full": record}
+        })
+    }
+
+    fn valid_processes() -> Value {
+        json!({
+            "status": "ready",
+            "records": [{
+                "pid": 1, "parent_pid": 0, "process_group_id": 1,
+                "session_id": 1, "state": "S", "user_ticks": 1,
+                "system_ticks": 2, "start_time_ticks": 3,
+                "virtual_memory_bytes": 4096, "resident_pages": 1,
+                "thread_count": 1, "nice": 0
+            }],
+            "unavailable_processes": 0,
+            "omitted_processes": 0,
+            "scan_truncated": false
         })
     }
 
@@ -291,6 +402,7 @@ mod tests {
 
     #[test]
     fn observe_validation_requires_sorted_per_cpu_measurements() {
+        let processes = valid_processes();
         let valid = json!({
             "schema": "synveil.observe/v1",
             "cpu": {"utilization": {
@@ -303,7 +415,8 @@ mod tests {
                 ],
                 "omitted_logical_cpus": 0
             }},
-            "pressure": valid_pressure()
+            "pressure": valid_pressure(),
+            "processes": processes.clone()
         });
         assert!(validate_observe_result(&valid).is_ok());
 
@@ -312,13 +425,13 @@ mod tests {
                 "status": "ready", "busy_basis_points": 5000,
                 "sample_window_ms": 101, "logical_cpus": [],
                 "omitted_logical_cpus": 0
-            }}}),
+            }}, "processes": processes.clone()}),
             json!({"schema": "synveil.observe/v1", "cpu": {"utilization": {
                 "status": "ready", "busy_basis_points": 5000,
                 "sample_window_ms": 101,
                 "logical_cpus": [{"id": 0, "status": "ready"}],
                 "omitted_logical_cpus": 0
-            }}}),
+            }}, "processes": processes.clone()}),
             json!({"schema": "synveil.observe/v1", "cpu": {"utilization": {
                 "status": "ready", "busy_basis_points": 5000,
                 "sample_window_ms": 101,
@@ -327,7 +440,7 @@ mod tests {
                     {"id": 1, "status": "ready", "busy_basis_points": 1}
                 ],
                 "omitted_logical_cpus": 0
-            }}}),
+            }}, "processes": processes.clone()}),
         ] {
             assert!(validate_observe_result(&invalid).is_err());
         }
@@ -339,7 +452,8 @@ mod tests {
             json!({
                 "schema": "synveil.observe/v1",
                 "cpu": {"utilization": {"status": "unavailable"}},
-                "pressure": pressure
+                "pressure": pressure,
+                "processes": valid_processes()
             })
         };
         assert!(validate_observe_result(&response(valid_pressure())).is_ok());
@@ -383,6 +497,58 @@ mod tests {
             }),
         ] {
             assert!(validate_observe_result(&response(invalid_pressure)).is_err());
+        }
+    }
+
+    #[test]
+    fn observe_validation_requires_sorted_process_identity_and_counters() {
+        let valid_record = json!({
+            "pid": 7, "parent_pid": 1, "process_group_id": 7,
+            "session_id": 7, "state": "R", "user_ticks": 10,
+            "system_ticks": 2, "start_time_ticks": 100,
+            "virtual_memory_bytes": 8192, "resident_pages": 2,
+            "thread_count": 1, "nice": 0
+        });
+        let response = |processes: Value| {
+            json!({
+                "schema": "synveil.observe/v1",
+                "cpu": {"utilization": {"status": "unavailable"}},
+                "processes": processes,
+                "pressure": valid_pressure()
+            })
+        };
+        assert!(
+            validate_observe_result(&response(json!({
+                "status": "ready", "records": [valid_record.clone()],
+                "unavailable_processes": 0, "omitted_processes": 0,
+                "scan_truncated": false
+            })))
+            .is_ok()
+        );
+
+        for invalid in [
+            json!({"status": "ready", "records": [],
+                "unavailable_processes": 0, "omitted_processes": 0,
+                "scan_truncated": false}),
+            json!({"status": "ready", "records": [valid_record.clone(), valid_record.clone()],
+                "unavailable_processes": 0, "omitted_processes": 0,
+                "scan_truncated": false}),
+            json!({"status": "partial", "records": [valid_record.clone()],
+                "unavailable_processes": 0, "omitted_processes": 0,
+                "scan_truncated": false}),
+            json!({"status": "truncated", "records": [valid_record.clone()],
+                "unavailable_processes": 0, "omitted_processes": 0,
+                "scan_truncated": false}),
+            json!({"status": "ready", "records": [{
+                "pid": 7, "parent_pid": 1, "process_group_id": 7,
+                "session_id": 7, "state": "?", "user_ticks": 10,
+                "system_ticks": 2, "start_time_ticks": 100,
+                "virtual_memory_bytes": 8192, "resident_pages": 2,
+                "thread_count": 0, "nice": 25
+            }], "unavailable_processes": 0, "omitted_processes": 0,
+                "scan_truncated": false}),
+        ] {
+            assert!(validate_observe_result(&response(invalid)).is_err());
         }
     }
 }
