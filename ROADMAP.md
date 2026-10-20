@@ -257,8 +257,11 @@ anchoring and physical power-loss testing remain open.
     and historical aggregation are not implemented.
 - [ ] memory/pressure metrics
   - Read-only MemTotal/MemAvailable and bounded Linux PSI CPU, memory, and I/O
-    stall snapshots implemented. Host/guest validation of PSI is required;
-    pressure history, attribution, and long-term measurements remain open.
+    stall snapshots implemented. The native client now validates every PSI
+    status, required group, percentage bound and cumulative counter. The QEMU
+    gate requires live PSI fields; exact-revision host/native validation is
+    pending. Pressure history, attribution, and long-term measurements remain
+    open.
 - [ ] process lifecycle and resource metrics
   - Read-only 1/5/15-minute Linux load averages and runnable/total thread
     counts are now parsed with strict schema checks. They are not CPU
@@ -271,8 +274,12 @@ anchoring and physical power-loss testing remain open.
     successful response above the producer's 128-record cap. Exact-revision
     host and native QEMU validation of the corrected, energy-composed
     implementation passed at
-    [316f745](docs/validation/native-316f745/README.md). Lifecycle event/delta
-    tracking remains open. The earlier load schema passed QEMU at
+    [316f745](docs/validation/native-316f745/README.md). Lifecycle event and
+    normalized utilization tracking remain open. Raw per-process CPU tick deltas over one observation
+    window are implemented for stable PID/start-time identities, with explicit
+    unavailable results for new, reused, missing or regressed records. Exact
+    host and native validation of this interval extension remain pending. The
+    earlier load schema passed QEMU at
     [255101d](docs/validation/native-255101d/README.md).
 - [ ] disk/I/O metrics
   - Raw, per-device read/write counts, 512-byte sector counters, in-flight I/O,

@@ -383,6 +383,13 @@ ID and all other metrics, fits the 64 KiB protocol frame. This is a current
 snapshot, not lifecycle history or interval utilization. The native client
 validates the bounded schema before accepting a successful observation.
 
+Each observation now takes bounded process snapshots on both sides of the
+existing sampling delay. Stable PID/start-time identities expose checked raw
+user, system and total CPU tick deltas under `cpu_interval`; new or reused PIDs,
+missing first records and regressed counters are explicitly unavailable. The
+client requires a positive enclosing sample window and validates every interval
+status and total. This remains pending exact-revision host and native evidence.
+
 Exact revision `316f74518335fe4df32ba0bef225547b1c8c6d01` passed the full
 native workflow after composing the energy extension and correcting the client
 to reject successful responses above the producer's 128-record cap. The QEMU
@@ -403,6 +410,15 @@ native workflow. The QEMU observer gate required the energy object from the
 real native core and client, though that virtual machine exposed no powercap
 zones. The digest-verified artifact and clean-revision manifests are recorded at
 [native-bca81e5](validation/native-bca81e5/README.md).
+
+The `pressure.cpu`, `pressure.memory`, and `pressure.io` objects expose bounded
+Linux PSI snapshots. Ready groups contain 10/60/300-second finite stall
+percentages from 0 through 100 and cumulative microseconds. The native client
+validates every metric status and record before accepting the response. CPU's
+`full` group is optional; memory and I/O require it when ready. Unsupported and
+malformed sources remain explicit without affecting required CPU and memory
+observations. The guest gate requires live PSI average and cumulative fields;
+exact-revision native validation is pending.
 
 ## Error response envelope
 

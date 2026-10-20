@@ -395,25 +395,15 @@ SCENARIOS = {
                "printf '\\n%s%s\\n' SYNVEIL_ ABSENT_OK; fi\n"),
     "observe": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
                 b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_OBSERVE_OK",
-                "if timeout -s KILL 2 /usr/bin/synctl --json observe > /tmp/synveil-observe.json && "
-                "grep -Fq 'synveil.observe/v1' /tmp/synveil-observe.json && "
-                "grep -Fq 'total_bytes' /tmp/synveil-observe.json && "
-                "grep -Fq 'total_ticks' /tmp/synveil-observe.json && "
-                "grep -Fq '\"busy_basis_points\"' /tmp/synveil-observe.json && "
-                "grep -Fq '\"sample_window_ms\"' /tmp/synveil-observe.json && "
-                "grep -Fq '\"logical_cpus\"' /tmp/synveil-observe.json && "
-                "grep -Fq '\"frequency\"' /tmp/synveil-observe.json && "
-                "grep -Fq '\"thermal\"' /tmp/synveil-observe.json && "
-                "grep -Fq '\"processes\"' /tmp/synveil-observe.json && "
-                "grep -Fq '\"start_time_ticks\"' /tmp/synveil-observe.json && "
-                "grep -Fq '\"energy\"' /tmp/synveil-observe.json && "
-                "grep -Fq 'total_threads' /tmp/synveil-observe.json && "
-                "grep -Fq 'average_1m' /tmp/synveil-observe.json && "
-                "grep -Fq 'sectors_read_512b' /tmp/synveil-observe.json && "
-                "grep -Fq 'rx_bytes' /tmp/synveil-observe.json && "
-                "grep -Fq '\"pressure\"' /tmp/synveil-observe.json && "
-                "grep -Fq '\"io\"' /tmp/synveil-observe.json; then "
-                "printf '\\n%s%s\\n' SYNVEIL_ OBSERVE_OK; fi\n"),
+                "o=/tmp/synveil-observe.json; ok=0; "
+                "if timeout -s KILL 2 /usr/bin/synctl --json observe > \"$o\"; then "
+                "ok=1; for k in synveil.observe/v1 total_bytes total_ticks "
+                "busy_basis_points sample_window_ms logical_cpus frequency thermal "
+                "processes start_time_ticks energy total_threads average_1m "
+                "cpu_interval total_delta_ticks sectors_read_512b rx_bytes pressure "
+                "io avg10_pct total_stall_us; do "
+                "grep -Fq \"$k\" \"$o\" || { ok=0; break; }; done; fi; "
+                "if [ \"$ok\" = 1 ]; then printf '\\n%s%s\\n' SYNVEIL_ OBSERVE_OK; fi\n"),
     "protocol": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
                  b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_PROTOCOL_OK",
                  "if timeout -s KILL 10 /usr/libexec/synveil-test/protocol-probe && "

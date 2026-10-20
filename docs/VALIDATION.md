@@ -984,6 +984,24 @@ required health transition and one final pass marker each. See
 durable audit or establish survival of a successful synchronization across
 device-cache or physical power loss.
 
+## Pressure stall response validation candidate
+
+The native `synctl` client now structurally validates `pressure.cpu`,
+`pressure.memory`, and `pressure.io` before accepting a successful observation.
+Every metric must use `ready`, `unavailable`, or `invalid`. Ready `some` and
+`full` records require finite 0 through 100 percent 10/60/300-second averages
+and an unsigned cumulative microsecond count. CPU permits an absent or null
+`full` record; memory and I/O require it. Unavailable and invalid metrics must
+not carry measurement records.
+
+Host cases cover ready data, optional CPU full pressure, explicit unavailable
+and invalid states, missing metrics and full groups, out-of-range percentages,
+and measurements attached to a non-ready status. The QEMU observer command now
+requires `avg10_pct` and `total_stall_us` from the real native client path, in
+addition to the pressure object. Exact-revision host and target/QEMU validation
+remain required. This is a current cumulative kernel snapshot, not pressure
+history, workload attribution, or a policy signal.
+
 ## Live aggregate CPU utilization candidate
 
 The read-only observer now takes two aggregate `/proc/stat` samples across a
@@ -1098,8 +1116,18 @@ published SHA256, both build manifests identify the clean tested revision, and
 the guest log contains `SYNVEIL_OBSERVE_OK` after requiring the process object
 and stable start-time identity. See
 [retained evidence](validation/native-316f745/README.md).
-Lifecycle events, interval deltas, persistent history and process control remain
-open.
+Lifecycle events, normalized interval utilization, persistent history and
+process control remain open.
+
+The next process extension samples the bounded PID set on both sides of the
+existing observer delay and reports raw CPU tick deltas only for matching
+PID/start-time identities. Unit fixtures cover stable counters, PID reuse, new
+processes and counter regression. `synctl` requires a positive sample window,
+checks user plus system equals total, bounds each delta by its current
+cumulative counter, and rejects fields on unavailable intervals. The QEMU
+observer gate requires the interval object and total delta.
+Exact-revision host and native validation remain pending, so this paragraph is
+an implementation claim rather than completion evidence.
 
 ## Powercap energy observation
 

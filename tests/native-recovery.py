@@ -140,10 +140,13 @@ if mode == 'pass':
         assert 'frequency' in command
         assert 'thermal' in command
         assert 'processes' in command and 'start_time_ticks' in command
+        assert 'cpu_interval' in command and 'total_delta_ticks' in command
         assert 'energy' in command
         assert 'total_threads' in command and 'average_1m' in command
         assert 'sectors_read_512b' in command and 'rx_bytes' in command
         assert 'pressure' in command and 'io' in command
+        assert 'avg10_pct' in command and 'total_stall_us' in command
+        assert max(map(len, command.splitlines())) < 1024
     else:
         assert '/children' in command and 'restarted=1' in command
         assert 'for round in 1 2 3' in command and 'shell-alive' in command
