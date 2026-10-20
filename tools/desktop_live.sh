@@ -71,10 +71,10 @@ fi
     echo "[desktop-live] configure an isolated preview before building" >&2
     exit 1
 }
-[[ ! -e "$OUT_DIR/live-image-amd64.hybrid.iso" ]] || {
+if compgen -G "$OUT_DIR/*.iso" >/dev/null; then
     echo "[desktop-live] refusing to replace an existing ISO" >&2
     exit 1
-}
+fi
 [[ "$(id -u)" -eq 0 ]] || {
     echo "[desktop-live] live-build image assembly needs explicit root privileges" >&2
     exit 1
