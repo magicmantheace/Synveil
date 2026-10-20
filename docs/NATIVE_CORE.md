@@ -354,6 +354,20 @@ real native core and client, though that virtual machine exposed no cpufreq
 driver. The digest-verified artifact and clean-revision manifests are recorded
 at [native-376e2b4](validation/native-376e2b4/README.md).
 
+The optional top-level `thermal` object reads `/sys/class/thermal/thermal_zone*`
+without changing governors, trip points or cooling state. Up to 256 zones are
+sorted by numeric kernel ID and report the kernel type plus signed temperature
+in millidegrees Celsius. Missing support and wholly unreadable zones are
+`unavailable`; an unreadable subset is `partial`. Malformed zone data makes only
+this object `invalid`. This is a current kernel sensor snapshot, not a cooling
+recommendation, hardware alarm or policy action.
+
+Exact revision `b5f5cae2d0971b200ce7e7ea76fd7c2965a221a1` passed the full
+native workflow. The QEMU observer gate required the thermal object from the
+real native core and client, though that virtual machine exposed no thermal
+zones. The digest-verified artifact and clean-revision manifests are recorded at
+[native-b5f5cae](validation/native-b5f5cae/README.md).
+
 ## Error response envelope
 
 Conceptual response:

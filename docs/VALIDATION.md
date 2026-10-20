@@ -1051,3 +1051,25 @@ requiring the per-CPU fields through the structurally validating native client.
 See [retained evidence](validation/native-23f3233/README.md). This is a live QEMU
 sample window, not per-process attribution, historical telemetry, or physical-
 hardware validation.
+
+## Thermal-zone observation candidate
+
+The observer reads at most 256 Linux thermal zones, sorts their numeric IDs and
+reports signed kernel temperatures in millidegrees Celsius with bounded type
+labels. Missing thermal support and unreadable zones are explicit; malformed
+zone data invalidates only the optional thermal object. Host fixtures cover
+ordering, signed values, partial availability, absence and malformed values. The
+QEMU observer gate requires the thermal object even when the virtual machine
+exposes no thermal zones.
+Exact revision `b5f5cae2d0971b200ce7e7ea76fd7c2965a221a1` passed all 147 Rust
+tests, formatting and clippy in
+[host run 39302160972](https://github.com/magicmantheace/Synveil/actions/runs/39302160972),
+then passed all 45 native steps in
+[run 39302160871](https://github.com/magicmantheace/Synveil/actions/runs/39302160871).
+The downloaded artifact matched its published SHA256, both manifests identify
+the clean tested revision, and the guest log contains `SYNVEIL_OBSERVE_OK` after
+requiring the thermal object. See
+[retained evidence](validation/native-b5f5cae/README.md). QEMU exercised the
+unavailable-zone result; positive and partial readings remain host-fixture
+evidence. Power and energy measurements, hardware alarm interpretation,
+cooling policy, and physical-hardware validation remain open.

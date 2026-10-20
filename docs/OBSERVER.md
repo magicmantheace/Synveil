@@ -33,6 +33,12 @@ AI recommendations or operating-system policy changes.
 - `memory.total_bytes`, `memory.available_bytes`: Linux MemTotal and
   MemAvailable read from `/proc/meminfo`, converted from kB to bytes with
   overflow checks.
+- `thermal`: bounded Linux thermal-zone snapshots. A ready or truncated result
+  contains numerically sorted zones with kernel `type` labels and signed
+  `temperature_millicelsius` values. Systems without thermal zones report
+  `status: unavailable`; unreadable zones are counted and make a populated
+  result `partial`, while malformed zone data reports `invalid` without
+  discarding the other observation fields.
 - `uptime_seconds`: kernel time since boot from `/proc/uptime`.
 - `load.average_1m`, `load.average_5m`, `load.average_15m`:
   Linux scheduler load averages from `/proc/loadavg`. These are neither
@@ -58,12 +64,16 @@ positive and partial readings remain host-fixture evidence. See the
 Per-logical-CPU utilization and the native client's structural checks passed at
 exact revision `23f3233`. See the
 [per-CPU evidence](validation/native-23f3233/README.md).
+The thermal extension passed host and native QEMU validation at exact revision
+`b5f5cae`; QEMU required the thermal object but exposed no zones, so positive
+and partial readings remain host-fixture evidence. See the
+[thermal evidence](validation/native-b5f5cae/README.md).
 
 ## Deliberately not claimed
 
-Per-process utilization, process inventory and lifecycle tracking, thermal and
-energy data, resource history and long-term aggregation are separate roadmap
-items. The observer does not yet implement these metrics.
+Per-process utilization, process inventory and lifecycle tracking,
+energy and power data, resource history and long-term aggregation are separate
+roadmap items. The observer does not yet implement these metrics.
 
 ## Linux pressure stall information (PSI)
 
