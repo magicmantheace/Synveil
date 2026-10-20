@@ -83,7 +83,8 @@ jobs:
           apt-get install -y \
             ca-certificates git live-build debootstrap \
             squashfs-tools xorriso isolinux syslinux-common \
-            grub-efi-amd64-bin mtools dosfstools
+            grub-efi-amd64-bin mtools dosfstools \
+            qemu-system-x86 ovmf
 
       - name: Check out Synveil
         uses: actions/checkout@v6
@@ -100,6 +101,16 @@ jobs:
           xorriso -indev "$(find . -maxdepth 1 -type f -name '*.iso' -print -quit)" -report_el_torito plain
           echo 'EXPERIMENTAL_ISO_BUILT_NO_AUTHENTICATED_OR_PHYSICAL_VALIDATION'
 
+      - name: Boot Debian EFI live image and prove real XFCE multiwindow controls in QEMU
+        run: |
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          test -n "$iso"
+          python3 tests/smoke-desktop-live.py \
+            --iso "$iso" \
+            --evidence "$PWD/out/desktop-live/guest-proof-evidence" \
+            --timeout 480
+
+
       - name: Preserve metadata and logs without distributing insecure ISO
         if: always()
         uses: actions/upload-artifact@v4
@@ -109,4 +120,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             out/desktop-live/desktop-prototype-sha256.txt
+            out/desktop-live/guest-proof-evidence/serial.log
+            out/desktop-live/guest-proof-evidence/qemu.stderr.log
+            out/desktop-live/guest-proof-evidence/desktop.ppm
             out/desktop-live/config
