@@ -7,6 +7,13 @@ ensure_dirs
 [[ -x "$TOOLCHAIN_DIR/bin/$TARGET-gcc" ]] || die "toolchain missing; run 'bash build.sh toolchain' first"
 INITRAMFS="$OUT_DIR/synveil-initramfs.cpio"
 [[ -f "$INITRAMFS" ]] || die "initramfs missing; run 'bash build.sh rootfs' first"
+# QEMU remains the default, including all existing guest acceptance tests.
+# This switch changes only the kernel build, not the rootfs security profile.
+BOOT_TARGET="${SYNVEIL_BOOT_TARGET:-qemu}"
+case "$BOOT_TARGET" in
+    qemu|hardware) ;;
+    *) die "SYNVEIL_BOOT_TARGET must be qemu or hardware" ;;
+esac
 
 # Guest-only build acceleration: reuse the base kernel's compiled objects,
 # not its initramfs or its boot image. All fixture initramfs changes still
@@ -60,13 +67,22 @@ else
     make -C "$LINUX_SRC" O="$KERNEL_BUILD" ARCH=x86 CROSS_COMPILE="$TARGET-" x86_64_defconfig
 fi
 
-"$LINUX_SRC/scripts/kconfig/merge_config.sh"     -m     -O "$KERNEL_BUILD"     "$KERNEL_BUILD/.config"     "$ROOT_DIR/build/config/kernel.fragment"
+KERNEL_FRAGMENTS=("$ROOT_DIR/build/config/kernel.fragment")
+if [[ "$BOOT_TARGET" == hardware ]]; then
+    KERNEL_FRAGMENTS+=("$ROOT_DIR/build/config/kernel-hardware.fragment")
+fi
+"$LINUX_SRC/scripts/kconfig/merge_config.sh"     -m     -O "$KERNEL_BUILD"     "$KERNEL_BUILD/.config"     "${KERNEL_FRAGMENTS[@]}"
 
 # Dedicated recovery QEMU fixture only: no arbitrary injected command line.
 RECOVERY_STATUS_TEST="${SYNVEIL_KERNEL_TEST_RECOVERY_STATUS:-0}"
 [[ "$RECOVERY_STATUS_TEST" == 0 || "$RECOVERY_STATUS_TEST" == 1 ]] ||
     die "SYNVEIL_KERNEL_TEST_RECOVERY_STATUS must be 0 or 1"
 KERNEL_CMDLINE="console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6"
+if [[ "$BOOT_TARGET" == hardware ]]; then
+    # An HP Pavilion need not expose the QEMU COM1 console. A real virtual
+    # console is required to see early boot diagnostics via UEFI GOP.
+    KERNEL_CMDLINE="console=tty0 rdinit=/init panic=-1 loglevel=6"
+fi
 if [[ "$RECOVERY_STATUS_TEST" == 1 ]]; then
     KERNEL_CMDLINE="$KERNEL_CMDLINE synveil.recovery=status"
 fi
@@ -87,6 +103,18 @@ for option in "${required_graphics[@]}"; do
         die "kernel configuration dropped required CONFIG_${option}=y"
     fi
 done
+if [[ "$BOOT_TARGET" == hardware ]]; then
+    # Check the resolved Kconfig after olddefconfig, never only the requested
+    # fragment: silent dependency drops would leave a black-screen image.
+    required_hardware=(
+        DRM_SIMPLEDRM SYSFB_SIMPLEFB USB_STORAGE USB_UAS
+        BLK_DEV_NVME SATA_AHCI
+    )
+    for option in "${required_hardware[@]}"; do
+        grep -qx "CONFIG_${option}=y" "$KERNEL_BUILD/.config" ||
+            die "hardware kernel configuration dropped CONFIG_${option}=y"
+    done
+fi
 
 log "building Linux EFI-stub kernel"
 make -C "$LINUX_SRC"     O="$KERNEL_BUILD"     ARCH=x86     CROSS_COMPILE="$TARGET-"     -j"$JOBS"     bzImage
