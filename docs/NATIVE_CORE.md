@@ -338,6 +338,12 @@ or `partial` status. Malformed kernel values make only the optional frequency
 object `invalid`; they do not discard otherwise valid memory, load, pressure or
 cumulative CPU observations.
 
+Exact revision `376e2b43fe70a3550009a6d02e267a98e5fe1d34` passed the full
+native workflow. The QEMU observer gate required the frequency object from the
+real native core and client, though that virtual machine exposed no cpufreq
+driver. The digest-verified artifact and clean-revision manifests are recorded
+at [native-376e2b4](validation/native-376e2b4/README.md).
+
 ## Error response envelope
 
 Conceptual response:
