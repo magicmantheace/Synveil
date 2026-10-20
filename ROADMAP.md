@@ -267,9 +267,11 @@ anchoring and physical power-loss testing remain open.
     point-in-time memory counters without opening command lines, environments or
     executable paths. The name embedded in `stat` is not returned.
     The core trims the highest-PID records when necessary so the complete
-    response remains within the protocol frame limit. Exact-revision host/native
-    validation and lifecycle event/delta tracking remain open. The earlier load
-    schema passed QEMU at [255101d](docs/validation/native-255101d/README.md).
+    response remains within the protocol frame limit. Exact-revision host and
+    native QEMU validation passed at
+    [2a0a90e](docs/validation/native-2a0a90e/README.md). Lifecycle event/delta
+    tracking remains open. The earlier load schema passed QEMU at
+    [255101d](docs/validation/native-255101d/README.md).
 - [ ] disk/I/O metrics
   - Raw, per-device read/write counts, 512-byte sector counters, in-flight I/O,
     and cumulative busy time are exposed read-only by `synctl observe`.

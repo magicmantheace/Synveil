@@ -81,6 +81,9 @@ The thermal extension passed host and native QEMU validation at exact revision
 `b5f5cae`; QEMU required the thermal object but exposed no zones, so positive
 and partial readings remain host-fixture evidence. See the
 [thermal evidence](validation/native-b5f5cae/README.md).
+The bounded process snapshot and the native client's structural checks passed
+host and native QEMU validation at exact revision `2a0a90e`. See the
+[process evidence](validation/native-2a0a90e/README.md).
 
 ## Deliberately not claimed
 

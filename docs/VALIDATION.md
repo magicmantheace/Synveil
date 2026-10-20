@@ -1074,7 +1074,7 @@ unavailable-zone result; positive and partial readings remain host-fixture
 evidence. Power and energy measurements, hardware alarm interpretation,
 cooling policy, and physical-hardware validation remain open.
 
-## Bounded process snapshot candidate
+## Bounded process snapshot
 
 The observer scans at most 16384 `/proc` directory entries and returns at most
 128 PID-sorted process records. Before encoding, the core removes highest-PID
@@ -1090,6 +1090,11 @@ mismatch, oversized/truncated stat data, non-UTF-8 embedded names and invalid
 ranges. The native client structurally validates status/count relationships,
 sorted identity and every exposed counter. The QEMU observer gate now requires
 the process object and `start_time_ticks` from that real client path.
-Exact-revision host and target/QEMU validation remain required.
+Exact revision `2a0a90edfaeae0b215d734a822653ee7cfea1d15` passed host and all
+45 native workflow steps. The downloaded native artifact matched the published
+SHA256, both build manifests identify the clean tested revision, and the guest
+log contains `SYNVEIL_OBSERVE_OK` after requiring the process object and stable
+start-time identity. See
+[retained evidence](validation/native-2a0a90e/README.md).
 Lifecycle events, interval deltas, persistent history and process control remain
 open.

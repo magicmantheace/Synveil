@@ -383,6 +383,12 @@ ID and all other metrics, fits the 64 KiB protocol frame. This is a current
 snapshot, not lifecycle history or interval utilization. The native client
 validates the bounded schema before accepting a successful observation.
 
+Exact revision `2a0a90edfaeae0b215d734a822653ee7cfea1d15` passed the full
+native workflow. The QEMU observer gate required the process object and
+`start_time_ticks` through the real native core and client. The digest-verified
+artifact and clean-revision manifests are recorded at
+[native-2a0a90e](validation/native-2a0a90e/README.md).
+
 ## Error response envelope
 
 Conceptual response:
