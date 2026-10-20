@@ -1,5 +1,24 @@
 # Synveil Roadmap
 
+> **Owner directive (2026-10-20): Critical first-boot priority.** Deliver a
+> physical UEFI-bootable **real multiwindow desktop**, followed by separate
+> persistent A/B system slots, user data, recovery, signed whole-image updates,
+> health-checked rollback, and graphical update controls. This temporarily
+> supersedes the older phase ordering below; do not delete completed work.
+> See [ADR 0013](docs/adr/0013-first-boot-desktop-priority.md).
+>
+> - [ ] Physical UEFI USB boot on the HP Pavilion TG01, owner validated.
+> - [ ] Login plus real multiwindow compositor/panel/launcher/terminal/files/settings.
+> - [ ] Dedicated external SSD install with isolated A/B and persistent data.
+> - [ ] Signed inactive-slot update with interrupted-update and rollback tests.
+> - [ ] Owner-approved graphical update controls.
+>
+> **Current scope:** A QEMU UEFI image and developer framebuffer preview
+> already exist. The opt-in hardware kernel *build profile* is an early
+> bring-up step, **not** a supported physical boot, graphical desktop,
+> installer, or updater.
+
+
 This roadmap is ordered by dependency. Phase numbers describe architectural maturity, not release versions.
 
 ## Resident intelligence direction
