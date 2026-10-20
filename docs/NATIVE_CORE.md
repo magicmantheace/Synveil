@@ -368,6 +368,19 @@ real native core and client, though that virtual machine exposed no thermal
 zones. The digest-verified artifact and clean-revision manifests are recorded at
 [native-b5f5cae](validation/native-b5f5cae/README.md).
 
+The optional top-level `energy` object reads bounded Linux powercap zones. It
+walks control-type and nested zone directories with a bounded, deduplicated
+scan. Each record contains the stable sysfs zone ID, bounded kernel name,
+cumulative microjoules and the counter's maximum wrap range. Unavailable zones
+are counted; malformed values invalidate only this object. These raw counters
+are not watts, do not provide history, and do not authorize power-limit changes.
+
+Exact revision `bca81e5866c6797efcd029796f506737222e0a01` passed the full
+native workflow. The QEMU observer gate required the energy object from the
+real native core and client, though that virtual machine exposed no powercap
+zones. The digest-verified artifact and clean-revision manifests are recorded at
+[native-bca81e5](validation/native-bca81e5/README.md).
+
 ## Error response envelope
 
 Conceptual response:

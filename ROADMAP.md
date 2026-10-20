@@ -282,7 +282,12 @@ anchoring and physical power-loss testing remain open.
     explicit unavailable/invalid states. Exact-revision host and native QEMU
     validation passed at [b5f5cae](docs/validation/native-b5f5cae/README.md);
     QEMU exercised the unavailable-zone path, while host fixtures cover positive
-    and partial readings. Energy and power measurements are not implemented.
+    and partial readings. Bounded Linux powercap zones now expose raw cumulative
+    energy and wrap ranges where available. Corrected exact-revision host and
+    native QEMU validation passed at
+    [bca81e5](docs/validation/native-bca81e5/README.md); QEMU exercised the
+    unavailable-zone path, while host fixtures cover the hierarchical scan.
+    Interval power measurements are not implemented.
 - [ ] event normalization
 - [ ] ephemeral telemetry storage
 - [ ] historical aggregation

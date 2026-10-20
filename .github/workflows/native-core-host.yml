@@ -32,6 +32,7 @@ on:
       - development/observer-cpu-frequency
       - development/observer-per-cpu-utilization
       - development/observer-thermal
+      - development/observer-energy
       - development/login-idle-keyboard
       - development/qmp-chord-hold
       - development/archive-stream-integrity
