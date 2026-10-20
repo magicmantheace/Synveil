@@ -48,6 +48,11 @@ def verify_build(out: Path, rootfs: Path, revision: str) -> dict:
     manifest = json.loads(manifest_file.read_text())
     if manifest.get("schema") != "synveil.build/v1":
         raise ValueError("unrecognized build manifest")
+    # Historic host fixtures lack this new field and represent QEMU images.
+    # New builds record the actual kernel target to prevent accidental
+    # promotion of a hardware bring-up image as the standard VM artifact.
+    if manifest.get("boot_target", "qemu") != "qemu":
+        raise ValueError("hardware boot target cannot be packaged as a QEMU bundle")
     git = manifest.get("git", {})
     if git.get("commit") != revision or git.get("dirty") is not False:
         raise ValueError("stale or dirty build: image must match current committed revision")
