@@ -107,7 +107,7 @@ class DesktopLiveProfileTests(unittest.TestCase):
 
     def test_existing_iso_is_not_overwritten(self):
         self.assertEqual(self.invoke("configure").returncode, 0)
-        iso = self.root / "out/desktop-live/live-image-amd64.hybrid.iso"
+        iso = self.root / "out/desktop-live/synveil-desktop-preview-amd64.hybrid.iso"
         iso.write_bytes(b"already exists")
         result = self.invoke("build", uid="0")
         self.assertNotEqual(result.returncode, 0)
