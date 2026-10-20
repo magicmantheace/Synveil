@@ -1074,6 +1074,33 @@ unavailable-zone result; positive and partial readings remain host-fixture
 evidence. Power and energy measurements, hardware alarm interpretation,
 cooling policy, and physical-hardware validation remain open.
 
+## Bounded process snapshot
+
+The observer scans at most 16384 `/proc` directory entries and returns at most
+128 PID-sorted process records. The native client rejects a successful response
+above that producer cap. Before encoding, the core removes highest-PID records
+and increments the omitted count until the complete response, including
+the request ID and every other metric, fits the 64 KiB IPC frame. PID plus
+kernel start time provides stable identity across PID reuse. Records contain
+scheduling topology/state, cumulative CPU ticks and point-in-time memory
+counters; argv, environments and executable paths are never opened. The name
+embedded in `stat` is not returned. Per-process files are limited to 4096 bytes,
+and exit or permission races are counted explicitly. Host fixtures cover names
+containing closing parentheses, numeric ordering, disappearing processes, PID
+mismatch, oversized/truncated stat data, non-UTF-8 embedded names and invalid
+ranges. The native client structurally validates status/count relationships,
+sorted identity and every exposed counter. The QEMU observer gate now requires
+the process object and `start_time_ticks` from that real client path.
+Exact revision `316f74518335fe4df32ba0bef225547b1c8c6d01` passed host and all
+43 named native workflow steps after composition with the energy extension and
+the client cap correction. The downloaded native artifact matched the
+published SHA256, both build manifests identify the clean tested revision, and
+the guest log contains `SYNVEIL_OBSERVE_OK` after requiring the process object
+and stable start-time identity. See
+[retained evidence](validation/native-316f745/README.md).
+Lifecycle events, interval deltas, persistent history and process control remain
+open.
+
 ## Powercap energy observation
 
 The observer reads at most 256 Linux powercap zones from a bounded traversal of

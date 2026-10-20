@@ -50,6 +50,19 @@ AI recommendations or operating-system policy changes.
 - `load.runnable`, `load.total_threads`: scheduler entities from
   the runnable/total field in `/proc/loadavg`. Total refers to threads,
   not distinct processes, and includes the current procfs context.
+- `processes`: a point-in-time, PID-sorted `/proc/<pid>/stat` snapshot. Up to
+  128 records report PID, parent/process-group/session IDs, kernel state,
+  cumulative user/system ticks, start time in boot ticks, virtual bytes,
+  resident pages, thread count and nice value. PID plus `start_time_ticks`
+  distinguishes PID reuse. Directory scanning is capped at 16384 entries;
+  disappearing or unreadable processes are counted instead of failing the
+  required CPU/memory snapshot. `synctl` validates status/count relationships,
+  strict PID ordering, identifiers, states and counter types before accepting a
+  successful response. The observer never opens command lines, environments or
+  executable paths. The command name embedded in `stat` is used only to locate
+  the following fields and is not returned; it need not be valid UTF-8. If the
+  full response would exceed the 64 KiB protocol frame, the core removes
+  highest-PID records and increments `omitted_processes` until it fits.
 
 The core validates required fields, finite nonnegative numeric values,
 CPU and memory consistency and runnable/total bounds. Bad or unavailable
@@ -72,6 +85,10 @@ The thermal extension passed host and native QEMU validation at exact revision
 `b5f5cae`; QEMU required the thermal object but exposed no zones, so positive
 and partial readings remain host-fixture evidence. See the
 [thermal evidence](validation/native-b5f5cae/README.md).
+The bounded process snapshot and the native client's structural checks,
+including rejection above the 128-record cap, passed host and native QEMU
+validation after composition with energy at exact revision `316f745`. See the
+[process evidence](validation/native-316f745/README.md).
 The powercap energy extension passed host and native QEMU validation at exact
 revision `bca81e5`; QEMU required the energy object but exposed no zones, so
 positive hierarchical readings remain host-fixture evidence. See the
@@ -79,9 +96,10 @@ positive hierarchical readings remain host-fixture evidence. See the
 
 ## Deliberately not claimed
 
-Per-process utilization, process inventory and lifecycle tracking, instantaneous
-power, resource history and long-term aggregation are separate roadmap items.
-The observer does not yet implement these metrics.
+Per-process interval utilization, lifecycle events, instantaneous power,
+resource history and long-term aggregation are separate roadmap items. The
+process snapshot does not retain state between requests or infer process
+purpose, and the energy snapshot does not derive power from counter changes.
 
 ## Linux pressure stall information (PSI)
 
