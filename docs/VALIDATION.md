@@ -1123,8 +1123,9 @@ The next process extension samples the bounded PID set on both sides of the
 existing observer delay and reports raw CPU tick deltas only for matching
 PID/start-time identities. Unit fixtures cover stable counters, PID reuse, new
 processes and counter regression. `synctl` requires a positive sample window,
-checks user plus system equals total, and rejects fields on unavailable
-intervals. The QEMU observer gate requires the interval object and total delta.
+checks user plus system equals total, bounds each delta by its current
+cumulative counter, and rejects fields on unavailable intervals. The QEMU
+observer gate requires the interval object and total delta.
 Exact-revision host and native validation remain pending, so this paragraph is
 an implementation claim rather than completion evidence.
 

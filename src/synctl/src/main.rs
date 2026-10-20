@@ -347,7 +347,18 @@ fn validate_observe_result(result: &Value) -> io::Result<()> {
                     .get("total_delta_ticks")
                     .and_then(Value::as_u64)
                     .ok_or_else(invalid)?;
-                if user.checked_add(system) != Some(total) {
+                let current_user = record
+                    .get("user_ticks")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(invalid)?;
+                let current_system = record
+                    .get("system_ticks")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(invalid)?;
+                if user > current_user
+                    || system > current_system
+                    || user.checked_add(system) != Some(total)
+                {
                     return Err(invalid());
                 }
             }
@@ -603,6 +614,17 @@ mod tests {
                 "thread_count": 1, "nice": 0,
                 "cpu_interval": {"status": "ready", "user_delta_ticks": 2,
                     "system_delta_ticks": 1, "total_delta_ticks": 4}
+            }], "sample_window_ms": 101,
+                "unavailable_processes": 0, "omitted_processes": 0,
+                "scan_truncated": false}),
+            json!({"status": "ready", "records": [{
+                "pid": 7, "parent_pid": 1, "process_group_id": 7,
+                "session_id": 7, "state": "R", "user_ticks": 10,
+                "system_ticks": 2, "start_time_ticks": 100,
+                "virtual_memory_bytes": 8192, "resident_pages": 2,
+                "thread_count": 1, "nice": 0,
+                "cpu_interval": {"status": "ready", "user_delta_ticks": 11,
+                    "system_delta_ticks": 1, "total_delta_ticks": 12}
             }], "sample_window_ms": 101,
                 "unavailable_processes": 0, "omitted_processes": 0,
                 "scan_truncated": false}),

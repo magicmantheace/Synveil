@@ -70,6 +70,8 @@ AI recommendations or operating-system policy changes.
   reuse, a missing first record, or counter regression reports
   `cpu_interval.status: unavailable` instead of a zero delta. These are kernel
   ticks, not percentages; no clock-tick rate or CPU capacity is assumed.
+  `synctl` also rejects a component delta larger than its current cumulative
+  counter, even when the three delta fields add up.
 
 The core validates required fields, finite nonnegative numeric values,
 CPU and memory consistency and runnable/total bounds. Bad or unavailable
