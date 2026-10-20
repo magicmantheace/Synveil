@@ -1029,3 +1029,25 @@ requiring the frequency object. See
 [retained evidence](validation/native-376e2b4/README.md). QEMU exercised the
 unavailable-driver result; positive and partial readings remain host-fixture
 evidence rather than physical-hardware validation.
+
+## Per-logical-CPU utilization candidate
+
+The observer parser now validates every logical CPU accounting row in both
+samples, matches stable numeric CPU IDs, and derives a bounded busy-basis-point
+record for each CPU over the aggregate sample window. Host tests cover distinct
+busy and idle CPUs, numeric ordering, malformed rows, duplicate identifiers,
+topology changes, guest-time accounting, iowait decreases and counter rollback.
+The native guest gate requires the per-CPU utilization fields from the real
+`synctl --json observe` response. The client structurally validates the
+versioned result, sorted IDs, per-record status and bounded values before it can
+exit successfully. Exact revision `23f323345b073008357a4ca283b9ae86d1e3ec2f`
+passed all 145 Rust tests, formatting and clippy in
+[host run 39301950391](https://github.com/magicmantheace/Synveil/actions/runs/39301950391),
+then passed all 45 native steps in
+[run 39301950501](https://github.com/magicmantheace/Synveil/actions/runs/39301950501).
+The downloaded artifact matched its published SHA256, both manifests identify
+the clean tested revision, and the guest log contains `SYNVEIL_OBSERVE_OK` after
+requiring the per-CPU fields through the structurally validating native client.
+See [retained evidence](validation/native-23f3233/README.md). This is a live QEMU
+sample window, not per-process attribution, historical telemetry, or physical-
+hardware validation.

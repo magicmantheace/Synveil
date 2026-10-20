@@ -12,6 +12,7 @@ const CPU_SAMPLE_INTERVAL: Duration = Duration::from_millis(100);
 const CPU_ACCOUNTING_FIELDS: usize = 8;
 const CPU_IOWAIT_FIELD: usize = 4;
 const MAX_CPU_FREQUENCY_ENTRIES: usize = 4096;
+const MAX_CPU_UTILIZATION_ENTRIES: usize = 4096;
 
 /// Read kernel files directly, never by scraping output from command-line tools.
 pub fn sample() -> io::Result<Value> {
@@ -171,22 +172,23 @@ fn meminfo_kib(input: &str, name: &str) -> io::Result<u64> {
         .ok_or_else(|| invalid_data("memory metric overflows bytes"))
 }
 
-struct CpuStat {
+struct CpuCounters {
     ticks: Vec<u64>,
     total: u64,
     idle: u64,
-    logical: Vec<String>,
 }
 
-fn parse_cpu_stat(input: &str) -> io::Result<CpuStat> {
-    let mut lines = input.lines();
-    let summary = lines
-        .next()
-        .ok_or_else(|| invalid_data("missing CPU summary"))?;
-    let mut fields = summary.split_whitespace();
-    if fields.next() != Some("cpu") {
-        return Err(invalid_data("invalid CPU summary"));
-    }
+struct LogicalCpuStat {
+    id: u32,
+    counters: CpuCounters,
+}
+
+struct CpuStat {
+    aggregate: CpuCounters,
+    logical: Vec<LogicalCpuStat>,
+}
+
+fn parse_cpu_counters<'a>(fields: impl Iterator<Item = &'a str>) -> io::Result<CpuCounters> {
     let ticks: Vec<u64> = fields
         .map(|value| {
             value
@@ -210,33 +212,51 @@ fn parse_cpu_stat(input: &str) -> io::Result<CpuStat> {
     let idle = ticks[3]
         .checked_add(ticks.get(4).copied().unwrap_or_default())
         .ok_or_else(|| invalid_data("idle CPU counter overflow"))?;
-    let logical = lines
-        .filter_map(|line| {
-            let label = line.split_whitespace().next()?;
-            label
-                .strip_prefix("cpu")
-                .filter(|suffix| !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit()))
-        })
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
+    Ok(CpuCounters { ticks, total, idle })
+}
+
+fn parse_cpu_stat(input: &str) -> io::Result<CpuStat> {
+    let mut lines = input.lines();
+    let summary = lines
+        .next()
+        .ok_or_else(|| invalid_data("missing CPU summary"))?;
+    let mut fields = summary.split_whitespace();
+    if fields.next() != Some("cpu") {
+        return Err(invalid_data("invalid CPU summary"));
+    }
+    let aggregate = parse_cpu_counters(fields)?;
+    let mut logical = Vec::new();
+    for line in lines {
+        let mut fields = line.split_whitespace();
+        let Some(label) = fields.next() else {
+            continue;
+        };
+        let Some(suffix) = label.strip_prefix("cpu").filter(|suffix| {
+            !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit())
+        }) else {
+            continue;
+        };
+        let id = suffix
+            .parse::<u32>()
+            .map_err(|_| invalid_data("invalid logical CPU identifier"))?;
+        logical.push(LogicalCpuStat {
+            id,
+            counters: parse_cpu_counters(fields)?,
+        });
+    }
+    logical.sort_unstable_by_key(|cpu| cpu.id);
     if logical.is_empty() {
         return Err(invalid_data("no logical CPU lines"));
     }
-    Ok(CpuStat {
-        ticks,
-        total,
-        idle,
-        logical,
-    })
+    if logical.windows(2).any(|cpus| cpus[0].id == cpus[1].id) {
+        return Err(invalid_data("duplicate logical CPU identifier"));
+    }
+    Ok(CpuStat { aggregate, logical })
 }
 
-/// Report aggregate busy time over two monotonic Linux CPU counter samples.
-/// Fixed-point basis points avoid implying more precision than the jiffy delta.
-fn parse_cpu_utilization(before: &str, after: &str, sample_window_ms: u64) -> io::Result<Value> {
-    let before = parse_cpu_stat(before)?;
-    let after = parse_cpu_stat(after)?;
-    if before.logical != after.logical || before.ticks.len() != after.ticks.len() {
-        return Ok(json!({"status": "unavailable"}));
+fn cpu_busy_basis_points(before: &CpuCounters, after: &CpuCounters) -> io::Result<Option<u64>> {
+    if before.ticks.len() != after.ticks.len() {
+        return Ok(None);
     }
     for (index, (before, after)) in before
         .ticks
@@ -247,10 +267,9 @@ fn parse_cpu_utilization(before: &str, after: &str, sample_window_ms: u64) -> io
     {
         if after < before {
             // Linux documents that iowait may legitimately decrease because
-            // its attribution is not reliable. The interval cannot yield a
-            // trustworthy busy percentage, but the observation is not bad.
+            // its attribution is not reliable. Withhold the affected sample.
             if index == CPU_IOWAIT_FIELD {
-                return Ok(json!({"status": "unavailable"}));
+                return Ok(None);
             }
             return Err(invalid_data("CPU counter moved backwards"));
         }
@@ -264,19 +283,62 @@ fn parse_cpu_utilization(before: &str, after: &str, sample_window_ms: u64) -> io
         .checked_sub(before.idle)
         .ok_or_else(|| invalid_data("idle CPU counter moved backwards"))?;
     if total == 0 {
-        return Ok(json!({"status": "unavailable"}));
+        return Ok(None);
     }
     let busy = total
         .checked_sub(idle)
         .ok_or_else(|| invalid_data("idle CPU delta exceeds total"))?;
-    let busy_basis_points =
-        ((u128::from(busy) * 10_000) + u128::from(total / 2)) / u128::from(total);
-    let busy_basis_points =
-        u64::try_from(busy_basis_points).map_err(|_| invalid_data("CPU utilization overflows"))?;
+    let basis_points = ((u128::from(busy) * 10_000) + u128::from(total / 2)) / u128::from(total);
+    let basis_points =
+        u64::try_from(basis_points).map_err(|_| invalid_data("CPU utilization overflows"))?;
+    Ok(Some(basis_points))
+}
+
+/// Report aggregate busy time over two monotonic Linux CPU counter samples.
+/// Fixed-point basis points avoid implying more precision than the jiffy delta.
+fn parse_cpu_utilization(before: &str, after: &str, sample_window_ms: u64) -> io::Result<Value> {
+    let before = parse_cpu_stat(before)?;
+    let after = parse_cpu_stat(after)?;
+    if before.logical.len() != after.logical.len()
+        || before
+            .logical
+            .iter()
+            .zip(&after.logical)
+            .any(|(before, after)| before.id != after.id)
+    {
+        return Ok(json!({"status": "unavailable"}));
+    }
+    let Some(busy_basis_points) = cpu_busy_basis_points(&before.aggregate, &after.aggregate)?
+    else {
+        return Ok(json!({"status": "unavailable"}));
+    };
+    let omitted_logical_cpus = before
+        .logical
+        .len()
+        .saturating_sub(MAX_CPU_UTILIZATION_ENTRIES);
+    let logical_cpus = before
+        .logical
+        .iter()
+        .zip(&after.logical)
+        .take(MAX_CPU_UTILIZATION_ENTRIES)
+        .map(|(before, after)| {
+            let busy = cpu_busy_basis_points(&before.counters, &after.counters)?;
+            Ok(match busy {
+                Some(busy_basis_points) => json!({
+                    "id": before.id,
+                    "status": "ready",
+                    "busy_basis_points": busy_basis_points,
+                }),
+                None => json!({"id": before.id, "status": "unavailable"}),
+            })
+        })
+        .collect::<io::Result<Vec<_>>>()?;
     Ok(json!({
         "status": "ready",
         "busy_basis_points": busy_basis_points,
         "sample_window_ms": sample_window_ms,
+        "logical_cpus": logical_cpus,
+        "omitted_logical_cpus": omitted_logical_cpus,
     }))
 }
 
@@ -565,8 +627,8 @@ fn parse_sample(meminfo: &str, stat: &str, uptime: &str, loadavg: &str) -> io::R
         },
         "cpu": {
             "logical_count": cpu.logical.len(),
-            "total_ticks": cpu.total,
-            "idle_ticks": cpu.idle
+            "total_ticks": cpu.aggregate.total,
+            "idle_ticks": cpu.aggregate.idle
         },
         "uptime_seconds": uptime_seconds,
         "load": load
@@ -617,6 +679,23 @@ mod tests {
         assert_eq!(utilization["status"], "ready");
         assert_eq!(utilization["busy_basis_points"], 2500);
         assert_eq!(utilization["sample_window_ms"], 101);
+        assert_eq!(utilization["logical_cpus"].as_array().unwrap().len(), 2);
+        assert_eq!(utilization["logical_cpus"][0]["id"], 0);
+        assert_eq!(utilization["logical_cpus"][0]["busy_basis_points"], 2500);
+        assert_eq!(utilization["omitted_logical_cpus"], 0);
+    }
+
+    #[test]
+    fn cpu_utilization_attributes_busy_time_to_each_logical_cpu() {
+        let before = "cpu 200 0 0 200 0 0 0 0 0 0\ncpu1 100 0 0 100 0 0 0 0 0 0\ncpu0 100 0 0 100 0 0 0 0 0 0\n";
+        let after = "cpu 210 0 0 210 0 0 0 0 0 0\ncpu0 110 0 0 100 0 0 0 0 0 0\ncpu1 100 0 0 110 0 0 0 0 0 0\n";
+        let utilization = parse_cpu_utilization(before, after, 100).unwrap();
+        assert_eq!(utilization["status"], "ready");
+        assert_eq!(utilization["busy_basis_points"], 5000);
+        assert_eq!(utilization["logical_cpus"][0]["id"], 0);
+        assert_eq!(utilization["logical_cpus"][0]["busy_basis_points"], 10_000);
+        assert_eq!(utilization["logical_cpus"][1]["id"], 1);
+        assert_eq!(utilization["logical_cpus"][1]["busy_basis_points"], 0);
     }
 
     #[test]
@@ -634,6 +713,13 @@ mod tests {
         let after = "cpu  110 0 0 110 9 0 0 0 0 0\ncpu0 110 0 0 110 9 0 0 0 0 0\n";
         let utilization = parse_cpu_utilization(before, after, 100).unwrap();
         assert_eq!(utilization["status"], "unavailable");
+
+        let before = "cpu 200 0 0 200 10 0 0 0 0 0\ncpu0 100 0 0 100 0 0 0 0 0 0\ncpu1 100 0 0 100 10 0 0 0 0 0\n";
+        let after = "cpu 210 0 0 210 20 0 0 0 0 0\ncpu0 110 0 0 100 0 0 0 0 0 0\ncpu1 100 0 0 110 9 0 0 0 0 0\n";
+        let utilization = parse_cpu_utilization(before, after, 100).unwrap();
+        assert_eq!(utilization["status"], "ready");
+        assert_eq!(utilization["logical_cpus"][0]["status"], "ready");
+        assert_eq!(utilization["logical_cpus"][1]["status"], "unavailable");
     }
 
     #[test]
@@ -825,6 +911,8 @@ mod tests {
             "cpu a b c d\ncpu0 1\n",
             "cpu 1 2 3\ncpu0 1\n",
             "cpu 1 1 1 1\n",
+            "cpu 1 1 1 1\ncpu0 1 1 1\n",
+            "cpu 2 2 2 2\ncpu0 1 1 1 1\ncpu00 1 1 1 1\n",
         ] {
             assert!(parse_sample(MEMINFO, stat, "1 0", LOAD).is_err());
         }

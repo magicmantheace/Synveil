@@ -10,13 +10,19 @@ AI recommendations or operating-system policy changes.
 - `cpu.total_ticks`, `cpu.idle_ticks`: cumulative kernel counters from the
   later sample. `total_ticks` excludes `guest` and `guest_nice`, which Linux
   already includes in `user` and `nice`; `idle_ticks` includes iowait.
-- `cpu.utilization`: aggregate busy time derived from two `/proc/stat`
+- `cpu.utilization`: aggregate and per-logical-CPU busy time derived from two `/proc/stat`
   samples separated by at least 100 ms. A ready result contains integer
   `busy_basis_points` from 0 through 10000 and the measured monotonic
   `sample_window_ms`; 2500 means 25.00 percent busy across all logical CPUs.
+  Its numerically sorted `logical_cpus` records report the same fixed-point
+  measurement for each stable CPU ID and are bounded to 4096 entries. A CPU
+  with no counter delta or decreasing iowait is explicitly `unavailable`.
   Zero total delta, a topology change, or an iowait decrease returns
   `{"status":"unavailable"}` without inventing a percentage. A backward
   non-guest counter other than iowait is invalid.
+  `synctl` validates the versioned utilization object, strictly increasing CPU
+  IDs, per-CPU status and basis-point bounds before accepting a successful
+  observe response.
 - `cpu.frequency`: kernel-reported current per-logical-CPU frequency from Linux
   cpufreq sysfs, in integer kHz. It is not an independent hardware measurement.
   `scaling_cur_freq` is preferred and `cpuinfo_cur_freq` is the fallback.
@@ -49,12 +55,15 @@ The frequency extension passed host and native QEMU validation at exact revision
 `376e2b4`; QEMU required the frequency object but exposed no cpufreq driver, so
 positive and partial readings remain host-fixture evidence. See the
 [frequency evidence](validation/native-376e2b4/README.md).
+Per-logical-CPU utilization and the native client's structural checks passed at
+exact revision `23f3233`. See the
+[per-CPU evidence](validation/native-23f3233/README.md).
 
 ## Deliberately not claimed
 
-Per-CPU and per-process utilization, process inventory and lifecycle tracking,
-thermal and energy data, resource history and long-term aggregation are separate
-roadmap items. The observer does not yet implement these metrics.
+Per-process utilization, process inventory and lifecycle tracking, thermal and
+energy data, resource history and long-term aggregation are separate roadmap
+items. The observer does not yet implement these metrics.
 
 ## Linux pressure stall information (PSI)
 

@@ -250,8 +250,11 @@ anchoring and physical power-loss testing remain open.
     Exact-revision host and native QEMU validation passed at
     [376e2b4](docs/validation/native-376e2b4/README.md); QEMU exercised the
     unavailable-driver path, while host fixtures cover positive and partial
-    readings. Per-CPU utilization attribution and historical aggregation are not
-    implemented.
+    readings. Per-logical-CPU busy-time attribution over the same sample window
+    is bounded and explicit about unavailable intervals. Exact-revision host and
+    native QEMU validation passed at
+    [23f3233](docs/validation/native-23f3233/README.md). Per-process attribution
+    and historical aggregation are not implemented.
 - [ ] memory/pressure metrics
   - Read-only MemTotal/MemAvailable and bounded Linux PSI CPU, memory, and I/O
     stall snapshots implemented. Host/guest validation of PSI is required;
