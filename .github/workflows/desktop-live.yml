@@ -1,0 +1,74 @@
+name: Experimental XFCE live desktop configuration
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_image:
+        description: Build a disposable Debian-based ISO (never publish as an owner installer)
+        required: true
+        type: boolean
+        default: false
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - experiments/desktop-live/**
+      - tools/desktop_live.sh
+      - tests/desktop-live.py
+      - .github/workflows/desktop-live.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-live-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview-config:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    container:
+      image: debian:trixie
+    steps:
+      - name: Install configuration tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git live-build python3 bash coreutils
+
+      - name: Check out Synveil
+        uses: actions/checkout@v6
+
+      - name: Run no-network host safety tests
+        run: python3 tests/desktop-live.py
+
+      - name: Configure isolated Debian live XFCE image
+        run: |
+          bash tools/desktop_live.sh configure
+          test -f out/desktop-live/config/package-lists/synveil-desktop.list.chroot
+          test -f out/desktop-live/config/includes.chroot/etc/lightdm/lightdm.conf.d/50-synveil-preview.conf
+          grep -Fx 'xfwm4' out/desktop-live/config/package-lists/synveil-desktop.list.chroot
+          grep -F 'live-config.noroot' out/desktop-live/config/binary
+          test ! -e out/desktop-live/live-image-amd64.hybrid.iso
+
+      - name: Build experimental ISO only on explicit manual request
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_image }}
+        run: |
+          apt-get install -y --no-install-recommends \
+            debootstrap squashfs-tools xorriso isolinux syslinux-common \
+            grub-efi-amd64-bin mtools dosfstools
+          bash tools/desktop_live.sh build
+          find out/desktop-live -maxdepth 1 -name '*.iso' -type f -print
+          (cd out/desktop-live && sha256sum *.iso)
+          echo 'EXPERIMENTAL_ISO_BUILT_NO_PHYSICAL_OR_AUTH_VALIDATION'
+
+      # Do not publish an autologin/unauthenticated preview as owner-ready.
+      - name: Retain non-image configuration log only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-live-config-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/desktop-live/config
