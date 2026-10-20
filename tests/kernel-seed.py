@@ -115,6 +115,8 @@ class GuestKernelCacheTests(unittest.TestCase):
         self.assertNotIn("x86_64_defconfig", (self.root / "make.log").read_text())
         self.assertIn("INITRAMFS_SOURCE", (self.root / "config-args").read_text())
         self.assertIn("CMDLINE", (self.root / "config-args").read_text())
+        self.assertEqual((out_a / "manifests/kernel-boot-target.txt").read_text(),
+                         "qemu\n")
 
     def test_explicit_hardware_target_and_console(self):
         guest, _ = self.invoke("default-qemu")
