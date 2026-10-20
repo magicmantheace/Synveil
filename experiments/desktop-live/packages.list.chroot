@@ -21,3 +21,8 @@ gvfs-backends
 network-manager
 network-manager-gnome
 firmware-misc-nonfree
+
+# VM-only automated real window-management proof.
+wmctrl
+xdotool
+x11-utils
