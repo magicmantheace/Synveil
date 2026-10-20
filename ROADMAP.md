@@ -264,8 +264,9 @@ anchoring and physical power-loss testing remain open.
     counts are now parsed with strict schema checks. They are not CPU
     utilization. A bounded, PID-sorted process snapshot now reports stable
     PID/start-time identity, scheduling state, topology and cumulative CPU plus
-    point-in-time memory counters without reading command lines, environments,
-    names or executable paths. Exact-revision host/native validation and
+    point-in-time memory counters without opening command lines, environments or
+    executable paths. The name embedded in `stat` is not returned.
+    Exact-revision host/native validation and
     lifecycle event/delta tracking remain open. The earlier load schema passed
     QEMU at [255101d](docs/validation/native-255101d/README.md).
 - [ ] disk/I/O metrics

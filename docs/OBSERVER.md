@@ -54,8 +54,9 @@ AI recommendations or operating-system policy changes.
   disappearing or unreadable processes are counted instead of failing the
   required CPU/memory snapshot. `synctl` validates status/count relationships,
   strict PID ordering, identifiers, states and counter types before accepting a
-  successful response. The observer does not read command lines, environments,
-  command names or executable paths.
+  successful response. The observer never opens command lines, environments or
+  executable paths. The command name embedded in `stat` is used only to locate
+  the following fields and is not returned.
 
 The core validates required fields, finite nonnegative numeric values,
 CPU and memory consistency and runnable/total bounds. Bad or unavailable

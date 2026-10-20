@@ -570,10 +570,11 @@ fn read_process_stat(path: &Path, pid: u32) -> io::Result<Value> {
     parse_process_stat(&input, pid)
 }
 
-/// Return a bounded point-in-time process snapshot without reading argv,
-/// environment, command names, or executable paths. PID plus start_time_ticks
-/// identifies a process across PID reuse; all resource values are cumulative or
-/// point-in-time kernel counters rather than interval utilization.
+/// Return a bounded point-in-time process snapshot without opening argv,
+/// environment, or executable paths. The stat comm field is used only to find
+/// the following fields and is not returned. PID plus start_time_ticks identifies
+/// a process across PID reuse; all resource values are cumulative or point-in-time
+/// kernel counters rather than interval utilization.
 fn read_processes(root: &Path) -> Value {
     let entries = match fs::read_dir(root) {
         Ok(entries) => entries,

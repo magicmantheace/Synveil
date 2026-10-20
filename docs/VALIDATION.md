@@ -1080,8 +1080,9 @@ The observer scans at most 16384 `/proc` directory entries and returns at most
 128 PID-sorted process records so the snapshot remains within the bounded IPC
 envelope on ordinary systems. PID plus kernel start time provides stable
 identity across PID reuse. Records contain scheduling topology/state, cumulative
-CPU ticks and point-in-time memory counters; argv, environments, command names
-and executable paths are never read. Per-process files are limited to 4096 bytes,
+CPU ticks and point-in-time memory counters; argv, environments and executable
+paths are never opened. The name embedded in `stat` is not returned. Per-process
+files are limited to 4096 bytes,
 and exit or permission races are counted explicitly. Host fixtures cover names
 containing closing parentheses, numeric ordering, disappearing processes, PID
 mismatch, oversized/truncated stat data and invalid ranges. The native client
