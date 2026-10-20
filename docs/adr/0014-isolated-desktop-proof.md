@@ -31,6 +31,25 @@ equivalent is intended to prove *desktop behavior*, not lock in a permanent
 X11 stack. Licensing and reproducibility review are still required before
 a distributable Synveil release.
 
+## Real QEMU desktop acceptance harness (in development)
+
+The developer ISO now includes a CI-only Xfce session autostart probe and
+a bounded serial status bridge, plus the `smoke-desktop-live.py` host runner.
+The guest probe must observe Xfwm4, launch **two different genuine app
+windows** (xfce4-terminal and Thunar), move and resize, maximize, minimize
+and restore a window, and then report a fixed success marker. The host boots
+the ISO in QEMU through UEFI OVMF with an isolated private variable store,
+reads the serial marker, captures actual RGB video through QMP, and requires
+a nonblank screenshot. The runner uses a temporary guest only, networking
+disabled, and no writable host device.
+
+These are acceptance checks, not evidence of a passed desktop until a
+**completed** GitHub Actions run exercises the exact committed ISO and
+reports success. If the probe or renderer fails, the test remains failed;
+source existence and ISO construction alone never satisfy it. The proof's
+autologin/demo session and serial reporting must not be shipped in a
+trusted physical installation; production auth and recovery are distinct.
+
 ## Threat model, boundaries and first-user gate
 
 - A real desktop **does not equal** a trusted Synveil installation.
