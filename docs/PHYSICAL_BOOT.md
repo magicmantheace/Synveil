@@ -31,7 +31,7 @@ In an isolated Linux development checkout with the pinned toolchain built:
 
 ```sh
 # This section builds artifacts under out/. It does NOT write a USB.
-SYNVEIL_NATIVE_ROOTFS=1 SYNVEIL_PERSISTENCE_ROOTFS=1 \
+# For this kernel/EFI validation only, omit native core and owner credentials.
 SYNVEIL_GRAPHICS_ROOTFS=1 SYNVEIL_DESKTOP_AUTOSTART=1 \
 SYNVEIL_NETWORK_ROOTFS=1 bash build.sh rootfs
 
