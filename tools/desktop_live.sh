@@ -58,6 +58,20 @@ if [[ "$mode" == configure ]]; then
         "$OUT_DIR/config/includes.chroot/etc/live/config.conf.d/synveil.conf"
     install -Dm 0644 "$SOURCE_DIR/lightdm.conf" \
         "$OUT_DIR/config/includes.chroot/etc/lightdm/lightdm.conf.d/50-synveil-preview.conf"
+    # All of these probes exist solely in the disposable developer ISO.
+    # Their output is a single fixed serial marker after Xfwm4 truly moves,
+    # maximizes, minimizes and restores two distinct GUI applications.
+    install -Dm 0755 "$SOURCE_DIR/guest-proof-session.sh" \
+        "$OUT_DIR/config/includes.chroot/usr/local/bin/synveil-guest-proof-session"
+    install -Dm 0755 "$SOURCE_DIR/guest-proof-relay.sh" \
+        "$OUT_DIR/config/includes.chroot/usr/local/libexec/synveil-guest-proof-relay"
+    install -Dm 0644 "$SOURCE_DIR/guest-proof.desktop" \
+        "$OUT_DIR/config/includes.chroot/etc/xdg/autostart/synveil-guest-proof.desktop"
+    install -Dm 0644 "$SOURCE_DIR/guest-proof.service" \
+        "$OUT_DIR/config/includes.chroot/etc/systemd/system/synveil-guest-proof.service"
+    mkdir -p "$OUT_DIR/config/includes.chroot/etc/systemd/system/multi-user.target.wants"
+    ln -s ../synveil-guest-proof.service \
+        "$OUT_DIR/config/includes.chroot/etc/systemd/system/multi-user.target.wants/synveil-guest-proof.service"
     printf '%s\n' 'Experimental desktop with no installer; VM use only.' > "$OUT_DIR/$PROFILE_MARKER"
     echo "[desktop-live] configured disposable live-build source in $OUT_DIR"
     echo "[desktop-live] NOT owner-ready: no authenticated first-user onboarding or A/B updates"
