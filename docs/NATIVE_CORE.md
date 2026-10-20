@@ -383,11 +383,13 @@ ID and all other metrics, fits the 64 KiB protocol frame. This is a current
 snapshot, not lifecycle history or interval utilization. The native client
 validates the bounded schema before accepting a successful observation.
 
-Exact revision `2a0a90edfaeae0b215d734a822653ee7cfea1d15` passed the full
-native workflow. The QEMU observer gate required the process object and
-`start_time_ticks` through the real native core and client. The digest-verified
-artifact and clean-revision manifests are recorded at
-[native-2a0a90e](validation/native-2a0a90e/README.md).
+Exact revision `316f74518335fe4df32ba0bef225547b1c8c6d01` passed the full
+native workflow after composing the energy extension and correcting the client
+to reject successful responses above the producer's 128-record cap. The QEMU
+observer gate required the process object and `start_time_ticks` through the
+real native core and client. The digest-verified artifact and clean-revision
+manifests are recorded at
+[native-316f745](validation/native-316f745/README.md).
 
 The optional top-level `energy` object reads bounded Linux powercap zones. It
 walks control-type and nested zone directories with a bounded, deduplicated
