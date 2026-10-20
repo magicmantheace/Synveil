@@ -362,6 +362,12 @@ in millidegrees Celsius. Missing support and wholly unreadable zones are
 this object `invalid`. This is a current kernel sensor snapshot, not a cooling
 recommendation, hardware alarm or policy action.
 
+Exact revision `b5f5cae2d0971b200ce7e7ea76fd7c2965a221a1` passed the full
+native workflow. The QEMU observer gate required the thermal object from the
+real native core and client, though that virtual machine exposed no thermal
+zones. The digest-verified artifact and clean-revision manifests are recorded at
+[native-b5f5cae](validation/native-b5f5cae/README.md).
+
 ## Error response envelope
 
 Conceptual response:

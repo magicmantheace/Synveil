@@ -279,8 +279,10 @@ anchoring and physical power-loss testing remain open.
     connection inventory, network traffic inspection and history remain open.
 - [ ] thermal/power interface where available
   - Bounded read-only Linux thermal-zone temperatures are implemented with
-    explicit unavailable/invalid states. Host and native validation remain
-    open; energy and power measurements are not implemented.
+    explicit unavailable/invalid states. Exact-revision host and native QEMU
+    validation passed at [b5f5cae](docs/validation/native-b5f5cae/README.md);
+    QEMU exercised the unavailable-zone path, while host fixtures cover positive
+    and partial readings. Energy and power measurements are not implemented.
 - [ ] event normalization
 - [ ] ephemeral telemetry storage
 - [ ] historical aggregation

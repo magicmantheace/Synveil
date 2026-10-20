@@ -64,6 +64,10 @@ positive and partial readings remain host-fixture evidence. See the
 Per-logical-CPU utilization and the native client's structural checks passed at
 exact revision `23f3233`. See the
 [per-CPU evidence](validation/native-23f3233/README.md).
+The thermal extension passed host and native QEMU validation at exact revision
+`b5f5cae`; QEMU required the thermal object but exposed no zones, so positive
+and partial readings remain host-fixture evidence. See the
+[thermal evidence](validation/native-b5f5cae/README.md).
 
 ## Deliberately not claimed
 
