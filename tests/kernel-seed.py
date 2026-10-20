@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 GRAPHICS = ("DRM", "VIRTIO_PCI", "DRM_VIRTIO_GPU", "DRM_FBDEV_EMULATION",
             "DRM_CLIENT_DEFAULT_FBDEV", "FB_DEVICE", "VT", "VT_CONSOLE",
             "FRAMEBUFFER_CONSOLE", "INPUT_EVDEV", "USB_HID", "USB_XHCI_HCD")
+HARDWARE = ("DRM_SIMPLEDRM", "SYSFB_SIMPLEFB", "USB_STORAGE", "USB_UAS",
+            "BLK_DEV_NVME", "SATA_AHCI")
 
 FAKE_MAKE = """#!/usr/bin/env bash
 set -euo pipefail
@@ -36,10 +38,16 @@ class GuestKernelCacheTests(unittest.TestCase):
         scripts.mkdir(parents=True)
         for name in ("common.sh", "kernel.sh"):
             shutil.copy2(ROOT / "build/scripts" / name, scripts / name)
+        config_dir = self.root / "build/config"
+        config_dir.mkdir(parents=True)
+        for name in ("kernel.fragment", "kernel-hardware.fragment"):
+            shutil.copy2(ROOT / "build/config" / name, config_dir / name)
         self.work = self.root / "work"
         source = self.work / "src/linux-kernel"
         (source / "scripts/kconfig").mkdir(parents=True)
-        (source / "scripts/kconfig/merge_config.sh").write_text("#!/bin/sh\nexit 0\n")
+        (source / "scripts/kconfig/merge_config.sh").write_text(
+            "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$SYNVEIL_TEST_MERGE_ARGS\"\n"
+        )
         (source / "scripts/kconfig/merge_config.sh").chmod(0o755)
         (source / "scripts/config").write_text(
             "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$SYNVEIL_TEST_CONFIG_ARGS\"\n"
@@ -49,7 +57,7 @@ class GuestKernelCacheTests(unittest.TestCase):
         (self.base / "arch/x86/boot").mkdir(parents=True)
         (self.base / "include/config").mkdir(parents=True)
         (self.base / ".config").write_text(
-            "".join(f"CONFIG_{option}=y\n" for option in GRAPHICS)
+            "".join(f"CONFIG_{option}=y\n" for option in GRAPHICS + HARDWARE)
         )
         (self.base / "include/config/auto.conf").write_text("CONFIG_SMP=y\n")
         (self.base / "arch/x86/boot/bzImage").write_bytes(b"base kernel")
@@ -69,9 +77,10 @@ class GuestKernelCacheTests(unittest.TestCase):
             "SYNVEIL_TARGET": "x86_64-synveil-linux-gnu",
             "SYNVEIL_TEST_MAKE_LOG": str(self.root / "make.log"),
             "SYNVEIL_TEST_CONFIG_ARGS": str(self.root / "config-args"),
+            "SYNVEIL_TEST_MERGE_ARGS": str(self.root / "merge-args"),
         }
 
-    def invoke(self, case, payload=b"payload", *, seed=None, recovery=False):
+    def invoke(self, case, payload=b"payload", *, seed=None, recovery=False, target="qemu"):
         out = self.root / "out" / case
         out.mkdir(parents=True, exist_ok=True)
         (out / "synveil-initramfs.cpio").write_bytes(payload)
@@ -81,6 +90,7 @@ class GuestKernelCacheTests(unittest.TestCase):
             "SYNVEIL_WORK_DIR": str(self.root / "isolated" / case),
             "SYNVEIL_KERNEL_SEED_WORK": str(seed or self.work),
             "SYNVEIL_KERNEL_TEST_RECOVERY_STATUS": "1" if recovery else "0",
+            "SYNVEIL_BOOT_TARGET": target,
         }
         result = subprocess.run(
             ["bash", str(self.root / "build/scripts/kernel.sh")],
@@ -105,6 +115,35 @@ class GuestKernelCacheTests(unittest.TestCase):
         self.assertNotIn("x86_64_defconfig", (self.root / "make.log").read_text())
         self.assertIn("INITRAMFS_SOURCE", (self.root / "config-args").read_text())
         self.assertIn("CMDLINE", (self.root / "config-args").read_text())
+
+    def test_explicit_hardware_target_and_console(self):
+        guest, _ = self.invoke("default-qemu")
+        self.assertEqual(guest.returncode, 0, guest.stderr)
+        self.assertNotIn("kernel-hardware.fragment",
+                         (self.root / "merge-args").read_text())
+        self.assertIn("console=ttyS0", (self.root / "config-args").read_text())
+
+        physical, _ = self.invoke("hardware", target="hardware")
+        self.assertEqual(physical.returncode, 0, physical.stderr)
+        self.assertIn("kernel-hardware.fragment",
+                      (self.root / "merge-args").read_text())
+        args = (self.root / "config-args").read_text()
+        self.assertIn("console=tty0", args)
+        self.assertNotIn("console=ttyS0", args)
+
+    def test_hardware_missing_required_driver_fails_closed(self):
+        self.base.joinpath(".config").write_text(
+            "".join(f"CONFIG_{option}=y\\n"
+                    for option in GRAPHICS + HARDWARE if option != "DRM_SIMPLEDRM"))
+        result, _ = self.invoke("missing-driver", target="hardware")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("hardware kernel configuration dropped CONFIG_DRM_SIMPLEDRM=y",
+                      result.stderr)
+
+    def test_unknown_target_rejected(self):
+        result, _ = self.invoke("wrong-target", target="external")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SYNVEIL_BOOT_TARGET must be qemu or hardware", result.stderr)
 
     def test_baseline_identity_change_invalidates_guest_cache(self):
         first, _ = self.invoke("initial")
