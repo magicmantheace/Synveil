@@ -247,10 +247,14 @@ anchoring and physical power-loss testing remain open.
     monotonic window. Exact-revision host and native QEMU validation passed at
     [255101d](docs/validation/native-255101d/README.md). Bounded per-logical-CPU
     current frequency is now read from cpufreq sysfs when the kernel exposes it.
-    Per-logical-CPU busy-time attribution over the same sample window is now
-    bounded and explicit about unavailable intervals. Host and native QEMU
-    validation of the frequency and per-CPU schemas remain open; historical
-    aggregation is not implemented.
+    Exact-revision host and native QEMU validation passed at
+    [376e2b4](docs/validation/native-376e2b4/README.md); QEMU exercised the
+    unavailable-driver path, while host fixtures cover positive and partial
+    readings. Per-logical-CPU busy-time attribution over the same sample window
+    is bounded and explicit about unavailable intervals. Exact-revision host and
+    native QEMU validation passed at
+    [23f3233](docs/validation/native-23f3233/README.md). Per-process attribution
+    and historical aggregation are not implemented.
 - [ ] memory/pressure metrics
   - Read-only MemTotal/MemAvailable and bounded Linux PSI CPU, memory, and I/O
     stall snapshots implemented. Host/guest validation of PSI is required;
@@ -275,9 +279,13 @@ anchoring and physical power-loss testing remain open.
     connection inventory, network traffic inspection and history remain open.
 - [ ] thermal/power interface where available
   - Bounded read-only Linux thermal-zone temperatures are implemented with
-    explicit unavailable/invalid states. Bounded Linux powercap zones now expose
-    raw cumulative energy and wrap ranges where available. Host and native
-    validation remain open; interval power measurements are not implemented.
+    explicit unavailable/invalid states. Exact-revision host and native QEMU
+    validation passed at [b5f5cae](docs/validation/native-b5f5cae/README.md);
+    QEMU exercised the unavailable-zone path, while host fixtures cover positive
+    and partial readings. Bounded Linux powercap zones now expose raw cumulative
+    energy and wrap ranges where available. Corrected exact-revision validation
+    of the hierarchical powercap scan remains open; interval power measurements
+    are not implemented.
 - [ ] event normalization
 - [ ] ephemeral telemetry storage
 - [ ] historical aggregation

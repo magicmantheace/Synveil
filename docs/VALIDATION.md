@@ -1018,7 +1018,17 @@ CPUs and temporarily busy policies remain explicit through `unavailable` or
 invalid. Host fixtures cover primary and fallback files, ordering, absent
 cpufreq directories, busy-policy errors and malformed values. The native
 observer gate requires the frequency object even when QEMU exposes no cpufreq
-driver. Exact-revision host and target/QEMU validation remain required.
+driver. Exact revision `376e2b43fe70a3550009a6d02e267a98e5fe1d34` passed all
+143 Rust tests, formatting and clippy in
+[host run 39300793592](https://github.com/magicmantheace/Synveil/actions/runs/39300793592),
+then passed all 45 native steps in
+[run 39300793735](https://github.com/magicmantheace/Synveil/actions/runs/39300793735).
+The downloaded artifact matched its published SHA256, both manifests identify
+the clean tested revision, and the guest log contains `SYNVEIL_OBSERVE_OK` after
+requiring the frequency object. See
+[retained evidence](validation/native-376e2b4/README.md). QEMU exercised the
+unavailable-driver result; positive and partial readings remain host-fixture
+evidence rather than physical-hardware validation.
 
 ## Per-logical-CPU utilization candidate
 
@@ -1030,8 +1040,17 @@ topology changes, guest-time accounting, iowait decreases and counter rollback.
 The native guest gate requires the per-CPU utilization fields from the real
 `synctl --json observe` response. The client structurally validates the
 versioned result, sorted IDs, per-record status and bounded values before it can
-exit successfully. Exact-revision host and target/QEMU validation remain
-required.
+exit successfully. Exact revision `23f323345b073008357a4ca283b9ae86d1e3ec2f`
+passed all 145 Rust tests, formatting and clippy in
+[host run 39301950391](https://github.com/magicmantheace/Synveil/actions/runs/39301950391),
+then passed all 45 native steps in
+[run 39301950501](https://github.com/magicmantheace/Synveil/actions/runs/39301950501).
+The downloaded artifact matched its published SHA256, both manifests identify
+the clean tested revision, and the guest log contains `SYNVEIL_OBSERVE_OK` after
+requiring the per-CPU fields through the structurally validating native client.
+See [retained evidence](validation/native-23f3233/README.md). This is a live QEMU
+sample window, not per-process attribution, historical telemetry, or physical-
+hardware validation.
 
 ## Thermal-zone observation candidate
 
@@ -1042,17 +1061,29 @@ zone data invalidates only the optional thermal object. Host fixtures cover
 ordering, signed values, partial availability, absence and malformed values. The
 QEMU observer gate requires the thermal object even when the virtual machine
 exposes no thermal zones.
-Exact-revision host and target/QEMU validation remain required. Power and energy
-measurements, hardware alarm interpretation and cooling policy remain open.
+Exact revision `b5f5cae2d0971b200ce7e7ea76fd7c2965a221a1` passed all 147 Rust
+tests, formatting and clippy in
+[host run 39302160972](https://github.com/magicmantheace/Synveil/actions/runs/39302160972),
+then passed all 45 native steps in
+[run 39302160871](https://github.com/magicmantheace/Synveil/actions/runs/39302160871).
+The downloaded artifact matched its published SHA256, both manifests identify
+the clean tested revision, and the guest log contains `SYNVEIL_OBSERVE_OK` after
+requiring the thermal object. See
+[retained evidence](validation/native-b5f5cae/README.md). QEMU exercised the
+unavailable-zone result; positive and partial readings remain host-fixture
+evidence. Power and energy measurements, hardware alarm interpretation,
+cooling policy, and physical-hardware validation remain open.
 
 ## Powercap energy observation candidate
 
-The observer reads at most 256 Linux powercap zones, sorts hierarchical numeric
-zone IDs and reports bounded names, cumulative microjoules and maximum counter
-range. Missing and unreadable zones are explicit; malformed labels, counters or
-out-of-range energy invalidate only the optional energy object. Host fixtures
-cover hierarchical ordering, partial availability, absence and malformed range
-relationships. The QEMU observer gate requires the energy object even when the
-virtual machine exposes no powercap zones. Exact-revision host and target/QEMU
-validation remain required; instantaneous power and power-limit control remain
-open.
+The observer reads at most 256 Linux powercap zones from a bounded traversal of
+control-type and nested zone directories, sorts hierarchical numeric zone IDs,
+and reports bounded names, cumulative microjoules and maximum counter range.
+Canonical directory targets are deduplicated and traversal is capped at 4,096
+entries. Missing and unreadable zones are explicit; malformed labels, counters
+or out-of-range energy invalidate only the optional energy object. Host fixtures
+cover nested hierarchy, ordering, partial availability, absence and malformed
+range relationships. The QEMU observer gate requires the energy object even
+when the virtual machine exposes no powercap zones. Corrected exact-revision host
+and target/QEMU validation remain required; instantaneous power and power-limit
+control remain open.

@@ -328,6 +328,12 @@ per-process attribution or historical storage.
 The native client rejects a successful observe response unless the utilization
 schema, sorted logical CPU IDs, record statuses and basis-point bounds validate.
 
+Exact revision `23f323345b073008357a4ca283b9ae86d1e3ec2f` passed the full
+native workflow, including the per-logical-CPU gate through the real native core
+and structurally validating client. The digest-verified artifact and clean-
+revision manifests are recorded at
+[native-23f3233](validation/native-23f3233/README.md).
+
 Exact revision `255101d0c5329bba12546466480ec748ec1e3097` passed the full
 native workflow, including the QEMU observer gate against the real native core
 and client. The downloaded evidence and clean-revision manifests are recorded
@@ -342,6 +348,12 @@ or `partial` status. Malformed kernel values make only the optional frequency
 object `invalid`; they do not discard otherwise valid memory, load, pressure or
 cumulative CPU observations.
 
+Exact revision `376e2b43fe70a3550009a6d02e267a98e5fe1d34` passed the full
+native workflow. The QEMU observer gate required the frequency object from the
+real native core and client, though that virtual machine exposed no cpufreq
+driver. The digest-verified artifact and clean-revision manifests are recorded
+at [native-376e2b4](validation/native-376e2b4/README.md).
+
 The optional top-level `thermal` object reads `/sys/class/thermal/thermal_zone*`
 without changing governors, trip points or cooling state. Up to 256 zones are
 sorted by numeric kernel ID and report the kernel type plus signed temperature
@@ -350,11 +362,18 @@ in millidegrees Celsius. Missing support and wholly unreadable zones are
 this object `invalid`. This is a current kernel sensor snapshot, not a cooling
 recommendation, hardware alarm or policy action.
 
-The optional top-level `energy` object reads bounded Linux powercap zones. Each
-record contains the stable sysfs zone ID, bounded kernel name, cumulative
-microjoules and the counter's maximum wrap range. Unavailable zones are counted;
-malformed values invalidate only this object. These raw counters are not watts,
-do not provide history, and do not authorize power-limit changes.
+Exact revision `b5f5cae2d0971b200ce7e7ea76fd7c2965a221a1` passed the full
+native workflow. The QEMU observer gate required the thermal object from the
+real native core and client, though that virtual machine exposed no thermal
+zones. The digest-verified artifact and clean-revision manifests are recorded at
+[native-b5f5cae](validation/native-b5f5cae/README.md).
+
+The optional top-level `energy` object reads bounded Linux powercap zones. It
+walks control-type and nested zone directories with a bounded, deduplicated
+scan. Each record contains the stable sysfs zone ID, bounded kernel name,
+cumulative microjoules and the counter's maximum wrap range. Unavailable zones
+are counted; malformed values invalidate only this object. These raw counters
+are not watts, do not provide history, and do not authorize power-limit changes.
 
 ## Error response envelope
 
