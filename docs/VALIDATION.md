@@ -1007,3 +1007,25 @@ both manifests identify the clean tested revision, and the retained guest log
 contains `SYNVEIL_OBSERVE_OK` after requiring the utilization and window fields.
 See [retained evidence](validation/native-255101d/README.md). This is aggregate
 CPU busy time, not per-CPU or per-process attribution or historical telemetry.
+
+## Per-logical-CPU frequency candidate
+
+The observer reads bounded current-frequency values from Linux cpufreq sysfs,
+preferring `scaling_cur_freq` and falling back to `cpuinfo_cur_freq`. Frequencies
+are integer kHz and sorted by numeric logical CPU ID. Missing drivers and offline
+CPUs and temporarily busy policies remain explicit through `unavailable` or
+`partial` status; malformed data makes only the optional frequency object
+invalid. Host fixtures cover primary and fallback files, ordering, absent
+cpufreq directories, busy-policy errors and malformed values. The native
+observer gate requires the frequency object even when QEMU exposes no cpufreq
+driver. Exact revision `376e2b43fe70a3550009a6d02e267a98e5fe1d34` passed all
+143 Rust tests, formatting and clippy in
+[host run 39300793592](https://github.com/magicmantheace/Synveil/actions/runs/39300793592),
+then passed all 45 native steps in
+[run 39300793735](https://github.com/magicmantheace/Synveil/actions/runs/39300793735).
+The downloaded artifact matched its published SHA256, both manifests identify
+the clean tested revision, and the guest log contains `SYNVEIL_OBSERVE_OK` after
+requiring the frequency object. See
+[retained evidence](validation/native-376e2b4/README.md). QEMU exercised the
+unavailable-driver result; positive and partial readings remain host-fixture
+evidence rather than physical-hardware validation.

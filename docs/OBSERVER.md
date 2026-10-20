@@ -17,6 +17,13 @@ AI recommendations or operating-system policy changes.
   Zero total delta, a topology change, or an iowait decrease returns
   `{"status":"unavailable"}` without inventing a percentage. A backward
   non-guest counter other than iowait is invalid.
+- `cpu.frequency`: kernel-reported current per-logical-CPU frequency from Linux
+  cpufreq sysfs, in integer kHz. It is not an independent hardware measurement.
+  `scaling_cur_freq` is preferred and `cpuinfo_cur_freq` is the fallback.
+  Systems without a cpufreq driver report `status: unavailable`;
+  offline, temporarily busy or unsupported logical CPUs make an otherwise
+  populated result `partial`. Output is numerically sorted and bounded to 4096
+  logical CPUs.
 - `memory.total_bytes`, `memory.available_bytes`: Linux MemTotal and
   MemAvailable read from `/proc/meminfo`, converted from kB to bytes with
   overflow checks.
@@ -38,12 +45,16 @@ Host tests cover valid parsing and malformed/inconsistent counters. The native
 QEMU `observe` guest gate passed at exact revision `255101d`, requiring the
 versioned schema and live utilization fields from the real command response.
 See the [retained evidence](validation/native-255101d/README.md).
+The frequency extension passed host and native QEMU validation at exact revision
+`376e2b4`; QEMU required the frequency object but exposed no cpufreq driver, so
+positive and partial readings remain host-fixture evidence. See the
+[frequency evidence](validation/native-376e2b4/README.md).
 
 ## Deliberately not claimed
 
 Per-CPU and per-process utilization, process inventory and lifecycle tracking,
-resource history and long-term aggregation are separate roadmap items. The
-observer does not yet implement these metrics.
+thermal and energy data, resource history and long-term aggregation are separate
+roadmap items. The observer does not yet implement these metrics.
 
 ## Linux pressure stall information (PSI)
 

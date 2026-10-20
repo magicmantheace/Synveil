@@ -3,6 +3,7 @@
 use serde_json::{Value, json};
 use std::fs;
 use std::io;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -10,6 +11,7 @@ const OBSERVE_SCHEMA_V1: &str = "synveil.observe/v1";
 const CPU_SAMPLE_INTERVAL: Duration = Duration::from_millis(100);
 const CPU_ACCOUNTING_FIELDS: usize = 8;
 const CPU_IOWAIT_FIELD: usize = 4;
+const MAX_CPU_FREQUENCY_ENTRIES: usize = 4096;
 
 /// Read kernel files directly, never by scraping output from command-line tools.
 pub fn sample() -> io::Result<Value> {
@@ -23,6 +25,7 @@ pub fn sample() -> io::Result<Value> {
     let loadavg = fs::read_to_string("/proc/loadavg")?;
     let mut snapshot = parse_sample(&meminfo, &stat, &uptime, &loadavg)?;
     snapshot["cpu"]["utilization"] = parse_cpu_utilization(&stat_before, &stat, sample_window_ms)?;
+    snapshot["cpu"]["frequency"] = read_cpu_frequency(Path::new("/sys/devices/system/cpu"));
     // Disk counters are optional on restricted procfs mounts; an unavailable
     // source must not prevent CPU/memory health from being reported.
     snapshot["disk"] = match fs::read_to_string("/proc/diskstats") {
@@ -41,6 +44,104 @@ pub fn sample() -> io::Result<Value> {
         "io": read_pressure("/proc/pressure/io", true),
     });
     Ok(snapshot)
+}
+
+fn cpu_directory_id(name: &std::ffi::OsStr) -> Option<u32> {
+    let suffix = name.to_str()?.strip_prefix("cpu")?;
+    if suffix.is_empty() || !suffix.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    suffix.parse().ok()
+}
+
+fn parse_cpu_frequency(input: &str) -> io::Result<u64> {
+    let mut fields = input.split_whitespace();
+    let frequency = fields
+        .next()
+        .ok_or_else(|| invalid_data("missing CPU frequency"))?
+        .parse::<u64>()
+        .map_err(|_| invalid_data("invalid CPU frequency"))?;
+    if frequency == 0 || fields.next().is_some() {
+        return Err(invalid_data("invalid CPU frequency"));
+    }
+    Ok(frequency)
+}
+
+fn cpu_frequency_is_unavailable(error: &io::Error) -> bool {
+    matches!(
+        error.kind(),
+        io::ErrorKind::ResourceBusy | io::ErrorKind::WouldBlock
+    )
+}
+
+fn read_cpu_frequency_file(cpu: &Path) -> io::Result<Option<u64>> {
+    for name in ["scaling_cur_freq", "cpuinfo_cur_freq"] {
+        match fs::read_to_string(cpu.join("cpufreq").join(name)) {
+            Ok(value) => return parse_cpu_frequency(&value).map(Some),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) if cpu_frequency_is_unavailable(&error) => {
+                return Ok(None);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(None)
+}
+
+/// Read optional per-logical-CPU frequency data from Linux cpufreq sysfs.
+/// Missing drivers or offline CPUs are explicit rather than fabricated zeros.
+fn read_cpu_frequency(root: &Path) -> Value {
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(_) => return json!({"status": "unavailable", "logical_cpus": []}),
+    };
+    let mut cpus = Vec::<(u32, PathBuf)>::new();
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => return json!({"status": "invalid", "logical_cpus": []}),
+        };
+        if let Some(id) = cpu_directory_id(&entry.file_name()) {
+            cpus.push((id, entry.path()));
+        }
+    }
+    cpus.sort_unstable_by_key(|(id, _)| *id);
+    let omitted_logical_cpus = cpus.len().saturating_sub(MAX_CPU_FREQUENCY_ENTRIES);
+    cpus.truncate(MAX_CPU_FREQUENCY_ENTRIES);
+
+    let mut logical_cpus = Vec::new();
+    let mut unavailable_logical_cpus = 0usize;
+    for (id, path) in cpus {
+        match read_cpu_frequency_file(&path) {
+            Ok(Some(current_khz)) => logical_cpus.push(json!({
+                "id": id,
+                "current_khz": current_khz,
+            })),
+            Ok(None) => unavailable_logical_cpus += 1,
+            Err(_) => return json!({"status": "invalid", "logical_cpus": []}),
+        }
+    }
+    if logical_cpus.is_empty() {
+        return json!({
+            "status": "unavailable",
+            "logical_cpus": [],
+            "unavailable_logical_cpus": unavailable_logical_cpus,
+            "omitted_logical_cpus": omitted_logical_cpus,
+        });
+    }
+    let status = if omitted_logical_cpus > 0 {
+        "truncated"
+    } else if unavailable_logical_cpus > 0 {
+        "partial"
+    } else {
+        "ready"
+    };
+    json!({
+        "status": status,
+        "logical_cpus": logical_cpus,
+        "unavailable_logical_cpus": unavailable_logical_cpus,
+        "omitted_logical_cpus": omitted_logical_cpus,
+    })
 }
 
 fn invalid_data(message: &'static str) -> io::Error {
@@ -475,6 +576,19 @@ fn parse_sample(meminfo: &str, stat: &str, uptime: &str, loadavg: &str) -> io::R
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEMP_ID: AtomicU64 = AtomicU64::new(0);
+
+    fn frequency_fixture() -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "synveil-cpu-frequency-{}-{}",
+            std::process::id(),
+            TEMP_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&path).unwrap();
+        path
+    }
 
     const MEMINFO: &str = "MemTotal:       32768 kB\nMemFree: 4 kB\nMemAvailable:   12288 kB\n";
     const STAT: &str = "cpu  101 2 30 1000 10 1 1 0 0 0\ncpu0 50 1 15 500 5 0 1 0 0 0\ncpu1 51 1 15 500 5 1 0 0 0\nintr 999\n";
@@ -533,6 +647,57 @@ mod tests {
 
         let regression = "cpu  100 2 31 1010 10 1 1 0 0 0\ncpu0 50 1 15 505 5 0 1 0 0 0\ncpu1 50 1 16 505 5 1 0 0 0\n";
         assert!(parse_cpu_utilization(STAT, regression, 100).is_err());
+    }
+
+    #[test]
+    fn cpu_frequency_reports_sorted_current_khz_and_missing_drivers() {
+        let root = frequency_fixture();
+        for (cpu, file, value) in [
+            ("cpu2", "cpuinfo_cur_freq", "2200000\n"),
+            ("cpu0", "scaling_cur_freq", "1800000\n"),
+        ] {
+            let directory = root.join(cpu).join("cpufreq");
+            fs::create_dir_all(&directory).unwrap();
+            fs::write(directory.join(file), value).unwrap();
+        }
+        fs::create_dir(root.join("cpu1")).unwrap();
+        fs::create_dir(root.join("cpuidle")).unwrap();
+
+        let frequency = read_cpu_frequency(&root);
+        assert_eq!(frequency["status"], "partial");
+        assert_eq!(frequency["logical_cpus"][0]["id"], 0);
+        assert_eq!(frequency["logical_cpus"][0]["current_khz"], 1_800_000);
+        assert_eq!(frequency["logical_cpus"][1]["id"], 2);
+        assert_eq!(frequency["logical_cpus"][1]["current_khz"], 2_200_000);
+        assert_eq!(frequency["unavailable_logical_cpus"], 1);
+        assert_eq!(frequency["omitted_logical_cpus"], 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn cpu_frequency_is_unavailable_without_cpufreq_and_invalid_when_malformed() {
+        let root = frequency_fixture();
+        fs::create_dir(root.join("cpu0")).unwrap();
+        let unavailable = read_cpu_frequency(&root);
+        assert_eq!(unavailable["status"], "unavailable");
+
+        let directory = root.join("cpu1").join("cpufreq");
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("scaling_cur_freq"), "0 trailing\n").unwrap();
+        let invalid = read_cpu_frequency(&root);
+        assert_eq!(invalid["status"], "invalid");
+        assert_eq!(invalid["logical_cpus"], json!([]));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn cpu_frequency_treats_inactive_policy_errors_as_unavailable() {
+        for kind in [io::ErrorKind::ResourceBusy, io::ErrorKind::WouldBlock] {
+            assert!(cpu_frequency_is_unavailable(&io::Error::from(kind)));
+        }
+        assert!(!cpu_frequency_is_unavailable(&io::Error::from(
+            io::ErrorKind::PermissionDenied
+        )));
     }
 
     #[test]
