@@ -1,0 +1,16 @@
+[Unit]
+Description=Synveil disposable VM desktop proof serial reporter
+After=systemd-udevd.service
+ConditionPathExists=/usr/local/bin/synveil-guest-proof-session
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/synveil-guest-proof-relay
+NoNewPrivileges=yes
+PrivateTmp=no
+ProtectSystem=strict
+ProtectHome=yes
+TimeoutStartSec=315
+
+[Install]
+WantedBy=multi-user.target
