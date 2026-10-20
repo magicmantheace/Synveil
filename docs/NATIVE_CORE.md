@@ -328,6 +328,12 @@ per-process attribution or historical storage.
 The native client rejects a successful observe response unless the utilization
 schema, sorted logical CPU IDs, record statuses and basis-point bounds validate.
 
+Exact revision `23f323345b073008357a4ca283b9ae86d1e3ec2f` passed the full
+native workflow, including the per-logical-CPU gate through the real native core
+and structurally validating client. The digest-verified artifact and clean-
+revision manifests are recorded at
+[native-23f3233](validation/native-23f3233/README.md).
+
 Exact revision `255101d0c5329bba12546466480ec748ec1e3097` passed the full
 native workflow, including the QEMU observer gate against the real native core
 and client. The downloaded evidence and clean-revision manifests are recorded
