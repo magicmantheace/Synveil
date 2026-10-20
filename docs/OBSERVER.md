@@ -56,7 +56,9 @@ AI recommendations or operating-system policy changes.
   strict PID ordering, identifiers, states and counter types before accepting a
   successful response. The observer never opens command lines, environments or
   executable paths. The command name embedded in `stat` is used only to locate
-  the following fields and is not returned.
+  the following fields and is not returned; it need not be valid UTF-8. If the
+  full response would exceed the 64 KiB protocol frame, the core removes
+  highest-PID records and increments `omitted_processes` until it fits.
 
 The core validates required fields, finite nonnegative numeric values,
 CPU and memory consistency and runnable/total bounds. Bad or unavailable

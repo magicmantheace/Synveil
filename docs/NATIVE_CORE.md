@@ -376,9 +376,12 @@ bytes, resident pages, thread count and nice value. The scan reads at most 16384
 directory entries and returns at most 128 process records. Process exit races
 are counted as unavailable records. Command lines, environments and executable
 paths are never opened. The command name embedded in `stat` is used only to
-locate the following fields and is not returned. This is a current snapshot,
-not lifecycle history or interval utilization. The native client validates the
-bounded schema before accepting a successful observation.
+locate the following fields and is not returned, so arbitrary non-UTF-8 names
+remain observable. Before returning, the core removes highest-PID records and
+increments the omitted count until the entire response, including the caller's
+ID and all other metrics, fits the 64 KiB protocol frame. This is a current
+snapshot, not lifecycle history or interval utilization. The native client
+validates the bounded schema before accepting a successful observation.
 
 ## Error response envelope
 

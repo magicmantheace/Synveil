@@ -474,18 +474,21 @@ fn process_directory_id(name: &std::ffi::OsStr) -> Option<u32> {
     (pid > 0).then_some(pid)
 }
 
-fn parse_process_stat(input: &str, expected_pid: u32) -> io::Result<Value> {
-    if input.len() > MAX_PROCESS_STAT_BYTES || input.contains('\0') {
+fn parse_process_stat(input: &[u8], expected_pid: u32) -> io::Result<Value> {
+    if input.len() > MAX_PROCESS_STAT_BYTES || input.contains(&0) {
         return Err(invalid_data("invalid process stat size"));
     }
     let open = input
-        .find('(')
+        .iter()
+        .position(|byte| *byte == b'(')
         .ok_or_else(|| invalid_data("missing process stat name"))?;
     let close = input
-        .rfind(')')
+        .iter()
+        .rposition(|byte| *byte == b')')
         .filter(|close| *close > open)
         .ok_or_else(|| invalid_data("unterminated process stat name"))?;
-    let pid = input[..open]
+    let pid = std::str::from_utf8(&input[..open])
+        .map_err(|_| invalid_data("invalid process stat PID"))?
         .trim()
         .parse::<u32>()
         .map_err(|_| invalid_data("invalid process stat PID"))?;
@@ -493,7 +496,10 @@ fn parse_process_stat(input: &str, expected_pid: u32) -> io::Result<Value> {
         return Err(invalid_data("process stat PID mismatch"));
     }
 
-    let fields = input[close + 1..].split_whitespace().collect::<Vec<_>>();
+    let fields = std::str::from_utf8(&input[close + 1..])
+        .map_err(|_| invalid_data("invalid process stat fields"))?
+        .split_whitespace()
+        .collect::<Vec<_>>();
     if fields.len() < 22 {
         return Err(invalid_data("truncated process stat"));
     }
@@ -566,8 +572,7 @@ fn read_process_stat(path: &Path, pid: u32) -> io::Result<Value> {
     if bytes.len() > MAX_PROCESS_STAT_BYTES {
         return Err(invalid_data("oversized process stat"));
     }
-    let input = String::from_utf8(bytes).map_err(|_| invalid_data("non-UTF-8 process stat"))?;
-    parse_process_stat(&input, pid)
+    parse_process_stat(&bytes, pid)
 }
 
 /// Return a bounded point-in-time process snapshot without opening argv,
@@ -1176,14 +1181,26 @@ mod tests {
     #[test]
     fn process_stat_rejects_mismatch_truncation_and_invalid_ranges() {
         let valid = "7 (worker) S 1 7 7 0 -1 4194304 10 0 0 0 20 5 0 0 20 0 2 0 100 4096 2\n";
-        assert!(parse_process_stat(valid, 7).is_ok());
-        assert!(parse_process_stat(valid, 8).is_err());
-        assert!(parse_process_stat("7 (worker) S 1 7\n", 7).is_err());
-        assert!(parse_process_stat(&"x".repeat(MAX_PROCESS_STAT_BYTES + 1), 7).is_err());
-        assert!(parse_process_stat(&valid.replacen(" S ", " ? ", 1), 7).is_err());
+        assert!(parse_process_stat(valid.as_bytes(), 7).is_ok());
+        assert!(parse_process_stat(valid.as_bytes(), 8).is_err());
+        assert!(parse_process_stat(b"7 (worker) S 1 7\n", 7).is_err());
+        assert!(parse_process_stat(&vec![b'x'; MAX_PROCESS_STAT_BYTES + 1], 7).is_err());
+        assert!(parse_process_stat(valid.replacen(" S ", " ? ", 1).as_bytes(), 7).is_err());
         assert!(
-            parse_process_stat(&valid.replacen(" 20 0 2 0 100 ", " 20 25 2 0 100 ", 1), 7).is_err()
+            parse_process_stat(
+                valid
+                    .replacen(" 20 0 2 0 100 ", " 20 25 2 0 100 ", 1)
+                    .as_bytes(),
+                7
+            )
+            .is_err()
         );
+
+        let mut non_utf8_name = b"7 (worker".to_vec();
+        non_utf8_name.push(0xff);
+        non_utf8_name
+            .extend_from_slice(b") S 1 7 7 0 -1 4194304 10 0 0 0 20 5 0 0 20 0 2 0 100 4096 2\n");
+        assert!(parse_process_stat(&non_utf8_name, 7).is_ok());
 
         let root = frequency_fixture();
         assert_eq!(read_processes(&root)["status"], "unavailable");
