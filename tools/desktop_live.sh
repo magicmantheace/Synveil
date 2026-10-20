@@ -17,6 +17,12 @@ mode="${1:-}"
 [[ "$#" -eq 1 ]] || usage
 case "$mode" in configure|build) ;; *) usage ;; esac
 
+# Do not follow an alternate output root outside the checkout.
+[[ ! -L "$ROOT_DIR/out" ]] || {
+    echo "[desktop-live] refusing symlinked output parent" >&2
+    exit 1
+}
+
 command -v lb >/dev/null 2>&1 || {
     echo "[desktop-live] Debian live-build ('lb') is required" >&2
     exit 1
