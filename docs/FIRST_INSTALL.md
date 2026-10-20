@@ -3,6 +3,32 @@
 The project owner prefers to wait for a basic desktop before their first
 hands-on test install. Automated QEMU validation continues during development.
 
+## Critical owner priority (2026-10-20)
+
+The new immediate milestone is **direct physical UEFI boot to a normal
+multiwindow desktop**, followed by a safe A/B installation and signed
+whole-system updates. This priority overrides the old sequencing below that
+placed other core/observer work before the desktop. The safety gates for
+authentication, independent recovery and Windows disk isolation remain.
+
+The existing framebuffer diagnostics and authenticated dashboard are
+**not** multiwindow desktops. An opt-in `SYNVEIL_BOOT_TARGET=hardware`
+kernel build profile now requests a local screen console, UEFI GOP/simpleDRM,
+USB HID/storage, NVMe and AHCI, without needing NVIDIA GPU acceleration.
+This adds no physical hardware proof, bootable desktop, user installer, or
+partitions. The default target is still `qemu`.
+
+The initial supported *artifact build* can be created without writing to
+any removable device. No automated writer or partition installer may touch
+the Windows drive. A dedicated external SSD is preferred when the owner
+authorizes an install. The A/B layout and boot-health/rollback transaction
+must be independently tested with disposable media before physical use.
+See [ADR 0013](adr/0013-first-boot-desktop-priority.md).
+
+**First hands-on test remains blocked** by production-safe first-user
+enrollment, a real window manager, reliable screen/input/network drivers,
+independent owner recovery, portable image delivery and physical validation.
+
 ## Dependency order
 
 1. Finish deterministic core recovery and define its service lifecycle.
