@@ -267,9 +267,11 @@ anchoring and physical power-loss testing remain open.
     point-in-time memory counters without opening command lines, environments or
     executable paths. The name embedded in `stat` is not returned.
     The core trims the highest-PID records when necessary so the complete
-    response remains within the protocol frame limit. Exact-revision host and
-    native QEMU validation passed at
-    [2a0a90e](docs/validation/native-2a0a90e/README.md). Lifecycle event/delta
+    response remains within the protocol frame limit. The client rejects a
+    successful response above the producer's 128-record cap. Exact-revision
+    host and native QEMU validation of the corrected, energy-composed
+    implementation passed at
+    [316f745](docs/validation/native-316f745/README.md). Lifecycle event/delta
     tracking remains open. The earlier load schema passed QEMU at
     [255101d](docs/validation/native-255101d/README.md).
 - [ ] disk/I/O metrics
