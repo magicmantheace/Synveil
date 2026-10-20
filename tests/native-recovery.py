@@ -145,6 +145,7 @@ if mode == 'pass':
         assert 'sectors_read_512b' in command and 'rx_bytes' in command
         assert 'pressure' in command and 'io' in command
         assert 'avg10_pct' in command and 'total_stall_us' in command
+        assert max(map(len, command.splitlines())) < 1024
     else:
         assert '/children' in command and 'restarted=1' in command
         assert 'for round in 1 2 3' in command and 'shell-alive' in command
