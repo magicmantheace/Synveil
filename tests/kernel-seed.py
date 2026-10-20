@@ -133,7 +133,7 @@ class GuestKernelCacheTests(unittest.TestCase):
 
     def test_hardware_missing_required_driver_fails_closed(self):
         self.base.joinpath(".config").write_text(
-            "".join(f"CONFIG_{option}=y\\n"
+            "".join(f"CONFIG_{option}=y\n"
                     for option in GRAPHICS + HARDWARE if option != "DRM_SIMPLEDRM"))
         result, _ = self.invoke("missing-driver", target="hardware")
         self.assertNotEqual(result.returncode, 0)
