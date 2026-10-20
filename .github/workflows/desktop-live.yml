@@ -69,16 +69,24 @@ jobs:
     if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_image) || contains(github.event.head_commit.message, '[build-live]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    # Debian 13 provides live-build with grub-efi and modern live profile
+    # options; Ubuntu 24.04's older live-build cannot parse this contract.
+    # This isolated CI-only job has no privileged repository secrets and
+    # never uploads the insecure development ISO.
+    container:
+      image: debian:trixie
+      options: --privileged
     steps:
-      - name: Check out Synveil
-        uses: actions/checkout@v6
-
       - name: Install live image tooling
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            live-build debootstrap squashfs-tools xorriso \
-            isolinux syslinux-common grub-efi-amd64-bin mtools dosfstools
+          apt-get update
+          apt-get install -y \
+            ca-certificates git live-build debootstrap \
+            squashfs-tools xorriso isolinux syslinux-common \
+            grub-efi-amd64-bin mtools dosfstools
+
+      - name: Check out Synveil
+        uses: actions/checkout@v6
 
       - name: Configure controlled desktop image
         run: bash tools/desktop_live.sh configure
