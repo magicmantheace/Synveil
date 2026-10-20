@@ -62,6 +62,8 @@ jobs:
           path: |
             out/desktop-live/config
 
+  # Developer CI image proof: never upload an unauthenticated live ISO.
+  # This build cannot satisfy owner login, persistent A/B or physical validation.
   iso-build:
     needs: preview-config
     if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_image) || contains(github.event.head_commit.message, '[build-live]') }}
