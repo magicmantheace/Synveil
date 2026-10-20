@@ -247,10 +247,12 @@ anchoring and physical power-loss testing remain open.
     monotonic window. Exact-revision host and native QEMU validation passed at
     [255101d](docs/validation/native-255101d/README.md). Bounded per-logical-CPU
     current frequency is now read from cpufreq sysfs when the kernel exposes it.
-    Per-logical-CPU busy-time attribution over the same sample window is now
-    bounded and explicit about unavailable intervals. Host and native QEMU
-    validation of the frequency and per-CPU schemas remain open; historical
-    aggregation is not implemented.
+    Exact-revision host and native QEMU validation passed at
+    [376e2b4](docs/validation/native-376e2b4/README.md); QEMU exercised the
+    unavailable-driver path, while host fixtures cover positive and partial
+    readings. Per-logical-CPU busy-time attribution over the same sample window
+    is now bounded and explicit about unavailable intervals. Its exact-revision
+    validation remains open; historical aggregation is not implemented.
 - [ ] memory/pressure metrics
   - Read-only MemTotal/MemAvailable and bounded Linux PSI CPU, memory, and I/O
     stall snapshots implemented. Host/guest validation of PSI is required;

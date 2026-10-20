@@ -51,6 +51,10 @@ Host tests cover valid parsing and malformed/inconsistent counters. The native
 QEMU `observe` guest gate passed at exact revision `255101d`, requiring the
 versioned schema and live utilization fields from the real command response.
 See the [retained evidence](validation/native-255101d/README.md).
+The frequency extension passed host and native QEMU validation at exact revision
+`376e2b4`; QEMU required the frequency object but exposed no cpufreq driver, so
+positive and partial readings remain host-fixture evidence. See the
+[frequency evidence](validation/native-376e2b4/README.md).
 
 ## Deliberately not claimed
 
