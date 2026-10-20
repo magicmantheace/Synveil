@@ -93,7 +93,7 @@ jobs:
 
       - name: Build desktop prototype image file, no release
         run: |
-          sudo bash tools/desktop_live.sh build
+          bash tools/desktop_live.sh build
           test -n "$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
           cd out/desktop-live
           sha256sum *.iso > desktop-prototype-sha256.txt
