@@ -410,7 +410,9 @@ SCENARIOS = {
                 "grep -Fq 'sectors_read_512b' /tmp/synveil-observe.json && "
                 "grep -Fq 'rx_bytes' /tmp/synveil-observe.json && "
                 "grep -Fq '\"pressure\"' /tmp/synveil-observe.json && "
-                "grep -Fq '\"io\"' /tmp/synveil-observe.json; then "
+                "grep -Fq '\"io\"' /tmp/synveil-observe.json && "
+                "grep -Fq '\"avg10_pct\"' /tmp/synveil-observe.json && "
+                "grep -Fq '\"total_stall_us\"' /tmp/synveil-observe.json; then "
                 "printf '\\n%s%s\\n' SYNVEIL_ OBSERVE_OK; fi\n"),
     "protocol": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},
                  b"SYNVEIL_CORE_UNAVAILABLE", b"SYNVEIL_PROTOCOL_OK",

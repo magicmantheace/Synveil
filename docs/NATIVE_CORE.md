@@ -381,6 +381,15 @@ real native core and client, though that virtual machine exposed no powercap
 zones. The digest-verified artifact and clean-revision manifests are recorded at
 [native-bca81e5](validation/native-bca81e5/README.md).
 
+The `pressure.cpu`, `pressure.memory`, and `pressure.io` objects expose bounded
+Linux PSI snapshots. Ready groups contain 10/60/300-second finite stall
+percentages from 0 through 100 and cumulative microseconds. The native client
+validates every metric status and record before accepting the response. CPU's
+`full` group is optional; memory and I/O require it when ready. Unsupported and
+malformed sources remain explicit without affecting required CPU and memory
+observations. The guest gate requires live PSI average and cumulative fields;
+exact-revision native validation is pending.
+
 ## Error response envelope
 
 Conceptual response:

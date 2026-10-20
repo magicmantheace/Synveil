@@ -124,6 +124,40 @@ fn validate_correlation(response: &Response, id: &str) -> io::Result<()> {
     Ok(())
 }
 
+fn valid_pressure_record(record: &Value) -> bool {
+    ["avg10_pct", "avg60_pct", "avg300_pct"]
+        .iter()
+        .all(|field| {
+            record
+                .get(field)
+                .and_then(Value::as_f64)
+                .is_some_and(|value| value.is_finite() && (0.0..=100.0).contains(&value))
+        })
+        && record
+            .get("total_stall_us")
+            .and_then(Value::as_u64)
+            .is_some()
+}
+
+fn valid_pressure_metric(metric: &Value, require_full: bool) -> bool {
+    match metric.get("status").and_then(Value::as_str) {
+        Some("ready") => {
+            if !metric.get("some").is_some_and(valid_pressure_record) {
+                return false;
+            }
+            match metric.get("full") {
+                Some(full) if valid_pressure_record(full) => true,
+                Some(Value::Null) | None if !require_full => true,
+                _ => false,
+            }
+        }
+        Some("unavailable" | "invalid") => {
+            metric.get("some").is_none() && metric.get("full").is_none()
+        }
+        _ => false,
+    }
+}
+
 fn validate_observe_result(result: &Value) -> io::Result<()> {
     let invalid = || io::Error::new(io::ErrorKind::InvalidData, "invalid observe response");
     if result.get("schema").and_then(Value::as_str) != Some("synveil.observe/v1") {
@@ -192,7 +226,18 @@ fn validate_observe_result(result: &Value) -> io::Result<()> {
             Ok(())
         }
         _ => Err(invalid()),
+    }?;
+
+    let pressure = result.get("pressure").ok_or_else(invalid)?;
+    for (field, require_full) in [("cpu", false), ("memory", true), ("io", true)] {
+        if !pressure
+            .get(field)
+            .is_some_and(|metric| valid_pressure_metric(metric, require_full))
+        {
+            return Err(invalid());
+        }
     }
+    Ok(())
 }
 
 fn print_help() {
@@ -209,6 +254,20 @@ fn print_help() {
 mod tests {
     use super::*;
     use veil_protocol::{ErrorCode, ProtocolError};
+
+    fn valid_pressure() -> Value {
+        let record = json!({
+            "avg10_pct": 0.25,
+            "avg60_pct": 1.5,
+            "avg300_pct": 2.75,
+            "total_stall_us": 42
+        });
+        json!({
+            "cpu": {"status": "ready", "some": record.clone(), "full": null},
+            "memory": {"status": "ready", "some": record.clone(), "full": record.clone()},
+            "io": {"status": "ready", "some": record.clone(), "full": record}
+        })
+    }
 
     #[test]
     fn validates_response_correlation() {
@@ -243,7 +302,8 @@ mod tests {
                     {"id": 2, "status": "unavailable"}
                 ],
                 "omitted_logical_cpus": 0
-            }}
+            }},
+            "pressure": valid_pressure()
         });
         assert!(validate_observe_result(&valid).is_ok());
 
@@ -270,6 +330,59 @@ mod tests {
             }}}),
         ] {
             assert!(validate_observe_result(&invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn observe_validation_requires_complete_bounded_pressure_metrics() {
+        let response = |pressure: Value| {
+            json!({
+                "schema": "synveil.observe/v1",
+                "cpu": {"utilization": {"status": "unavailable"}},
+                "pressure": pressure
+            })
+        };
+        assert!(validate_observe_result(&response(valid_pressure())).is_ok());
+        assert!(
+            validate_observe_result(&response(json!({
+                "cpu": {"status": "unavailable"},
+                "memory": {"status": "invalid"},
+                "io": {"status": "unavailable"}
+            })))
+            .is_ok()
+        );
+
+        let record = json!({
+            "avg10_pct": 0.25,
+            "avg60_pct": 1.5,
+            "avg300_pct": 2.75,
+            "total_stall_us": 42
+        });
+        for invalid_pressure in [
+            json!({
+                "cpu": {"status": "ready", "some": record.clone(), "full": null},
+                "memory": {"status": "ready", "some": record.clone()},
+                "io": {"status": "ready", "some": record.clone(), "full": record.clone()}
+            }),
+            json!({
+                "cpu": {"status": "ready", "some": {
+                    "avg10_pct": 100.01, "avg60_pct": 0.0, "avg300_pct": 0.0,
+                    "total_stall_us": 0
+                }, "full": null},
+                "memory": {"status": "unavailable"},
+                "io": {"status": "unavailable"}
+            }),
+            json!({
+                "cpu": {"status": "unavailable", "some": record.clone()},
+                "memory": {"status": "unavailable"},
+                "io": {"status": "unavailable"}
+            }),
+            json!({
+                "cpu": {"status": "unavailable"},
+                "memory": {"status": "unavailable"}
+            }),
+        ] {
+            assert!(validate_observe_result(&response(invalid_pressure)).is_err());
         }
     }
 }

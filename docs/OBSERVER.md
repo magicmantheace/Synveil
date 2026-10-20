@@ -97,3 +97,11 @@ Malformed, oversized, duplicate, or out-of-range PSI records return
 `status: invalid`, without inventing zero-pressure measurements or
 breaking unrelated CPU/memory observation. No sampling daemon, historical
 recording, process control, or inference authorization is introduced.
+
+`synctl` rejects a successful response unless all three PSI metrics have a
+recognized status. Ready metrics require bounded finite percentages and an
+integer cumulative counter for `some`; memory and I/O also require `full`,
+while CPU permits an absent or null `full` group. Unavailable and invalid
+metrics cannot carry measurement groups. The native guest gate requires live
+average and cumulative PSI fields. Exact-revision host and QEMU validation is
+pending.
