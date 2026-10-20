@@ -63,6 +63,13 @@ AI recommendations or operating-system policy changes.
   the following fields and is not returned; it need not be valid UTF-8. If the
   full response would exceed the 64 KiB protocol frame, the core removes
   highest-PID records and increments `omitted_processes` until it fits.
+  The observer reads the bounded process set on both sides of its sampling
+  delay. `processes.sample_window_ms` reports the enclosing monotonic window.
+  A record whose PID and `start_time_ticks` match contains a `cpu_interval`
+  with raw user, system, and checked total tick deltas. A new process, PID
+  reuse, a missing first record, or counter regression reports
+  `cpu_interval.status: unavailable` instead of a zero delta. These are kernel
+  ticks, not percentages; no clock-tick rate or CPU capacity is assumed.
 
 The core validates required fields, finite nonnegative numeric values,
 CPU and memory consistency and runnable/total bounds. Bad or unavailable
@@ -96,10 +103,11 @@ positive hierarchical readings remain host-fixture evidence. See the
 
 ## Deliberately not claimed
 
-Per-process interval utilization, lifecycle events, instantaneous power,
+Per-process normalized utilization, lifecycle events, instantaneous power,
 resource history and long-term aggregation are separate roadmap items. The
-process snapshot does not retain state between requests or infer process
-purpose, and the energy snapshot does not derive power from counter changes.
+process snapshot derives raw CPU tick deltas only within one request; it does
+not retain state between requests or infer process purpose. The energy snapshot
+does not derive power from counter changes.
 
 ## Linux pressure stall information (PSI)
 

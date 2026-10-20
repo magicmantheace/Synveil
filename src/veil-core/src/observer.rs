@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 //! Read-only structured Linux observations. No shell commands or mutations.
 use serde_json::{Value, json};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -24,9 +24,11 @@ const MAX_POWERCAP_SCAN_ENTRIES: usize = 4096;
 /// Read kernel files directly, never by scraping output from command-line tools.
 pub fn sample() -> io::Result<Value> {
     let meminfo = fs::read_to_string("/proc/meminfo")?;
-    let stat_before = fs::read_to_string("/proc/stat")?;
     let sample_started = Instant::now();
+    let stat_before = fs::read_to_string("/proc/stat")?;
+    let processes_before = read_processes(Path::new("/proc"));
     thread::sleep(CPU_SAMPLE_INTERVAL);
+    let mut processes = read_processes(Path::new("/proc"));
     let stat = fs::read_to_string("/proc/stat")?;
     let sample_window_ms = u64::try_from(sample_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let uptime = fs::read_to_string("/proc/uptime")?;
@@ -35,7 +37,8 @@ pub fn sample() -> io::Result<Value> {
     snapshot["cpu"]["utilization"] = parse_cpu_utilization(&stat_before, &stat, sample_window_ms)?;
     snapshot["cpu"]["frequency"] = read_cpu_frequency(Path::new("/sys/devices/system/cpu"));
     snapshot["thermal"] = read_thermal_zones(Path::new("/sys/class/thermal"));
-    snapshot["processes"] = read_processes(Path::new("/proc"));
+    attach_process_intervals(&processes_before, &mut processes, sample_window_ms);
+    snapshot["processes"] = processes;
     snapshot["energy"] = read_powercap_zones(Path::new("/sys/class/powercap"));
     // Disk counters are optional on restricted procfs mounts; an unavailable
     // source must not prevent CPU/memory health from being reported.
@@ -855,6 +858,63 @@ fn read_processes(root: &Path) -> Value {
     })
 }
 
+/// Attach raw CPU tick deltas only when PID and kernel start time match across
+/// the bounded sample. A new process, PID reuse, disappearing first sample, or
+/// counter regression is explicit rather than being treated as zero work.
+fn attach_process_intervals(before: &Value, after: &mut Value, sample_window_ms: u64) {
+    after["sample_window_ms"] = json!(sample_window_ms);
+    let mut prior = HashMap::new();
+    if let Some(records) = before.get("records").and_then(Value::as_array) {
+        for record in records {
+            let Some(identity) = record
+                .get("pid")
+                .and_then(Value::as_u64)
+                .zip(record.get("start_time_ticks").and_then(Value::as_u64))
+            else {
+                continue;
+            };
+            let Some(counters) = record
+                .get("user_ticks")
+                .and_then(Value::as_u64)
+                .zip(record.get("system_ticks").and_then(Value::as_u64))
+            else {
+                continue;
+            };
+            prior.insert(identity, counters);
+        }
+    }
+
+    let Some(records) = after.get_mut("records").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for record in records {
+        let interval = record
+            .get("pid")
+            .and_then(Value::as_u64)
+            .zip(record.get("start_time_ticks").and_then(Value::as_u64))
+            .and_then(|identity| prior.get(&identity).copied())
+            .and_then(|(before_user, before_system)| {
+                let user = record
+                    .get("user_ticks")?
+                    .as_u64()?
+                    .checked_sub(before_user)?;
+                let system = record
+                    .get("system_ticks")?
+                    .as_u64()?
+                    .checked_sub(before_system)?;
+                let total = user.checked_add(system)?;
+                Some(json!({
+                    "status": "ready",
+                    "user_delta_ticks": user,
+                    "system_delta_ticks": system,
+                    "total_delta_ticks": total,
+                }))
+            })
+            .unwrap_or_else(|| json!({"status": "unavailable"}));
+        record["cpu_interval"] = interval;
+    }
+}
+
 fn parse_uptime(input: &str) -> io::Result<f64> {
     let uptime = input
         .split_whitespace()
@@ -1376,6 +1436,40 @@ mod tests {
         assert_eq!(processes["omitted_processes"], 0);
         assert_eq!(processes["scan_truncated"], false);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn process_intervals_require_stable_identity_and_monotonic_counters() {
+        let before = json!({
+            "records": [
+                {"pid": 3, "start_time_ticks": 100, "user_ticks": 20, "system_ticks": 2},
+                {"pid": 20, "start_time_ticks": 200, "user_ticks": 40, "system_ticks": 5},
+                {"pid": 30, "start_time_ticks": 300, "user_ticks": 50, "system_ticks": 8}
+            ]
+        });
+        let mut after = json!({
+            "status": "ready",
+            "records": [
+                {"pid": 3, "start_time_ticks": 100, "user_ticks": 25, "system_ticks": 4},
+                {"pid": 20, "start_time_ticks": 201, "user_ticks": 1, "system_ticks": 0},
+                {"pid": 30, "start_time_ticks": 300, "user_ticks": 49, "system_ticks": 9},
+                {"pid": 40, "start_time_ticks": 400, "user_ticks": 0, "system_ticks": 0}
+            ]
+        });
+
+        attach_process_intervals(&before, &mut after, 103);
+
+        assert_eq!(after["sample_window_ms"], 103);
+        assert_eq!(after["records"][0]["cpu_interval"]["status"], "ready");
+        assert_eq!(after["records"][0]["cpu_interval"]["user_delta_ticks"], 5);
+        assert_eq!(after["records"][0]["cpu_interval"]["system_delta_ticks"], 2);
+        assert_eq!(after["records"][0]["cpu_interval"]["total_delta_ticks"], 7);
+        for index in 1..=3 {
+            assert_eq!(
+                after["records"][index]["cpu_interval"],
+                json!({"status": "unavailable"})
+            );
+        }
     }
 
     #[test]

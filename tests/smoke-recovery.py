@@ -400,7 +400,8 @@ SCENARIOS = {
                 "ok=1; for k in synveil.observe/v1 total_bytes total_ticks "
                 "busy_basis_points sample_window_ms logical_cpus frequency thermal "
                 "processes start_time_ticks energy total_threads average_1m "
-                "sectors_read_512b rx_bytes pressure io avg10_pct total_stall_us; do "
+                "cpu_interval total_delta_ticks sectors_read_512b rx_bytes pressure "
+                "io avg10_pct total_stall_us; do "
                 "grep -Fq \"$k\" \"$o\" || { ok=0; break; }; done; fi; "
                 "if [ \"$ok\" = 1 ]; then printf '\\n%s%s\\n' SYNVEIL_ OBSERVE_OK; fi\n"),
     "protocol": ({b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY"},

@@ -383,6 +383,13 @@ ID and all other metrics, fits the 64 KiB protocol frame. This is a current
 snapshot, not lifecycle history or interval utilization. The native client
 validates the bounded schema before accepting a successful observation.
 
+Each observation now takes bounded process snapshots on both sides of the
+existing sampling delay. Stable PID/start-time identities expose checked raw
+user, system and total CPU tick deltas under `cpu_interval`; new or reused PIDs,
+missing first records and regressed counters are explicitly unavailable. The
+client requires a positive enclosing sample window and validates every interval
+status and total. This remains pending exact-revision host and native evidence.
+
 Exact revision `316f74518335fe4df32ba0bef225547b1c8c6d01` passed the full
 native workflow after composing the energy extension and correcting the client
 to reject successful responses above the producer's 128-record cap. The QEMU

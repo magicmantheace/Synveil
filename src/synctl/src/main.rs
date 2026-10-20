@@ -236,6 +236,14 @@ fn validate_observe_result(result: &Value) -> io::Result<()> {
     if records.len() > 128 {
         return Err(invalid());
     }
+    if processes
+        .get("sample_window_ms")
+        .and_then(Value::as_u64)
+        .filter(|value| *value > 0)
+        .is_none()
+    {
+        return Err(invalid());
+    }
     let unavailable = processes
         .get("unavailable_processes")
         .and_then(Value::as_u64)
@@ -324,6 +332,31 @@ fn validate_observe_result(result: &Value) -> io::Result<()> {
         {
             return Err(invalid());
         }
+        let interval = record.get("cpu_interval").ok_or_else(invalid)?;
+        match interval.get("status").and_then(Value::as_str) {
+            Some("ready") => {
+                let user = interval
+                    .get("user_delta_ticks")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(invalid)?;
+                let system = interval
+                    .get("system_delta_ticks")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(invalid)?;
+                let total = interval
+                    .get("total_delta_ticks")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(invalid)?;
+                if user.checked_add(system) != Some(total) {
+                    return Err(invalid());
+                }
+            }
+            Some("unavailable")
+                if interval.get("user_delta_ticks").is_none()
+                    && interval.get("system_delta_ticks").is_none()
+                    && interval.get("total_delta_ticks").is_none() => {}
+            _ => return Err(invalid()),
+        }
     }
 
     let pressure = result.get("pressure").ok_or_else(invalid)?;
@@ -375,8 +408,11 @@ mod tests {
                 "session_id": 1, "state": "S", "user_ticks": 1,
                 "system_ticks": 2, "start_time_ticks": 3,
                 "virtual_memory_bytes": 4096, "resident_pages": 1,
-                "thread_count": 1, "nice": 0
+                "thread_count": 1, "nice": 0,
+                "cpu_interval": {"status": "ready", "user_delta_ticks": 1,
+                    "system_delta_ticks": 2, "total_delta_ticks": 3}
             }],
+            "sample_window_ms": 101,
             "unavailable_processes": 0,
             "omitted_processes": 0,
             "scan_truncated": false
@@ -510,7 +546,9 @@ mod tests {
             "session_id": 7, "state": "R", "user_ticks": 10,
             "system_ticks": 2, "start_time_ticks": 100,
             "virtual_memory_bytes": 8192, "resident_pages": 2,
-            "thread_count": 1, "nice": 0
+            "thread_count": 1, "nice": 0,
+            "cpu_interval": {"status": "ready", "user_delta_ticks": 2,
+                "system_delta_ticks": 1, "total_delta_ticks": 3}
         });
         let response = |processes: Value| {
             json!({
@@ -523,6 +561,7 @@ mod tests {
         assert!(
             validate_observe_result(&response(json!({
                 "status": "ready", "records": [valid_record.clone()],
+                "sample_window_ms": 101,
                 "unavailable_processes": 0, "omitted_processes": 0,
                 "scan_truncated": false
             })))
@@ -531,15 +570,19 @@ mod tests {
 
         for invalid in [
             json!({"status": "ready", "records": [],
+                "sample_window_ms": 101,
                 "unavailable_processes": 0, "omitted_processes": 0,
                 "scan_truncated": false}),
             json!({"status": "ready", "records": [valid_record.clone(), valid_record.clone()],
+                "sample_window_ms": 101,
                 "unavailable_processes": 0, "omitted_processes": 0,
                 "scan_truncated": false}),
             json!({"status": "partial", "records": [valid_record.clone()],
+                "sample_window_ms": 101,
                 "unavailable_processes": 0, "omitted_processes": 0,
                 "scan_truncated": false}),
             json!({"status": "truncated", "records": [valid_record.clone()],
+                "sample_window_ms": 101,
                 "unavailable_processes": 0, "omitted_processes": 0,
                 "scan_truncated": false}),
             json!({"status": "ready", "records": [{
@@ -547,8 +590,21 @@ mod tests {
                 "session_id": 7, "state": "?", "user_ticks": 10,
                 "system_ticks": 2, "start_time_ticks": 100,
                 "virtual_memory_bytes": 8192, "resident_pages": 2,
-                "thread_count": 0, "nice": 25
-            }], "unavailable_processes": 0, "omitted_processes": 0,
+                "thread_count": 0, "nice": 25,
+                "cpu_interval": {"status": "unavailable"}
+            }], "sample_window_ms": 101,
+                "unavailable_processes": 0, "omitted_processes": 0,
+                "scan_truncated": false}),
+            json!({"status": "ready", "records": [{
+                "pid": 7, "parent_pid": 1, "process_group_id": 7,
+                "session_id": 7, "state": "R", "user_ticks": 10,
+                "system_ticks": 2, "start_time_ticks": 100,
+                "virtual_memory_bytes": 8192, "resident_pages": 2,
+                "thread_count": 1, "nice": 0,
+                "cpu_interval": {"status": "ready", "user_delta_ticks": 2,
+                    "system_delta_ticks": 1, "total_delta_ticks": 4}
+            }], "sample_window_ms": 101,
+                "unavailable_processes": 0, "omitted_processes": 0,
                 "scan_truncated": false}),
         ] {
             assert!(validate_observe_result(&response(invalid)).is_err());
@@ -561,13 +617,15 @@ mod tests {
                     "session_id": pid, "state": "S", "user_ticks": 0,
                     "system_ticks": 0, "start_time_ticks": u64::from(pid),
                     "virtual_memory_bytes": 4096, "resident_pages": 1,
-                    "thread_count": 1, "nice": 0
+                    "thread_count": 1, "nice": 0,
+                    "cpu_interval": {"status": "unavailable"}
                 })
             })
             .collect::<Vec<_>>();
         assert!(
             validate_observe_result(&response(json!({
                 "status": "truncated", "records": too_many_records,
+                "sample_window_ms": 101,
                 "unavailable_processes": 0, "omitted_processes": 1,
                 "scan_truncated": false
             })))
