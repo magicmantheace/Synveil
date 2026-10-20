@@ -122,6 +122,9 @@ make -C "$LINUX_SRC"     O="$KERNEL_BUILD"     ARCH=x86     CROSS_COMPILE="$TARG
 mkdir -p "$OUT_DIR/manifests"
 cp "$KERNEL_BUILD/arch/x86/boot/bzImage" "$OUT_DIR/synveil-x86_64.efi"
 cp "$KERNEL_BUILD/.config" "$OUT_DIR/manifests/kernel.config"
+# Record what was *actually* built, independent of the caller's later env.
+# Otherwise a hardware-target image could be packaged as the QEMU baseline.
+printf '%s\n' "$BOOT_TARGET" > "$OUT_DIR/manifests/kernel-boot-target.txt"
 if [[ -f "$KERNEL_BUILD/System.map" ]]; then
     cp "$KERNEL_BUILD/System.map" "$OUT_DIR/manifests/System.map"
 fi
