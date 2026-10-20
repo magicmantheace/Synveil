@@ -1073,3 +1073,21 @@ requiring the thermal object. See
 unavailable-zone result; positive and partial readings remain host-fixture
 evidence. Power and energy measurements, hardware alarm interpretation,
 cooling policy, and physical-hardware validation remain open.
+
+## Bounded process snapshot candidate
+
+The observer scans at most 16384 `/proc` directory entries and returns at most
+128 PID-sorted process records so the snapshot remains within the bounded IPC
+envelope on ordinary systems. PID plus kernel start time provides stable
+identity across PID reuse. Records contain scheduling topology/state, cumulative
+CPU ticks and point-in-time memory counters; argv, environments, command names
+and executable paths are never read. Per-process files are limited to 4096 bytes,
+and exit or permission races are counted explicitly. Host fixtures cover names
+containing closing parentheses, numeric ordering, disappearing processes, PID
+mismatch, oversized/truncated stat data and invalid ranges. The native client
+structurally validates status/count relationships, sorted identity and every
+exposed counter. The QEMU
+observer gate now requires the process object and `start_time_ticks` from that
+real client path. Exact-revision host and target/QEMU validation remain required.
+Lifecycle events, interval deltas, persistent history and process control remain
+open.

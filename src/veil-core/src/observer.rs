@@ -2,7 +2,7 @@
 //! Read-only structured Linux observations. No shell commands or mutations.
 use serde_json::{Value, json};
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -14,6 +14,9 @@ const CPU_IOWAIT_FIELD: usize = 4;
 const MAX_CPU_FREQUENCY_ENTRIES: usize = 4096;
 const MAX_CPU_UTILIZATION_ENTRIES: usize = 4096;
 const MAX_THERMAL_ZONES: usize = 256;
+const MAX_PROCESS_ENTRIES: usize = 128;
+const MAX_PROCESS_SCAN_ENTRIES: usize = 16384;
+const MAX_PROCESS_STAT_BYTES: usize = 4096;
 
 /// Read kernel files directly, never by scraping output from command-line tools.
 pub fn sample() -> io::Result<Value> {
@@ -29,6 +32,7 @@ pub fn sample() -> io::Result<Value> {
     snapshot["cpu"]["utilization"] = parse_cpu_utilization(&stat_before, &stat, sample_window_ms)?;
     snapshot["cpu"]["frequency"] = read_cpu_frequency(Path::new("/sys/devices/system/cpu"));
     snapshot["thermal"] = read_thermal_zones(Path::new("/sys/class/thermal"));
+    snapshot["processes"] = read_processes(Path::new("/proc"));
     // Disk counters are optional on restricted procfs mounts; an unavailable
     // source must not prevent CPU/memory health from being reported.
     snapshot["disk"] = match fs::read_to_string("/proc/diskstats") {
@@ -456,6 +460,193 @@ fn parse_cpu_utilization(before: &str, after: &str, sample_window_ms: u64) -> io
         "logical_cpus": logical_cpus,
         "omitted_logical_cpus": omitted_logical_cpus,
     }))
+}
+
+fn process_directory_id(name: &std::ffi::OsStr) -> Option<u32> {
+    let name = name.to_str()?;
+    if name.is_empty()
+        || (name.len() > 1 && name.starts_with('0'))
+        || !name.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    let pid = name.parse::<u32>().ok()?;
+    (pid > 0).then_some(pid)
+}
+
+fn parse_process_stat(input: &str, expected_pid: u32) -> io::Result<Value> {
+    if input.len() > MAX_PROCESS_STAT_BYTES || input.contains('\0') {
+        return Err(invalid_data("invalid process stat size"));
+    }
+    let open = input
+        .find('(')
+        .ok_or_else(|| invalid_data("missing process stat name"))?;
+    let close = input
+        .rfind(')')
+        .filter(|close| *close > open)
+        .ok_or_else(|| invalid_data("unterminated process stat name"))?;
+    let pid = input[..open]
+        .trim()
+        .parse::<u32>()
+        .map_err(|_| invalid_data("invalid process stat PID"))?;
+    if pid != expected_pid {
+        return Err(invalid_data("process stat PID mismatch"));
+    }
+
+    let fields = input[close + 1..].split_whitespace().collect::<Vec<_>>();
+    if fields.len() < 22 {
+        return Err(invalid_data("truncated process stat"));
+    }
+    let state = fields[0];
+    if state.len() != 1
+        || !matches!(
+            state.as_bytes()[0],
+            b'R' | b'S' | b'D' | b'Z' | b'T' | b't' | b'X' | b'x' | b'K' | b'W' | b'P' | b'I'
+        )
+    {
+        return Err(invalid_data("invalid process state"));
+    }
+    let unsigned = |index: usize, label: &'static str| {
+        fields[index]
+            .parse::<u64>()
+            .map_err(|_| invalid_data(label))
+    };
+    let signed = |index: usize, label: &'static str| {
+        fields[index]
+            .parse::<i64>()
+            .map_err(|_| invalid_data(label))
+    };
+    let parent_pid = unsigned(1, "invalid parent PID")?;
+    let process_group_id = unsigned(2, "invalid process group ID")?;
+    let session_id = unsigned(3, "invalid process session ID")?;
+    for value in [parent_pid, process_group_id, session_id] {
+        if value > u64::from(u32::MAX) {
+            return Err(invalid_data("process identifier overflow"));
+        }
+    }
+    signed(4, "invalid process terminal")?;
+    signed(5, "invalid process terminal group")?;
+    for index in 6..=12 {
+        unsigned(index, "invalid process counter")?;
+    }
+    signed(13, "invalid child user ticks")?;
+    signed(14, "invalid child system ticks")?;
+    signed(15, "invalid process priority")?;
+    let nice = signed(16, "invalid process nice value")?;
+    let thread_count = signed(17, "invalid process thread count")?;
+    signed(18, "invalid process interval timer")?;
+    let start_time_ticks = unsigned(19, "invalid process start time")?;
+    let virtual_memory_bytes = unsigned(20, "invalid process virtual memory")?;
+    let resident_pages = signed(21, "invalid process resident pages")?;
+    if !(-20..=19).contains(&nice) || thread_count <= 0 || resident_pages < 0 {
+        return Err(invalid_data("out-of-range process stat value"));
+    }
+
+    Ok(json!({
+        "pid": pid,
+        "parent_pid": parent_pid,
+        "process_group_id": process_group_id,
+        "session_id": session_id,
+        "state": state,
+        "user_ticks": unsigned(11, "invalid process user ticks")?,
+        "system_ticks": unsigned(12, "invalid process system ticks")?,
+        "start_time_ticks": start_time_ticks,
+        "virtual_memory_bytes": virtual_memory_bytes,
+        "resident_pages": resident_pages,
+        "thread_count": thread_count,
+        "nice": nice,
+    }))
+}
+
+fn read_process_stat(path: &Path, pid: u32) -> io::Result<Value> {
+    let file = fs::File::open(path)?;
+    let mut bytes = Vec::with_capacity(MAX_PROCESS_STAT_BYTES + 1);
+    file.take((MAX_PROCESS_STAT_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() > MAX_PROCESS_STAT_BYTES {
+        return Err(invalid_data("oversized process stat"));
+    }
+    let input = String::from_utf8(bytes).map_err(|_| invalid_data("non-UTF-8 process stat"))?;
+    parse_process_stat(&input, pid)
+}
+
+/// Return a bounded point-in-time process snapshot without reading argv,
+/// environment, command names, or executable paths. PID plus start_time_ticks
+/// identifies a process across PID reuse; all resource values are cumulative or
+/// point-in-time kernel counters rather than interval utilization.
+fn read_processes(root: &Path) -> Value {
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(_) => {
+            return json!({
+                "status": "unavailable",
+                "records": [],
+                "unavailable_processes": 0,
+                "omitted_processes": 0,
+                "scan_truncated": false,
+            });
+        }
+    };
+    let mut candidates = Vec::new();
+    let mut scan_truncated = false;
+    for (scanned_entries, entry) in entries.enumerate() {
+        if scanned_entries == MAX_PROCESS_SCAN_ENTRIES {
+            scan_truncated = true;
+            break;
+        }
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => {
+                return json!({
+                    "status": "invalid",
+                    "records": [],
+                    "unavailable_processes": 0,
+                    "omitted_processes": 0,
+                    "scan_truncated": false,
+                });
+            }
+        };
+        if let Some(pid) = process_directory_id(&entry.file_name()) {
+            candidates.push((pid, entry.path()));
+        }
+    }
+    candidates.sort_unstable_by_key(|(pid, _)| *pid);
+    if candidates.windows(2).any(|pair| pair[0].0 == pair[1].0) {
+        return json!({
+            "status": "invalid",
+            "records": [],
+            "unavailable_processes": 0,
+            "omitted_processes": 0,
+            "scan_truncated": scan_truncated,
+        });
+    }
+    let omitted_processes = candidates.len().saturating_sub(MAX_PROCESS_ENTRIES);
+    candidates.truncate(MAX_PROCESS_ENTRIES);
+
+    let mut records = Vec::with_capacity(candidates.len());
+    let mut unavailable_processes = 0usize;
+    for (pid, directory) in candidates {
+        match read_process_stat(&directory.join("stat"), pid) {
+            Ok(record) => records.push(record),
+            Err(_) => unavailable_processes += 1,
+        }
+    }
+    let status = if omitted_processes > 0 || scan_truncated {
+        "truncated"
+    } else if records.is_empty() {
+        "unavailable"
+    } else if unavailable_processes > 0 {
+        "partial"
+    } else {
+        "ready"
+    };
+    json!({
+        "status": status,
+        "records": records,
+        "unavailable_processes": unavailable_processes,
+        "omitted_processes": omitted_processes,
+        "scan_truncated": scan_truncated,
+    })
 }
 
 fn parse_uptime(input: &str) -> io::Result<f64> {
@@ -943,6 +1134,81 @@ mod tests {
         let invalid = read_thermal_zones(&root);
         assert_eq!(invalid["status"], "invalid");
         assert_eq!(invalid["zones"], json!([]));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn process_snapshot_is_sorted_bounded_and_explicit_about_races() {
+        let root = frequency_fixture();
+        let stat = |pid: u32, state: &str, user: u64, system: u64, start: u64| {
+            format!(
+                "{pid} (worker) name) {state} 1 {pid} {pid} 0 -1 4194304 10 0 0 0 {user} {system} 0 0 20 0 2 0 {start} 4096 2\n"
+            )
+        };
+        for (pid, state, user, system, start) in [(20, "S", 40, 5, 200), (3, "R", 20, 2, 100)] {
+            let directory = root.join(pid.to_string());
+            fs::create_dir(&directory).unwrap();
+            fs::write(
+                directory.join("stat"),
+                stat(pid, state, user, system, start),
+            )
+            .unwrap();
+        }
+        fs::create_dir(root.join("4")).unwrap();
+        fs::create_dir(root.join("self")).unwrap();
+
+        let processes = read_processes(&root);
+        assert_eq!(processes["status"], "partial");
+        assert_eq!(processes["records"][0]["pid"], 3);
+        assert_eq!(processes["records"][0]["state"], "R");
+        assert_eq!(processes["records"][0]["user_ticks"], 20);
+        assert_eq!(processes["records"][0]["system_ticks"], 2);
+        assert_eq!(processes["records"][0]["start_time_ticks"], 100);
+        assert_eq!(processes["records"][0]["thread_count"], 2);
+        assert_eq!(processes["records"][1]["pid"], 20);
+        assert_eq!(processes["unavailable_processes"], 1);
+        assert_eq!(processes["omitted_processes"], 0);
+        assert_eq!(processes["scan_truncated"], false);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn process_stat_rejects_mismatch_truncation_and_invalid_ranges() {
+        let valid = "7 (worker) S 1 7 7 0 -1 4194304 10 0 0 0 20 5 0 0 20 0 2 0 100 4096 2\n";
+        assert!(parse_process_stat(valid, 7).is_ok());
+        assert!(parse_process_stat(valid, 8).is_err());
+        assert!(parse_process_stat("7 (worker) S 1 7\n", 7).is_err());
+        assert!(parse_process_stat(&"x".repeat(MAX_PROCESS_STAT_BYTES + 1), 7).is_err());
+        assert!(parse_process_stat(&valid.replacen(" S ", " ? ", 1), 7).is_err());
+        assert!(
+            parse_process_stat(&valid.replacen(" 20 0 2 0 100 ", " 20 25 2 0 100 ", 1), 7).is_err()
+        );
+
+        let root = frequency_fixture();
+        assert_eq!(read_processes(&root)["status"], "unavailable");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn process_snapshot_limits_protocol_output() {
+        let root = frequency_fixture();
+        for pid in 1..=130u32 {
+            let directory = root.join(pid.to_string());
+            fs::create_dir(&directory).unwrap();
+            fs::write(
+                directory.join("stat"),
+                format!(
+                    "{pid} (worker) S 4294967295 4294967295 4294967295 -9223372036854775808 -1 18446744073709551615 18446744073709551615 18446744073709551615 18446744073709551615 18446744073709551615 18446744073709551615 18446744073709551615 9223372036854775807 9223372036854775807 9223372036854775807 19 9223372036854775807 9223372036854775807 18446744073709551615 18446744073709551615 9223372036854775807\n"
+                ),
+            )
+            .unwrap();
+        }
+        let processes = read_processes(&root);
+        assert_eq!(processes["status"], "truncated");
+        assert_eq!(processes["records"].as_array().unwrap().len(), 128);
+        assert_eq!(processes["omitted_processes"], 2);
+        assert_eq!(processes["scan_truncated"], false);
+        assert!(serde_json::to_vec(&processes).unwrap().len() <= 48 * 1024);
         fs::remove_dir_all(root).unwrap();
     }
 

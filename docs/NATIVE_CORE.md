@@ -368,6 +368,17 @@ real native core and client, though that virtual machine exposed no thermal
 zones. The digest-verified artifact and clean-revision manifests are recorded at
 [native-b5f5cae](validation/native-b5f5cae/README.md).
 
+The optional top-level `processes` object reads a bounded point-in-time view of
+numeric `/proc` entries. Records are sorted by PID and combine PID with kernel
+`start_time_ticks` so later consumers can distinguish PID reuse. They expose
+parent/process-group/session IDs, state, cumulative user/system ticks, virtual
+bytes, resident pages, thread count and nice value. The scan reads at most 16384
+directory entries and returns at most 128 process records. Process exit races
+are counted as unavailable records. Command lines, environments, command names
+and executable paths are deliberately excluded. This is a current snapshot,
+not lifecycle history or interval utilization. The native client validates the
+bounded schema before accepting a successful observation.
+
 ## Error response envelope
 
 Conceptual response:
