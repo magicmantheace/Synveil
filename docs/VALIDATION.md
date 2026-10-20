@@ -1074,7 +1074,7 @@ unavailable-zone result; positive and partial readings remain host-fixture
 evidence. Power and energy measurements, hardware alarm interpretation,
 cooling policy, and physical-hardware validation remain open.
 
-## Powercap energy observation candidate
+## Powercap energy observation
 
 The observer reads at most 256 Linux powercap zones from a bounded traversal of
 control-type and nested zone directories, sorts hierarchical numeric zone IDs,
@@ -1084,6 +1084,12 @@ entries. Missing and unreadable zones are explicit; malformed labels, counters
 or out-of-range energy invalidate only the optional energy object. Host fixtures
 cover nested hierarchy, ordering, partial availability, absence and malformed
 range relationships. The QEMU observer gate requires the energy object even
-when the virtual machine exposes no powercap zones. Corrected exact-revision host
-and target/QEMU validation remain required; instantaneous power and power-limit
-control remain open.
+when the virtual machine exposes no powercap zones. Exact revision
+`bca81e5866c6797efcd029796f506737222e0a01` passed host and all 45 native
+workflow steps. The downloaded native artifact matched the published SHA256,
+both build manifests identify the clean tested revision, and the guest log
+contains `SYNVEIL_OBSERVE_OK` after requiring the energy object. See
+[retained evidence](validation/native-bca81e5/README.md). QEMU exercised the
+unavailable-zone result; positive and partial readings remain host-fixture
+evidence. Instantaneous power, power-limit control, and physical-hardware
+validation remain open.

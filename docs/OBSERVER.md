@@ -72,6 +72,10 @@ The thermal extension passed host and native QEMU validation at exact revision
 `b5f5cae`; QEMU required the thermal object but exposed no zones, so positive
 and partial readings remain host-fixture evidence. See the
 [thermal evidence](validation/native-b5f5cae/README.md).
+The powercap energy extension passed host and native QEMU validation at exact
+revision `bca81e5`; QEMU required the energy object but exposed no zones, so
+positive hierarchical readings remain host-fixture evidence. See the
+[energy evidence](validation/native-bca81e5/README.md).
 
 ## Deliberately not claimed
 
