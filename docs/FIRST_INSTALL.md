@@ -29,6 +29,28 @@ See [ADR 0013](adr/0013-first-boot-desktop-priority.md).
 enrollment, a real window manager, reliable screen/input/network drivers,
 independent owner recovery, portable image delivery and physical validation.
 
+## Isolated multiwindow desktop experiment
+
+An explicitly **VM/developer-only** Debian Trixie/Xfce live-image profile
+now exists at `experiments/desktop-live/`. It uses the proven upstream
+Xfwm4 window manager, Xfce panel/launcher, graphical terminal, Thunar,
+settings and LightDM. This is an alternative *integration experiment* that
+does not replace the pinned native Synveil bootstrap or its security model.
+
+`bash tools/desktop_live.sh configure` creates a fresh live-build tree
+strictly in `out/desktop-live/` (without touching disks). A separate
+explicit root-privileged `bash tools/desktop_live.sh build` would assemble
+a local ISO, **not an owner-ready installer**. The ISO contains no installer
+and is not published automatically. The desktop experiment lacks
+authenticated onboarding and uses Debian live-config's disposable-user
+behavior. It must not be presented as the first physical user release.
+
+The existing native development and authenticated framebuffer preview stay
+in the repository. A Debian ISO build, multiwindow QEMU runtime proof,
+first-user authentication, recovery, and later native integration all need
+independent validation before owner testing. See
+[ADR 0014](adr/0014-isolated-desktop-proof.md).
+
 ## Dependency order
 
 1. Finish deterministic core recovery and define its service lifecycle.
