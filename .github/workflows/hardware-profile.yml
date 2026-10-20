@@ -5,10 +5,17 @@ on:
   push:
     branches: [development/first-boot-desktop]
     paths:
-      - build/**
+      - build/config/kernel*
+      - build/scripts/kernel.sh
+      - build/scripts/image.sh
+      - build/scripts/rootfs.sh
+      - build/rootfs/**
       - build.sh
-      - tools/**
-      - tests/**
+      - tools/build_manifest.py
+      - tools/source_lock.py
+      - tests/kernel-seed.py
+      - tests/inspect-image.sh
+      - tests/lint-bootstrap.sh
       - .github/workflows/hardware-profile.yml
 
 permissions:
