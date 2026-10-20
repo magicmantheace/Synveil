@@ -199,6 +199,9 @@ fn validate_observe_result(result: &Value) -> io::Result<()> {
         .get("records")
         .and_then(Value::as_array)
         .ok_or_else(invalid)?;
+    if records.len() > 128 {
+        return Err(invalid());
+    }
     let unavailable = processes
         .get("unavailable_processes")
         .and_then(Value::as_u64)
@@ -435,5 +438,25 @@ mod tests {
         ] {
             assert!(validate_observe_result(&response(invalid)).is_err());
         }
+
+        let too_many_records = (1..=129u32)
+            .map(|pid| {
+                json!({
+                    "pid": pid, "parent_pid": 1, "process_group_id": pid,
+                    "session_id": pid, "state": "S", "user_ticks": 0,
+                    "system_ticks": 0, "start_time_ticks": u64::from(pid),
+                    "virtual_memory_bytes": 4096, "resident_pages": 1,
+                    "thread_count": 1, "nice": 0
+                })
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            validate_observe_result(&response(json!({
+                "status": "truncated", "records": too_many_records,
+                "unavailable_processes": 0, "omitted_processes": 1,
+                "scan_truncated": false
+            })))
+            .is_err()
+        );
     }
 }
