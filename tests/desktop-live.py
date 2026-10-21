@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -166,6 +167,39 @@ class DesktopLiveProfileTests(unittest.TestCase):
         self.assertTrue(module.screenshot_is_nonblank(image))
         image.write_bytes(b"P6\n320 200\n255\n" + bytes(320 * 200 * 3))
         self.assertFalse(module.screenshot_is_nonblank(image))
+
+    def test_boot_menu_detection_is_exact_and_only_sends_return(self):
+        spec = importlib.util.spec_from_file_location(
+            "desktop_smoke_menu", ROOT / "tests/smoke-desktop-live.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        width, height = 800, 600
+        raw = bytearray(width * height * 3)
+        # Synthesize the verified Debian live menu signature: mostly black,
+        # with a large gold logo in the upper-left. No OCR or fixture images.
+        for y in range(50, 200):
+            for x in range(45, 180):
+                i = 3 * (y * width + x)
+                raw[i:i + 3] = b"\xd3\xbc\x00"
+        with tempfile.TemporaryDirectory() as temporary:
+            screen = Path(temporary) / "probe.ppm"
+            screen.write_bytes(b"P6\n800 600\n255\n" + raw)
+            self.assertTrue(module.is_debian_live_boot_menu(screen))
+            with patch.object(module, "capture_screenshot"), \
+                 patch.object(module, "send_keys") as sender:
+                self.assertTrue(module.advance_known_live_menu(
+                    Path("/tmp/unused-qmp.sock"), screen))
+                sender.assert_called_once_with(
+                    Path("/tmp/unused-qmp.sock"), ("ret",), timeout=8)
+            with patch.object(module, "capture_screenshot"), \
+                 patch.object(module, "send_keys") as sender:
+                screen.write_bytes(b"P6\n800 600\n255\n" +
+                                   bytes(width * height * 3))
+                self.assertFalse(module.advance_known_live_menu(
+                    Path("/tmp/unused-qmp.sock"), screen))
+                sender.assert_not_called()
+            # An ordinary black QEMU/firmware screen never gets typed into.
+            self.assertFalse(module.is_debian_live_boot_menu(screen))
 
     def test_shell_syntax(self):
         subprocess.run(["bash", "-n", str(self.root / "tools/desktop_live.sh")],
