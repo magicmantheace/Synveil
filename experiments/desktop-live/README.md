@@ -22,6 +22,41 @@ and settings to shorten the route to actual everyday desktop behavior.
 5. The host checks the marker and captures a nonblank QMP screenshot. Both
    observations are required. Source/ISO validation alone cannot pass.
 
+## Opt-in locked graphical login gate (not first-user enrollment)
+
+The default developer ISO remains an unauthenticated, disposable XFCE
+session solely for automated desktop/window/persistence testing. It
+must not be distributed as an owner-ready operating system.
+
+The separate locked-greeter experiment uses a **fresh** output tree:
+
+```sh
+SYNVEIL_DESKTOP_LOGIN_GATE=1 bash tools/desktop_live.sh configure
+# Explicit privileged developer-VM image build only, never on physical media:
+bash tools/desktop_live.sh build
+```
+
+Both UEFI live boot entries include Debian's
+`live-config.noautologin` shortcut. The LightDM prestart refuses to
+proceed unless the disposable `synveil` user exists and is **locked**.
+The greeter disables guest and automatic sign-in. The CI-only reporter
+requires a real LightDM/GTK greeter process, locked account and **no XFCE
+user session**, while the host QMP smoke captures the greeter, presses
+a single Return without a password, and refuses a desktop session.
+
+Run the full negative login gate using
+[the opt-in CI workflow](../../.github/workflows/desktop-login-gate.yml).
+It must pass a complete QEMU test before describing the locked greeter
+as runtime-validated. The existing developer ISO must continue passing
+its independent four-boot XFCE/home acceptance gate.
+
+This image has **no usable enrolled password**, no first-user setup
+wizard and no authorized path to open the desktop. It is deliberately
+a negative security regression harness, not a finished login system.
+A future production profile needs one-time enrollment, a vetted password
+verification path, non-root session authority, logout and cold-reboot
+relock, and separate authenticated recovery.
+
 ## VM-only /home persistence proof
 
 The [first real multiwindow proof](../../docs/validation/desktop-live-c024225/README.md)
