@@ -93,6 +93,50 @@ documents `persistence.conf` with `/home`; the
 [live-boot parameters](https://sources.debian.org/src/live-boot/1%3A20250815/manpages/en/live-boot.7/)
 describe the restrictive persistence label and filesystem-only scan.
 
+## Separate locked LightDM sign-in experiment (VM-only)
+
+The first developer XFCE live image booted successfully and retained a
+separate non-root `/home` file across two QEMU processes. That image still
+uses the disposable Debian live session and **does not authenticate**.
+
+A second **opt-in** image configuration now uses
+`SYNVEIL_DESKTOP_LOGIN_GATE=1 bash tools/desktop_live.sh configure`
+in a fresh, disposable checkout. The locked-only profile uses Debian
+`live-config.noautologin` on both standard and fallback boot entries.
+It adds a pre-start gate to LightDM that requires the disposable `synveil`
+account to exist and be **locked by system shadow tooling** before the
+greeter service starts. The separate LightDM configuration disables guest
+and automatic login. A bounded VM-only systemd observer reports when the
+graphical greeter is running and no XFCE session or panel is active.
+
+This is intentionally a **negative authentication test**. The profile has
+no default password, no accepted owner password and no credential enrollment
+path. Its QEMU host runner advances only the recognized Debian boot
+menu, requires the bounded locked-greeter marker, sends a single Return
+without entering a password, verifies a nonblank graphical framebuffer
+that is no longer the Debian boot menu, and refuses an unexpected XFCE
+session. Code or configuration presence alone does not validate the gate:
+the full isolated `desktop-login-gate.yml` QEMU job must pass first.
+
+Why separate images: adding a locked account to the normal integration
+ISO would break the already-proven unattended graphical regression
+tests, and adding a shared known test password to an ISO would create
+an insecure default account. The negative profile keeps that tradeoff
+explicit and does not weaken the existing native `veil-seat` /
+Argon2id credential boundary from ADR 0008.
+
+**Required before any owner-ready graphical sign-in claim:**
+secure one-time user enrollment, no default or shared credentials,
+password verification through PAM or audited native broker, login
+denial then successful login with a fresh secret, locked state after
+logout/reboot, session/process revocation, non-root privileges and
+independent owner recovery. Prefer testing this in separate disposable
+QEMU media before integrating it into the native Synveil boot path.
+No automated image is released or written to physical storage.
+
+See Debian's
+[documented `live-config.noautologin` shortcut](https://manpages.debian.org/trixie/live-config-doc/live-config.7.en.html).
+
 ## Threat model, boundaries and first-user gate
 
 - A real desktop **does not equal** a trusted Synveil installation.
