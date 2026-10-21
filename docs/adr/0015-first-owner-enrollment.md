@@ -93,6 +93,45 @@ owner-authorized stable PARTUUID/device-provenance design rather than
 guessing that a block-device name is trustworthy on physical hardware.
 Do not relax the source check to accept all ext4 mounts as a shortcut.
   
+## Stronger cold-reboot negative-login gate (development)
+
+The source-built **native** framebuffer first-user harness already supports
+a one-time local, masked password creation and confirmation on an isolated
+QEMU ext4 state file, followed by a second independent QEMU process using
+the same state file. A prior harness checked that the saved password
+opened a session after restart but did **not** challenge the verifier
+with a deliberately wrong password first.
+
+The revised `tests/smoke-graphical-onboard.py` now requires the
+**second cold boot** to show its locked login screen, denies a
+different 128-bit test password without launching an authenticated
+session, emits `SYNVEIL_GRAPHICAL_AUTH_DENIED` only after the
+secure graphical input has been reacquired, then accepts the original
+credential and proves a non-root graphical session. Attempts that
+wrongly authenticate, fail to report denial, re-enter enrollment,
+accept a wrong confirmation at first boot or deny the genuine password
+are all test failures. Host fixtures model the important negative
+cases without privileged devices.
+
+The dedicated
+[`native-owner-enrollment.yml`](../../.github/workflows/native-owner-enrollment.yml)
+builds source-native boot files only in CI and exercises the actual
+QEMU guest twice when explicitly opted into an expensive build.
+The guest proof receipt now records
+`wrong_password_denied_after_cold_reboot: true` **only after** the
+real guest smoke passes; `tools/auth_vm_bundle.py` refuses an
+authenticated VM preview whose receipt lacks that flag. An old
+two-boot receipt can no longer silently bypass the new denial
+requirement.
+
+This is a stronger **developer VM admission test**, not an owner-ready
+desktop. Native framebuffer login is a separate component from the
+Debian/XFCE live desktop; a passing native test cannot be represented
+as an XFCE Argon2id integration. Real installation, durable enrollment
+recovery, unattended A/B updates and physical hardware checks remain
+open. The native full-image CI run must complete successfully at the
+actual tested revision before its outcome is called verified.
+
 ## Acceptance gates before a hands-on installation
 
 1. **Pre-enrollment:** a new image boots to a protected local setup
