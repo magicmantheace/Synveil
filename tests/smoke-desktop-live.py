@@ -21,7 +21,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, _read_reply, emit_command  # noqa: E402
+from qmp_input import QMPError, _read_reply, emit_command, send_keys  # noqa: E402
 
 PASS = b"SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS"
 FAIL = b"SYNVEIL_QEMU_DESKTOP_PROBE_FAILED"
@@ -60,6 +60,57 @@ def screenshot_is_nonblank(ppm: Path) -> bool:
     return len(set(pixels[::max(1, len(pixels) // 4096)])) >= 12
 
 
+
+def is_debian_live_boot_menu(ppm: Path) -> bool:
+    """Recognize *only* the distinctive developer ISO's static Debian menu.
+
+    A black background plus the gold Debian live-build logo in the upper
+    left is not a desktop boot proof; it permits one harmless Return key.
+    No OCR or shell input is used. Fail closed on unknown video output.
+    """
+    if not ppm.is_file() or ppm.stat().st_size > 24 * 1024 * 1024:
+        return False
+    raw = ppm.read_bytes()
+    header = re.match(rb"P6\s+(?:#[^\n]*\n\s*)*(\d+)\s+(\d+)\s+255\s", raw)
+    if not header:
+        return False
+    width, height = map(int, header.groups())
+    if not (640 <= width <= 2048 and 400 <= height <= 1600):
+        return False
+    data = raw[header.end():]
+    if len(data) != width * height * 3:
+        return False
+
+    def rgb(x: int, y: int):
+        start = (y * width + x) * 3
+        return data[start], data[start + 1], data[start + 2]
+
+    black = total = 0
+    for y in range(0, height, 16):
+        for x in range(0, width, 16):
+            total += 1
+            if max(rgb(x, y)) < 45:
+                black += 1
+    if black * 100 < 85 * total:
+        return False
+    gold = 0
+    for y in range(40, 210, 4):
+        for x in range(35, 200, 4):
+            r, g, b = rgb(x, y)
+            if r >= 135 and g >= 90 and b <= 210 and r >= b + 40 and g >= b + 10:
+                gold += 1
+    return gold >= 400
+
+
+def advance_known_live_menu(qmp: Path, probe: Path) -> bool:
+    """Read private VM video; send ONLY Enter if the known ISO menu matches."""
+    capture_screenshot(qmp, probe)
+    if not is_debian_live_boot_menu(probe):
+        return False
+    send_keys(qmp, ("ret",), timeout=8)
+    return True
+
+
 def find_ovmf():
     for code, vars_path in OVMF_PAIRS:
         if Path(code).is_file() and Path(vars_path).is_file():
@@ -95,6 +146,7 @@ def run(iso: Path, evidence: Path, timeout: float) -> bool:
     serial = evidence / "serial.log"
     stderr = evidence / "qemu.stderr.log"
     screenshot = evidence / "desktop.ppm"
+    menu_probe = evidence / "boot-menu-probe.ppm"
     command = [
         "qemu-system-x86_64", "-machine", "q35,accel=kvm:tcg",
         "-m", "3072", "-smp", "2", "-display", "none",
@@ -114,6 +166,8 @@ def run(iso: Path, evidence: Path, timeout: float) -> bool:
         )
         deadline = time.monotonic() + timeout
         result = False
+        menu_enter_sent = False
+        next_menu_probe = time.monotonic() + 6
         try:
             while time.monotonic() < deadline:
                 output = serial.read_bytes() if serial.is_file() else b""
@@ -135,6 +189,22 @@ def run(iso: Path, evidence: Path, timeout: float) -> bool:
                     print("[desktop-qemu] guest interactions passed; real scanout "
                           + ("passed" if result else "failed"), flush=True)
                     break
+                # UEFI/GRUB live-build menu defaults to waiting indefinitely.
+                # Only the recognized gold-logo menu permits a single Return.
+                # An unknown screen (including a login prompt) receives no keys.
+                if (not menu_enter_sent and qmp.exists() and
+                        time.monotonic() >= next_menu_probe):
+                    next_menu_probe = time.monotonic() + 6
+                    try:
+                        menu_enter_sent = advance_known_live_menu(qmp, menu_probe)
+                        if menu_enter_sent:
+                            print("[desktop-qemu] recognized Debian live menu; "
+                                  "sent one Return to boot default entry", flush=True)
+                    except (OSError, QMPError) as exc:
+                        print(f"[desktop-qemu] boot-menu probe deferred: {exc}",
+                              file=sys.stderr)
+                    finally:
+                        menu_probe.unlink(missing_ok=True)
                 if process.poll() is not None:
                     print(f"[desktop-qemu] QEMU exited {process.returncode} without "
                           "multiwindow proof", file=sys.stderr)
