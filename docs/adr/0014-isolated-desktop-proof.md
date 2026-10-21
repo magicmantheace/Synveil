@@ -74,6 +74,12 @@ The host must require both **in their respective boot**, in addition to
 the actual window-management/graphical-framebuffer proof. The home image
 is never uploaded with the CI evidence.
 
+The first real four-guest validation **passed** at
+[0579de0](../validation/desktop-home-0579de/README.md): the third
+UEFI boot wrote the file to the specifically labeled home filesystem and
+a fourth fresh QEMU process recovered it, alongside graphical interactions.
+That exact evidence supports this isolated developer-VM milestone only.
+
 This remains a developer-only **unauthenticated live account** and
 unencrypted state. It is neither trusted user provisioning nor an
 installed root filesystem. The prototype does not protect private data,
