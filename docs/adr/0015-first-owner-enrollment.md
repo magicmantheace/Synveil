@@ -69,6 +69,30 @@ CI firmware, browser data, shell history, logs, general telemetry, or
 AI memory. Credential entry and confirmation must remain local and
 non-echoing and use the owner's chosen secret, not a shared default.
 
+## Native state mount provenance hardening (host-validated)
+
+The **pre-install QEMU-only native** credential path now rejects an
+arbitrary ext4 mount at `/var`. Both the Rust Argon2id
+enroll/verify check and the C graphical first-user enrollment gate
+require the explicitly pinned developer state device
+`/dev/vdb`, a **writable** ext4 `/var` mount, and exactly one
+unambiguous `/var` entry. Duplicate mount records, wrong devices,
+read-only mounts, missing flags and filesystems other than ext4
+must fail closed. The GUI must not claim first-user enrollment
+is possible while the verifier would reject the state origin.
+
+This is verified by real Rust and C host security tests at
+[0bad15c](../validation/native-credential-mount-0bad15c/README.md):
+7 Rust credential unit tests, 3 protected CLI integration tests,
+and the graphical C enrollment gate all passed. It is **not**
+a QEMU guest login or installed-system persistence test.
+
+`/dev/vdb` is intentionally a **temporary QEMU fixture identity**.
+A real physical installer will require an entirely separate,
+owner-authorized stable PARTUUID/device-provenance design rather than
+guessing that a block-device name is trustworthy on physical hardware.
+Do not relax the source check to accept all ext4 mounts as a shortcut.
+  
 ## Acceptance gates before a hands-on installation
 
 1. **Pre-enrollment:** a new image boots to a protected local setup
