@@ -50,20 +50,36 @@ int synveil_enroll_mount_matches(const char *source, const char *target,
            strcmp(target, "/var") == 0 && strcmp(type, "ext4") == 0;
 }
 
+int synveil_enroll_mount_options_writable(const char *options) {
+    if (!options) return 0;
+    struct mntent entry = {0};
+    entry.mnt_opts = (char *)options;
+    return hasmntopt(&entry, "rw") != NULL &&
+           hasmntopt(&entry, "ro") == NULL;
+}
+
 static int mounted_expected_state(void) {
     FILE *mounts = fopen("/proc/mounts", "re");
     if (!mounts) return 0;
     int matched = 0;
+    int count = 0;
     struct mntent *entry;
     while ((entry = getmntent(mounts)) != NULL) {
         if (strcmp(entry->mnt_dir, "/var") != 0) continue;
-        matched = synveil_enroll_mount_matches(entry->mnt_fsname,
-                                                entry->mnt_dir,
-                                                entry->mnt_type);
-        break;
+        count++;
+        if (!synveil_enroll_mount_matches(entry->mnt_fsname,
+                                          entry->mnt_dir,
+                                          entry->mnt_type) ||
+            !synveil_enroll_mount_options_writable(entry->mnt_opts)) {
+            matched = 0;
+            break;
+        }
+        matched = 1;
     }
     fclose(mounts);
-    return matched;
+    // Ignore ambiguous mount stacks, even if one entry is the expected
+    // writable /dev/vdb. Match the native Argon2id verifier's contract.
+    return matched && count == 1;
 }
 
 static int private_directory(const char *path) {
