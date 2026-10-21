@@ -239,24 +239,24 @@ mod tests {
 
     #[test]
     fn only_unique_writable_pinned_vm_state_mount_is_credential_authority() {
-        let expected = "/dev/vda / ext4 rw,relatime 0 0\\n/dev/vdb /var ext4 rw,nosuid,nodev,noatime 0 0\\n";
+        let expected = "/dev/vda / ext4 rw,relatime 0 0\n/dev/vdb /var ext4 rw,nosuid,nodev,noatime 0 0\n";
         assert!(pinned_vm_state_mount(expected));
         for wrong in [
             "",
-            "/dev/vdb /var ext4 ro,nosuid,nodev 0 0\\n",
-            "/dev/vda /var ext4 rw,nosuid,nodev 0 0\\n",
-            "tmpfs /var tmpfs rw 0 0\\n",
-            "/dev/vdb /var xfs rw 0 0\\n",
-            "/dev/vdb /var ext4 defaults 0 0\\n",
+            "/dev/vdb /var ext4 ro,nosuid,nodev 0 0\n",
+            "/dev/vda /var ext4 rw,nosuid,nodev 0 0\n",
+            "tmpfs /var tmpfs rw 0 0\n",
+            "/dev/vdb /var xfs rw 0 0\n",
+            "/dev/vdb /var ext4 defaults 0 0\n",
             "/dev/vdb /var ext4\n",
-            "/dev/vdb /var ext4 rw 0 0\\n/dev/vdb /var ext4 rw 0 0\\n",
-            "/dev/vdb /var ext4 rw 0 0\\n/dev/vda /var ext4 ro 0 0\\n",
-            "/dev/vdb /var\\040backup ext4 rw 0 0\\n",
+            "/dev/vdb /var ext4 rw 0 0\n/dev/vdb /var ext4 rw 0 0\n",
+            "/dev/vdb /var ext4 rw 0 0\n/dev/vda /var ext4 ro 0 0\n",
+            "/dev/vdb /var\\040backup ext4 rw 0 0\n",
         ] {
             assert!(!pinned_vm_state_mount(wrong), "unsafe mount accepted: {wrong}");
         }
         assert!(pinned_vm_state_mount(
-            "/dev/vdb /var ext4 rw,nosuid,nodev 0 0\\n/dev/vdc /home ext4 rw 0 0\\n"
+            "/dev/vdb /var ext4 rw,nosuid,nodev 0 0\n/dev/vdc /home ext4 rw 0 0\n"
         ));
     }
 
