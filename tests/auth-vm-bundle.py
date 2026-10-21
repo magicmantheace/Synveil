@@ -76,6 +76,7 @@ class AuthenticatedBundleTests(unittest.TestCase):
             "persistent_authentication": True,
             "wrong_password_denied_after_cold_reboot": True,
             "graphical_scanout_after_cold_reboot": True,
+            "nonblank_rgb_after_login_both_boots": True,
         }))
 
     def create(self):
