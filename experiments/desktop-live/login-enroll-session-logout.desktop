@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Synveil VM PAM logout and re-lock proof
+Comment=Disposable QEMU only, not a production user login manager
+Exec=/usr/local/libexec/synveil-login-enroll-session-logout
+OnlyShowIn=XFCE;
+Terminal=false
+X-GNOME-Autostart-enabled=true
