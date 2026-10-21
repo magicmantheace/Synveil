@@ -22,6 +22,34 @@
   Debian LightDM/PAM and must not be described as having been proven by
   the Debian graphical smoke.
 
+## Disposable PAM logout/relock proof (under CI validation)
+
+The current opt-in PAM test profile also contains a **one-shot,
+user-owned** XDG autostart logout helper. It waits for the actual
+Xfwm4 multiwindow proof to report successful window operations;
+only then does the non-root XFCE session call its own standard
+`xfce4-session-logout --logout --fast`. It records a test-only
+marker in the disposable home so a second login in the same QEMU
+process does not trigger another automatic logout.
+
+A separate root-owned observer checks that the original XFCE
+session and panel have exited and LightDM has resumed displaying
+its greeter before reporting a fixed `AUTH_RELOCKED` marker.
+The host runner must capture that locked greeter, submit a **new
+independently wrong** ephemeral test password, require that no
+relogin marker was emitted, submit the original correct test
+password, and confirm a second non-root XFCE session and a real
+RGB framebuffer.
+
+The full job is `.github/workflows/desktop-pam-test.yml`. These
+tests prove **logout/relock and same-boot relogin only if the
+corresponding exact-source QEMU run finishes successfully**.
+They do not prove credential persistence across power cycles,
+first-user enrollment, owner recovery or physical installed-system
+reboot. Only an isolated developer CI image may run the automated
+one-shot logout; the default XFCE integration image must not
+include it.
+
 ## Design rule
 
 There must be **one authoritative** owner credential path in the eventual
