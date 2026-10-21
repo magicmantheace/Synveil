@@ -87,11 +87,13 @@ class DesktopHomeImageTests(unittest.TestCase):
 
     def test_runner_rejects_block_devices_or_arbitrary_paths_before_qemu(self):
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(ValueError):
-                smoke.run(Path("unused.iso"), Path(tmp) / "evidence", 40,
+            iso = Path(tmp) / "valid-test-file.iso"
+            iso.write_bytes(b"fake" * 262145)
+            with self.assertRaisesRegex(ValueError, "non-prototype"):
+                smoke.run(iso, Path(tmp) / "evidence", 40,
                           home_disk=Path("/dev/sda"), home_stage="write")
-            with self.assertRaises(ValueError):
-                smoke.run(Path("unused.iso"), Path(tmp) / "evidence", 40,
+            with self.assertRaisesRegex(ValueError, "requires explicit"):
+                smoke.run(iso, Path(tmp) / "evidence", 40,
                           home_disk=None, home_stage="read")
 
     def test_real_guest_proof_requires_distinct_write_then_recovered_markers(self):
