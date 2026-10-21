@@ -86,6 +86,25 @@ not encrypted or authenticated storage, trustworthy owner login, installed
 system A/B boot, owner recovery, physical boot or signed updates. The
 normal Synveil install milestone remains incomplete.
 
+## Same-boot PAM logout and relock runtime evidence
+
+The subsequent disposable XFCE profile at exact SHA
+`ad7b2b76726b250b784594667ae7b805d515cc9e` passed
+[full QEMU run 39639758799](https://github.com/magicmantheace/Synveil/actions/runs/39639758799):
+wrong password denied, correct password opened a non-root XFCE session,
+user-owned `xfce4-session-logout --logout --fast` after actual Xfwm4
+multiwindow proof, LightDM greeter returned with the old session and
+panel absent, another wrong password was denied, and a second correct
+password opened a fresh non-root desktop. QMP retained **separate RGB
+captures** of the first authenticated session, the relocked greeter and
+second desktop. See [exact tested evidence](validation/desktop-pam-relock-ad7b2b7/README.md).
+
+This is *one VM boot with two distinct user sessions*, **not two
+independent machine reboots**. The credential was still a temporary
+CI-injected secret, not an owner-enrolled persistent password.
+Installed native Synveil account authority and owner recovery remain
+unverified.
+
 ## First working password-authenticated *developer VM* graphical login
 
 An isolated Debian/XFCE image at exact SHA
