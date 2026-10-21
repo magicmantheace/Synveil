@@ -28,6 +28,9 @@ def capture_test_scanout(path, output, *, timeout):
     if (os.environ['FAKE_MODE'] == 'missing-post-auth-scanout' and
             name == 'native-reboot-authenticated.ppm'):
         return False
+    if (os.environ['FAKE_MODE'] == 'missing-first-auth-scanout' and
+            name == 'native-first-authenticated.ppm'):
+        return False
     return True
 """
 
@@ -159,6 +162,12 @@ class GraphicalOnboardFixtures(unittest.TestCase):
         self.assertEqual(count, 2)
         self.assertEqual(signals.count("SCANOUT"), 2)
         self.assertEqual(signals.count("KEY_WRONG"), 1)  # First-boot mismatch only
+
+    def test_first_boot_success_marker_without_visible_user_desktop_fails(self):
+        code, count, signals = self.run_case("missing-first-auth-scanout")
+        self.assertNotEqual(code, 0)
+        self.assertEqual(count, 1)
+        self.assertEqual(signals.count("SCANOUT"), 1)
 
     def test_reboot_success_marker_without_visible_user_desktop_fails(self):
         code, count, signals = self.run_case("missing-post-auth-scanout")
