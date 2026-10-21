@@ -119,6 +119,7 @@ def main():
             "first_user_enrollment": True,
             "persistent_authentication": True,
             "wrong_password_denied_after_cold_reboot": True,
+            "graphical_scanout_after_cold_reboot": True,
         }, indent=2) + "\n")
     elif args.case == "audit-release-crash":
         subprocess.run(["python3", str(ROOT / "tests/smoke-audit-release-crash.py"),
