@@ -69,8 +69,22 @@ cold starts**, including the active XFCE panel and a third genuine Settings
 Manager window, at source revision `437020d26070d0e2a231ad79087b39026fcfb47c`
 ([completed CI run 39593790664](https://github.com/magicmantheace/Synveil/actions/runs/39593790664),
 [exact-revision evidence](validation/desktop-live-437020d/README.md)).
-This proves graphical repeat startup, **not** persistent user files or
-authenticated owner login. Owner release remains blocked.
+The later development revision `0579de0a237e823e60843e00e9e7521ff6d53dd4`
+completed a **four-boot** offline OVMF/QEMU run with the same XFCE desktop
+checks. Two boots had no writable disk; then a third wrote a fixed benign
+non-root home file to the separate 256 MiB `synvmhome` ext4 image, and a
+fourth independent QEMU process recovered the expected bytes and UID.
+The host required separate `HOME_WRITTEN` and `HOME_RECOVERED` serial
+markers plus the real graphical desktop and framebuffer proof in
+[completed Actions run 39597968232](https://github.com/magicmantheace/Synveil/actions/runs/39597968232).
+A separate non-guest [file-only ext4 build check](https://github.com/magicmantheace/Synveil/actions/runs/39598691537)
+confirmed the label and `/home`-only `persistence.conf`. See
+[the exact-revision evidence record](validation/desktop-home-0579de/README.md).
+
+This proves a **developer live-home file survives two independent VM boots**,
+not encrypted or authenticated storage, trustworthy owner login, installed
+system A/B boot, owner recovery, physical boot or signed updates. The
+normal Synveil install milestone remains incomplete.
 
 ## Phase 1 validation contract
 
