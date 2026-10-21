@@ -11,6 +11,7 @@ import hashlib
 import os
 from pathlib import Path
 import re
+import secrets
 import shutil
 import stat
 import signal
@@ -31,6 +32,10 @@ HOME_RECOVERED = b"SYNVEIL_QEMU_HOME_RECOVERED"
 HOME_FAILED = b"SYNVEIL_QEMU_HOME_PROOF_FAILED"
 LOGIN_LOCKED = b"SYNVEIL_QEMU_LOGIN_GREETER_LOCKED"
 LOGIN_FAILED = b"SYNVEIL_QEMU_LOGIN_GREETER_FAILED"
+PAM_READY = b"SYNVEIL_QEMU_TEST_AUTH_GREETER_READY"
+PAM_ACTIVE = b"SYNVEIL_QEMU_TEST_AUTH_SESSION_ACTIVE"
+PAM_FAILED = b"SYNVEIL_QEMU_TEST_AUTH_FAILED"
+
 
 def locked_greeter_serial_markers(serial: bytes) -> set[bytes]:
     """Normalize only the known Linux getty login-prompt serial prefix.
@@ -39,7 +44,8 @@ def locked_greeter_serial_markers(serial: bytes) -> set[bytes]:
     which can share an unfinished 'synveil login: ' prompt. Never accept
     arbitrary suffix matches, terminal echoes or other untrusted text.
     """
-    allowed = {LOGIN_LOCKED, LOGIN_FAILED, FAIL, PASS,
+    allowed = {LOGIN_LOCKED, LOGIN_FAILED, PAM_READY, PAM_ACTIVE, PAM_FAILED,
+               FAIL, PASS,
                HOME_WRITTEN, HOME_RECOVERED}
     found = set()
     for line in serial.splitlines():
@@ -158,7 +164,7 @@ def capture_screenshot(qmp: Path, output: Path):
 
 def run(iso: Path, evidence: Path, timeout: float, *,
         home_disk: Path | None = None, home_stage: str = "none",
-        locked_greeter: bool = False) -> bool:
+        locked_greeter: bool = False, pam_test: bool = False) -> bool:
     iso = iso.resolve(strict=True)
     if not iso.is_file() or iso.stat().st_size < 1024 * 1024:
         raise ValueError("expected a nonempty ISO file artifact")
@@ -166,6 +172,8 @@ def run(iso: Path, evidence: Path, timeout: float, *,
         raise ValueError("evidence path already exists; refusing overwrite")
     if timeout < 30 or timeout > 900:
         raise ValueError("timeout must be between 30 and 900 seconds")
+    if pam_test and (locked_greeter or home_disk is not None or home_stage != "none"):
+        raise ValueError("ephemeral PAM QEMU test never accepts a home disk or lock-gate mode")
     if locked_greeter and (home_disk is not None or home_stage != "none"):
         raise ValueError("locked-greeter VM cannot attach any persistent data disk")
     if home_stage not in ("none", "write", "read"):
@@ -204,6 +212,13 @@ def run(iso: Path, evidence: Path, timeout: float, *,
         "-drive", f"file={iso},media=cdrom,readonly=on",
         "-boot", "order=d", "-no-reboot",
     ]
+    ephemeral_secret = None
+    if pam_test:
+        # Generated per QEMU run, supplied by host virtual firmware, never
+        # stored in the ISO or printed to logs. NOT production secret storage.
+        ephemeral_secret = secrets.token_hex(16)
+        command.extend(["-fw_cfg",
+                        f"name=opt/synveil/ci-secret,string={ephemeral_secret}"])
     if home_disk is not None:
         # Only a single existing 256MiB regular file, not a device or loop.
         command.extend(["-drive",
@@ -217,10 +232,60 @@ def run(iso: Path, evidence: Path, timeout: float, *,
         result = False
         menu_enter_sent = False
         next_menu_probe = time.monotonic() + 6
+        pam_stage = "greeter"
+        pam_stage_deadline = 0.0
+
         try:
             while time.monotonic() < deadline:
                 output = serial.read_bytes() if serial.is_file() else b""
                 status = probe_status(output)
+                if pam_test:
+                    markers = locked_greeter_serial_markers(output)
+                    if PAM_FAILED in markers or FAIL in markers:
+                        print("[desktop-qemu] test PAM guest reported failure",
+                              file=sys.stderr)
+                        break
+                    if pam_stage == "greeter":
+                        if PAM_ACTIVE in markers:
+                            print("[desktop-qemu] auto-login before any password",
+                                  file=sys.stderr)
+                            break
+                        if PAM_READY in markers:
+                            # Completely wrong random test password must not
+                            # start the session. No real user secret enters QMP.
+                            wrong_secret = secrets.token_hex(16)
+                            while wrong_secret == ephemeral_secret:
+                                wrong_secret = secrets.token_hex(16)
+                            from qmp_input import type_test_secret
+                            type_test_secret(qmp, wrong_secret, timeout=20)
+                            pam_stage = "wrong"
+                            pam_stage_deadline = time.monotonic() + 9
+                            print("[desktop-qemu] attempted wrong ephemeral PAM "
+                                  "test password (value redacted)", flush=True)
+                    elif pam_stage == "wrong":
+                        if PAM_ACTIVE in markers:
+                            print("[desktop-qemu] wrong test password opened session",
+                                  file=sys.stderr)
+                            break
+                        if time.monotonic() >= pam_stage_deadline:
+                            type_test_secret(qmp, ephemeral_secret, timeout=20)
+                            pam_stage = "correct"
+                            pam_stage_deadline = time.monotonic() + 65
+                            print("[desktop-qemu] submitted valid ephemeral PAM "
+                                  "test password (value redacted)", flush=True)
+                    elif pam_stage == "correct":
+                        if PAM_ACTIVE in markers:
+                            capture_screenshot(qmp, screenshot)
+                            result = (screenshot_is_nonblank(screenshot) and
+                                      not is_debian_live_boot_menu(screenshot))
+                            print("[desktop-qemu] real non-root XFCE session "
+                                  "after valid PAM password: " +
+                                  ("PASS" if result else "FAIL"), flush=True)
+                            break
+                        if time.monotonic() >= pam_stage_deadline:
+                            print("[desktop-qemu] correct PAM test password did "
+                                  "not open non-root XFCE session", file=sys.stderr)
+                            break
                 if locked_greeter:
                     markers = locked_greeter_serial_markers(output)
                     if (LOGIN_FAILED in markers or FAIL in markers or PASS in markers or
@@ -254,10 +319,10 @@ def run(iso: Path, evidence: Path, timeout: float, *,
                               "no usable password: " +
                               ("PASS" if result else "FAIL"), flush=True)
                         break
-                if not locked_greeter and status == "failed":
+                if not locked_greeter and not pam_test and status == "failed":
                     print("[desktop-qemu] guest window manager probe failed", file=sys.stderr)
                     break
-                if not locked_greeter and status == "passed":
+                if not locked_greeter and not pam_test and status == "passed":
                     lines = {line.strip() for line in output.splitlines()}
                     expected_home = {
                         "none": None, "write": HOME_WRITTEN,
@@ -358,11 +423,13 @@ def main():
                         default="none")
     parser.add_argument("--locked-greeter", action="store_true",
                         help="separate VM-only no-autologin login denial proof")
+    parser.add_argument("--pam-test", action="store_true",
+                        help="CI-only ephemeral wrong/correct PAM login proof")
     args = parser.parse_args()
     try:
         okay = run(args.iso, args.evidence, args.timeout,
                    home_disk=args.home_disk, home_stage=args.home_stage,
-                   locked_greeter=args.locked_greeter)
+                   locked_greeter=args.locked_greeter, pam_test=args.pam_test)
     except (OSError, ValueError, RuntimeError) as exc:
         parser.error(str(exc))
     return 0 if okay else 1
