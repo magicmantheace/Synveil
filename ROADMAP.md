@@ -24,6 +24,12 @@
 > **wrong-password denial then correct-password graphical login**
 > using an ephemeral QEMU test value (see
 > [00edc3d guest evidence](docs/validation/desktop-pam-00edc3d/README.md)).
+> The same disposable PAM profile subsequently passed
+> **normal logout → locked LightDM greeter → wrong-password denial →
+> second non-root XFCE login**, with three real RGB captures at
+> [ad7b2b7](docs/validation/desktop-pam-relock-ad7b2b7/README.md).
+> This does **not** establish durable credentials after a cold reboot,
+> secure user enrollment, recovery or a native installed desktop.
 > That is **not user-controlled enrollment or a persistent secure login**.
 > This is **not a native, authenticated or persistent installed desktop**.
 > No physical USB validation, trusted installer or signed updater exists.
