@@ -96,7 +96,7 @@ def run(iso: Path, evidence: Path, timeout: float) -> bool:
     stderr = evidence / "qemu.stderr.log"
     screenshot = evidence / "desktop.ppm"
     command = [
-        "qemu-system-x86_64", "-accel", "tcg", "-machine", "q35",
+        "qemu-system-x86_64", "-machine", "q35,accel=kvm:tcg",
         "-m", "3072", "-smp", "2", "-display", "none",
         "-device", "virtio-vga", "-device", "qemu-xhci",
         "-device", "usb-kbd", "-device", "usb-tablet",
