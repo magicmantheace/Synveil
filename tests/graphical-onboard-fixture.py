@@ -22,7 +22,13 @@ def type_test_secret(path, value, *, timeout):
 def capture_test_scanout(path, output, *, timeout):
     with open(os.environ['QMP_SIGNALS'], 'a') as out:
         out.write('SCANOUT\\n')
-    return os.environ['FAKE_MODE'] != 'missing-scanout'
+    name = pathlib.Path(output).name
+    if os.environ['FAKE_MODE'] == 'missing-scanout' and name == 'native-reboot-login.ppm':
+        return False
+    if (os.environ['FAKE_MODE'] == 'missing-post-auth-scanout' and
+            name == 'native-reboot-authenticated.ppm'):
+        return False
+    return True
 """
 
 CONSOLE_FAKE = """import os, pathlib, sys, time
@@ -127,7 +133,7 @@ class GraphicalOnboardFixtures(unittest.TestCase):
         self.assertEqual(count, 2)
         self.assertEqual(signals, [
             "KEYS", "KEY_WRONG", "KEYS", "KEYS", "KEYS",
-            "SCANOUT", "KEY_WRONG", "KEYS",
+            "SCANOUT", "SCANOUT", "KEY_WRONG", "KEYS", "SCANOUT",
         ])
 
     def test_early_boot_exit_never_passes(self):
@@ -152,8 +158,14 @@ class GraphicalOnboardFixtures(unittest.TestCase):
         code, count, signals = self.run_case("missing-scanout")
         self.assertNotEqual(code, 0)
         self.assertEqual(count, 2)
-        self.assertEqual(signals.count("SCANOUT"), 1)
+        self.assertEqual(signals.count("SCANOUT"), 2)
         self.assertEqual(signals.count("KEY_WRONG"), 1)  # First-boot mismatch only
+
+    def test_reboot_success_marker_without_visible_user_desktop_fails(self):
+        code, count, signals = self.run_case("missing-post-auth-scanout")
+        self.assertNotEqual(code, 0)
+        self.assertEqual(count, 2)
+        self.assertEqual(signals.count("SCANOUT"), 3)
 
     def test_reboot_wrong_password_must_not_open_session(self):
         self.assertNotEqual(self.run_case("reboot-wrong-accepted")[0], 0)
