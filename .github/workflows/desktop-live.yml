@@ -27,7 +27,8 @@ permissions:
 
 concurrency:
   group: desktop-live-${{ github.ref }}
-  cancel-in-progress: true
+  # Never throw away the expensive full-image guest proof when docs change.
+  cancel-in-progress: false
 
 jobs:
   preview-config:
