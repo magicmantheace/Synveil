@@ -50,7 +50,11 @@ in the repository. The Debian ISO and real Xfwm4 multiwindow boot now pass
 [one full UEFI QEMU run](validation/desktop-live-c024225/README.md) and
 [two consecutive *independent* cold boots with terminal, file manager,
 panel and Settings Manager](validation/desktop-live-437020d/README.md).
-**Neither test preserved data across boots.** First-user authentication,
+The next, independent [four-guest persistence run](validation/desktop-home-0579de/README.md)
+also passed: a benign file saved under a non-root XFCE user's `/home` on
+a separate, fixed 256 MiB ext4 VM file survived a complete cold restart.
+This is *developer live-home retention only*, not trusted owner login or
+installed-rootfs persistence. First-user authentication,
 recovery, installed-system persistence and eventual native integration
 still need independent validation before owner testing. See
 [ADR 0014](adr/0014-isolated-desktop-proof.md).
