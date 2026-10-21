@@ -261,6 +261,9 @@ class DesktopLiveProfileTests(unittest.TestCase):
                           "etc/synveil/ci-login-gate").exists())
         self.assertFalse((self.root / "out/desktop-live/"
                           ".synveil-desktop-login-gate").exists())
+        self.assertFalse((self.root / "out/desktop-live/config/includes.chroot/"
+                          "etc/xdg/autostart/"
+                          "synveil-login-enroll-session-logout.desktop").exists())
 
     def test_invalid_login_gate_rejected_before_configuration(self):
         bad = self.invoke("configure", login_gate="anything")
