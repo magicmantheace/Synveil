@@ -133,7 +133,7 @@ class AbFileImageTests(unittest.TestCase):
         for bad_parts in (
             tuple(reversed(SMALL)),
             SMALL[:-1],
-            SMALL[:1] + (("SYSTEM_A", 3),) + SMALL[2:],
+            SMALL[:1] + (("SYSTEM_A", 0),) + SMALL[2:],
             SMALL[:1] + (("SYSTEM_A", 99),) + SMALL[2:],
         ):
             with self.subTest(parts=bad_parts), self.assertRaises(mod.PrototypeError):
