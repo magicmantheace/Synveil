@@ -32,6 +32,25 @@ HOME_FAILED = b"SYNVEIL_QEMU_HOME_PROOF_FAILED"
 LOGIN_LOCKED = b"SYNVEIL_QEMU_LOGIN_GREETER_LOCKED"
 LOGIN_FAILED = b"SYNVEIL_QEMU_LOGIN_GREETER_FAILED"
 
+def locked_greeter_serial_markers(serial: bytes) -> set[bytes]:
+    """Normalize only the known Linux getty login-prompt serial prefix.
+
+    The greeter observer writes a fixed marker to the emulated ttyS0,
+    which can share an unfinished 'synveil login: ' prompt. Never accept
+    arbitrary suffix matches, terminal echoes or other untrusted text.
+    """
+    allowed = {LOGIN_LOCKED, LOGIN_FAILED, FAIL, PASS,
+               HOME_WRITTEN, HOME_RECOVERED}
+    found = set()
+    for line in serial.splitlines():
+        value = line.strip()
+        if value.startswith(b"synveil login: "):
+            value = value[len(b"synveil login: "):]
+        if value in allowed:
+            found.add(value)
+    return found
+
+
 OVMF_PAIRS = (
     ("/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_VARS_4M.fd"),
     ("/usr/share/OVMF/OVMF_CODE.fd", "/usr/share/OVMF/OVMF_VARS.fd"),
@@ -203,7 +222,7 @@ def run(iso: Path, evidence: Path, timeout: float, *,
                 output = serial.read_bytes() if serial.is_file() else b""
                 status = probe_status(output)
                 if locked_greeter:
-                    markers = {line.strip() for line in output.splitlines()}
+                    markers = locked_greeter_serial_markers(output)
                     if (LOGIN_FAILED in markers or FAIL in markers or PASS in markers or
                             HOME_WRITTEN in markers or HOME_RECOVERED in markers):
                         print("[desktop-qemu] login-gate preauthentication violation",
@@ -218,7 +237,7 @@ def run(iso: Path, evidence: Path, timeout: float, *,
                         send_keys(qmp, ("ret",), timeout=8)
                         time.sleep(12)
                         followup = serial.read_bytes() if serial.is_file() else b""
-                        lines = {line.strip() for line in followup.splitlines()}
+                        lines = locked_greeter_serial_markers(followup)
                         if (PASS in lines or FAIL in lines or LOGIN_FAILED in lines or
                                 HOME_WRITTEN in lines or HOME_RECOVERED in lines):
                             print("[desktop-qemu] login gate unlocked unexpectedly",
