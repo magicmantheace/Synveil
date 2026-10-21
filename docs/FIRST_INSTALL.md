@@ -70,6 +70,19 @@ unsafe-for-production virtual firmware channel. A real local
 password-creation flow, persistent trusted credentials, logout/relock,
 independent recovery and native integration remain blockers.
 
+## Tested logout and return to locked graphical sign-in
+
+In the isolated developer-only PAM image, a real non-root XFCE user
+logged out after the GUI window tests. The guest returned to LightDM,
+rejected a new wrong password, and opened a second non-root session
+after valid test credentials were entered. The completed
+[QEMU run 39639758799](validation/desktop-pam-relock-ad7b2b7/README.md)
+provides host and guest evidence. **No reboot or persistent owner
+credential was involved.** The next required owner milestone is
+interactive first-user enrollment with one audited credential authority,
+durable private storage and independent recovery; see
+[ADR 0015](adr/0015-first-owner-enrollment.md).
+
 ## Dependency order
 
 1. Finish deterministic core recovery and define its service lifecycle.
