@@ -79,11 +79,28 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                         else:
                             if b"SYNVEIL_LOGIN_READY" not in seen:
                                 continue
+                        # After cold reboot, deny a deliberately wrong
+                        # credential *before* accepting the persisted owner
+                        # verifier. First-boot enrollment has its separate
+                        # mismatched-confirmation challenge below.
                         try:
-                            type_test_secret(qmp, secret, timeout=18)
+                            type_test_secret(qmp, secret if fresh else incorrect,
+                                             timeout=18)
                         except (QMPError, OSError, ValueError):
                             return False
-                        phase = "first-password" if fresh else "logging-in"
+                        phase = "first-password" if fresh else "reboot-wrong-password"
+                    if phase == "reboot-wrong-password":
+                        # A session opening for the wrong credential must
+                        # fail immediately, never be mistaken for success.
+                        if b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
+                            return False
+                        if b"SYNVEIL_GRAPHICAL_AUTH_DENIED" in seen:
+                            seen.discard(b"SYNVEIL_GRAPHICAL_AUTH_DENIED")
+                            try:
+                                type_test_secret(qmp, secret, timeout=18)
+                            except (QMPError, OSError, ValueError):
+                                return False
+                            phase = "logging-in"
                     if phase == "first-password" and b"SYNVEIL_ENROLL_CONFIRM_READY" in seen:
                         seen.discard(b"SYNVEIL_ENROLL_CONFIRM_READY")
                         try:
@@ -114,6 +131,10 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                         except (QMPError, OSError, ValueError):
                             return False
                         phase = "logging-in"
+                    if phase == "logging-in" and b"SYNVEIL_GRAPHICAL_AUTH_DENIED" in seen:
+                        # No second fallthrough: the correct saved password
+                        # must authenticate on the independent cold boot.
+                        return False
                     if phase == "logging-in" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
                         evidence.write(b"[synveil] authenticated graphical session reached\n")
                         return True
