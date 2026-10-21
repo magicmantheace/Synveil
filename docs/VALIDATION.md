@@ -86,6 +86,25 @@ not encrypted or authenticated storage, trustworthy owner login, installed
 system A/B boot, owner recovery, physical boot or signed updates. The
 normal Synveil install milestone remains incomplete.
 
+## First working password-authenticated *developer VM* graphical login
+
+An isolated Debian/XFCE image at exact SHA
+`00edc3db054111f95da18af4bb1e4e332074ff87` passed
+[Actions 39626829728](https://github.com/magicmantheace/Synveil/actions/runs/39626829728).
+QEMU generated a fresh random 128-bit test credential, supplied it
+only through a disposable virtual `fw_cfg` channel, and typed an
+independently random **wrong** password first. No user desktop
+started during that negative observation interval. A **correct**
+password typed through the private QMP keyboard then launched
+an actual non-root XFCE session and panel, with QMP screenshot.
+See [exact-revision evidence](validation/desktop-pam-00edc3d/README.md).
+
+This is **PAM/LightDM integration evidence in a guest**, not secure
+first-owner enrollment, persistence of authentication across
+cold boots, production secret handling, normal logout/relock,
+native Synveil broker integration, or an installed operating
+system. The first owner boot gate remains unchecked.
+
 ## Experimental LightDM lock-gate validation (separate from login)
 
 The Debian/XFCE four-boot persistence proof remains isolated to the
