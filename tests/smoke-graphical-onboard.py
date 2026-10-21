@@ -14,7 +14,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, type_test_secret  # noqa: E402
+from qmp_input import QMPError, type_test_secret, capture_test_scanout  # noqa: E402
 
 BOOT = {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY",
         b"SYNVEIL_SEAT_READY", b"SYNVEIL_SERIAL_RECOVERY_LOCKED"}
@@ -83,6 +83,17 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                         # credential *before* accepting the persisted owner
                         # verifier. First-boot enrollment has its separate
                         # mismatched-confirmation challenge below.
+                        # The rebooted graphical login must actually draw to
+                        # the QEMU framebuffer, not merely echo a serial
+                        # status marker. Capture *before* typing passwords;
+                        # the image is checked and immediately discarded.
+                        if not fresh:
+                            if not capture_test_scanout(
+                                qmp, Path(temp) / "native-reboot-login.ppm",
+                                timeout=8
+                            ):
+                                evidence.write(b"[synveil] native graphical scanout missing on reboot\n")
+                                return False
                         try:
                             type_test_secret(qmp, secret if fresh else incorrect,
                                              timeout=18)
