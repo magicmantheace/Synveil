@@ -65,6 +65,9 @@ a claim of boot success on the physical machine.
       marker and framebuffer passed at exact SHA `c0242259f`
       ([completed CI evidence](https://github.com/magicmantheace/Synveil/actions/runs/39541711454),
       [validation record](validation/desktop-live-c024225/README.md)).
+      The [subsequent 437020d guest run](validation/desktop-live-437020d/README.md)
+      additionally passed **two fresh EFI cold boots**, a running panel and
+      graphical Settings Manager. No state/data persisted between those boots.
       This is **not** a native Synveil compositor, protected owner login,
       installed-system boot, hardware GPU test, or production release.
 - [ ] Correct `tty0` screen diagnostics and UEFI firmware framebuffer
