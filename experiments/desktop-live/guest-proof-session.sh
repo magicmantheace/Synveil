@@ -59,5 +59,30 @@ fi
 # Both managed windows must still exist after minimize/restore.
 xwininfo -id "$terminal" >/dev/null 2>&1
 xwininfo -id "$files" >/dev/null 2>&1
+
+# The everyday desktop must have a functioning panel and genuine Settings
+# window, not just two manually launched applications.
+panel_wait=0
+until pgrep -u "$(id -u)" -x xfce4-panel >/dev/null 2>&1; do
+    panel_wait=$((panel_wait + 1))
+    [ "$panel_wait" -lt 25 ] || exit 1
+    sleep 2
+done
+xfce4-settings-manager >/dev/null 2>&1 &
+settings=''
+settings_wait=0
+while [ "$settings_wait" -lt 40 ]; do
+    windows="$(wmctrl -lx 2>/dev/null || true)"
+    settings="$(printf '%s\n' "$windows" | awk 'tolower($0) ~ /xfce4-settings-manager/ {print $1; exit}')"
+    [ -n "$settings" ] && break
+    settings_wait=$((settings_wait + 1))
+    sleep 2
+done
+[ -n "$settings" ] && [ "$settings" != "$terminal" ] && [ "$settings" != "$files" ] || exit 1
+wmctrl -ia "$settings"
+xwininfo -id "$settings" >/dev/null 2>&1
+# The original windows must remain present while Settings is opened.
+xwininfo -id "$terminal" >/dev/null 2>&1
+xwininfo -id "$files" >/dev/null 2>&1
 trap - EXIT HUP INT TERM
 printf 'SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS\n' > "$STATUS"
