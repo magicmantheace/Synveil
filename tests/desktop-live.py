@@ -68,9 +68,15 @@ class DesktopLiveProfileTests(unittest.TestCase):
         self.assertIn("boot=live components", opts)
         self.assertIn("console=ttyS0,115200n8", opts)
         self.assertIn("console=tty0", opts)
+        for flag in ("persistence", "persistence-label=synvmhome",
+                     "persistence-storage=filesystem"):
+            self.assertIn(flag, opts)
+
         failsafe = args[args.index("--bootappend-live-failsafe") + 1]
         self.assertIn("nomodeset", failsafe)
         self.assertIn("live-config.noroot", failsafe)
+        self.assertIn("persistence-label=synvmhome", failsafe)
+
         self.assertTrue((out / ".synveil-desktop-live-prototype").exists())
         self.assertFalse(any(out.rglob("*.iso")))
         self.assertFalse((self.root / "out/synveil-x86_64.img").exists())
