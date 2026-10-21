@@ -137,6 +137,50 @@ No automated image is released or written to physical storage.
 See Debian's
 [documented `live-config.noautologin` shortcut](https://manpages.debian.org/trixie/live-config-doc/live-config.7.en.html).
 
+## Disposable, fresh-password PAM graphical integration test
+
+The **locked greeter** pass at
+[exact SHA 2fd381f](https://github.com/magicmantheace/Synveil/actions/runs/39614332033)
+proves a real LightDM login screen with no usable password; it does not
+prove a successful authenticated session.
+
+The next isolated developer-only profile uses
+`SYNVEIL_DESKTOP_LOGIN_GATE=2` in a **fresh image-build output tree**.
+Both boot entries disable live-config autologin and LightDM guest sessions.
+The ISO contains **no known, fixed, default or owner password**. Only the
+opt-in QEMU runner generates a 128-bit random, lowercase hexadecimal
+test secret. It injects the test value through QEMU's virtual `fw_cfg`
+device on the process command line. A root-only systemd LightDM
+`ExecStartPre` in the disposable guest validates its length/hex format,
+uses Debian's `chpasswd` to set the temporary account password through
+normal system credential tools, and never prints or archives it.
+
+The test host must see the genuine LightDM/GTK greeter and no user session
+before any password is typed. It submits a **different** random password
+using the existing allowlisted QMP keyboard, verifies no authenticated
+session started, then submits the host's original ephemeral password.
+A separate guest observer must confirm both `xfce4-session` and the
+XFCE panel are owned by the **non-root temporary user**, and the host
+must independently capture a nonblank graphical scanout. Failure to
+read the test-only secret, start LightDM, deny the wrong password or
+establish a non-root session fails the run.
+
+See the isolated
+[desktop-pam-test workflow](../../.github/workflows/desktop-pam-test.yml).
+Merely committing this code is **not runtime evidence**: a completed
+QEMU success at the tested source revision is required before claiming
+an actual working password-authenticated VM desktop.
+
+**Security boundary:** `fw_cfg` is a test-only virtual channel,
+**not a secure credential vault** and never appropriate for real user
+secrets or a shipping installer. The password and account shadow state
+are ephemeral; no installed credential, secure first-user wizard,
+password reset, logout/relock, encrypted data, native seat-broker
+integration or reboot proof follows from this test. Production
+enrollment must use a separate secure path with recovery and human
+authorization, never ship a test credential or enable developer
+virtual hardware on physical computers.
+
 ## Threat model, boundaries and first-user gate
 
 - A real desktop **does not equal** a trusted Synveil installation.
