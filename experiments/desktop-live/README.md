@@ -22,6 +22,43 @@ and settings to shorten the route to actual everyday desktop behavior.
 5. The host checks the marker and captures a nonblank QMP screenshot. Both
    observations are required. Source/ISO validation alone cannot pass.
 
+## Separate real-password test without shipping a password
+
+Once the independent locked LightDM greeter passes, a **third**
+VM-only developer experiment checks whether an actual password
+authentication can open a non-root graphical session:
+
+```sh
+SYNVEIL_DESKTOP_LOGIN_GATE=2 bash tools/desktop_live.sh configure
+# Inside a disposable build container only:
+bash tools/desktop_live.sh build
+```
+
+The `desktop-pam-test.yml` workflow builds that separate ISO, not the
+ordinary autologin developer ISO and not the locked/no-password variant.
+The ISO contains **no password**. The host QEMU test generates a
+**new random 128-bit lowercase-hex value**, injects it only through
+a disposable QEMU virtual `fw_cfg` device, and types it through the
+private QMP keyboard. The guest's fixed root LightDM prestart validates
+and loads it through standard `chpasswd` tools. A deliberate *wrong*
+random password must leave the XFCE session absent. Only the correct
+test password may cause the guest to report a running XFCE session and
+panel belonging to the non-root user, with an actual graphical image.
+
+The virtual `fw_cfg` channel is visible inside the guest and must
+**never** be used as production secret storage. This is purely an
+integrated test of LightDM/PAM/session startup, not a secure way for
+the owner to select a password. Neither the test password, guest
+`/etc/shadow`, ISO nor virtual credentials are uploaded as evidence.
+
+A production first-user enrollment implementation still requires
+a local human-facing password-creation UI, repeat entry/confirmation,
+protecting the credential from telemetry/AI/QMP/serial, verifier
+integrity and ownership checks, persistence through cold boots,
+denial of invalid login, active-session revocation on logout/crash,
+and an independent authenticated recovery path. The owner installer
+remains blocked until those are implemented and validated.
+
 ## Opt-in locked graphical login gate (not first-user enrollment)
 
 The default developer ISO remains an unauthenticated, disposable XFCE
