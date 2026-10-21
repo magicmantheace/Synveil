@@ -9,7 +9,7 @@ OUT_DIR="$ROOT_DIR/out/desktop-live"
 PROFILE_MARKER=".synveil-desktop-live-prototype"
 # Separate opt-in test-only locked LightDM greeter (never enrolled).
 LOGIN_GATE="${SYNVEIL_DESKTOP_LOGIN_GATE:-0}"
-[[ "$LOGIN_GATE" == 0 || "$LOGIN_GATE" == 1 ]] || {
+[[ "$LOGIN_GATE" == 0 || "$LOGIN_GATE" == 1 || "$LOGIN_GATE" == 2 ]] || {
     echo "[desktop-live] invalid explicit VM login gate" >&2
     exit 2
 }
@@ -44,7 +44,7 @@ if [[ "$mode" == configure ]]; then
     mkdir -p "$ROOT_DIR/out"
     mkdir -m 0700 "$OUT_DIR"
     login_flags=""
-    if [[ "$LOGIN_GATE" == 1 ]]; then
+    if [[ "$LOGIN_GATE" != 0 ]]; then
         login_flags=" live-config.noautologin"
     fi
     (
@@ -104,6 +104,31 @@ UNIT
             "$OUT_DIR/config/includes.chroot/etc/systemd/system/graphical.target.wants/synveil-login-gate-reporter.service"
         printf '%s\n' 'VM-ONLY LOCK GATE: NO OWNER ENROLLMENT' \
             > "$OUT_DIR/.synveil-desktop-login-gate"
+    fi
+    if [[ "$LOGIN_GATE" == 2 ]]; then
+        # Separate deliberately test-only PAM path. chpasswd consumes an
+        # ephemeral host secret from the QEMU fw_cfg virtual hardware,
+        # never a password baked into a downloadable image.
+        install -Dm 0644 /dev/null \
+            "$OUT_DIR/config/includes.chroot/etc/synveil/ci-login-enroll"
+        install -Dm 0755 "$SOURCE_DIR/login-enroll-prestart.sh" \
+            "$OUT_DIR/config/includes.chroot/usr/local/libexec/synveil-login-enroll-prestart"
+        install -Dm 0755 "$SOURCE_DIR/login-enroll-reporter.sh" \
+            "$OUT_DIR/config/includes.chroot/usr/local/libexec/synveil-login-enroll-reporter"
+        install -Dm 0644 "$SOURCE_DIR/login-enroll-lightdm.conf" \
+            "$OUT_DIR/config/includes.chroot/etc/lightdm/lightdm.conf.d/90-synveil-ci-login-enroll.conf"
+        install -Dm 0644 "$SOURCE_DIR/login-enroll-reporter.service" \
+            "$OUT_DIR/config/includes.chroot/etc/systemd/system/synveil-login-enroll-reporter.service"
+        mkdir -p "$OUT_DIR/config/includes.chroot/etc/systemd/system/lightdm.service.d"
+        cat > "$OUT_DIR/config/includes.chroot/etc/systemd/system/lightdm.service.d/50-synveil-ci-login-enroll.conf" <<'UNIT'
+[Service]
+ExecStartPre=/usr/local/libexec/synveil-login-enroll-prestart
+UNIT
+        mkdir -p "$OUT_DIR/config/includes.chroot/etc/systemd/system/graphical.target.wants"
+        ln -s ../synveil-login-enroll-reporter.service \
+            "$OUT_DIR/config/includes.chroot/etc/systemd/system/graphical.target.wants/synveil-login-enroll-reporter.service"
+        printf '%s\n' 'VM-ONLY EPHEMERAL PAM TEST: NOT OWNER ENROLLMENT' \
+            > "$OUT_DIR/.synveil-desktop-login-enroll"
     fi
     printf '%s\n' 'Experimental desktop with no installer; VM use only.' > "$OUT_DIR/$PROFILE_MARKER"
     echo "[desktop-live] configured disposable live-build source in $OUT_DIR"
