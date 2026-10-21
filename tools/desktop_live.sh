@@ -115,6 +115,10 @@ UNIT
             "$OUT_DIR/config/includes.chroot/usr/local/libexec/synveil-login-enroll-prestart"
         install -Dm 0755 "$SOURCE_DIR/login-enroll-reporter.sh" \
             "$OUT_DIR/config/includes.chroot/usr/local/libexec/synveil-login-enroll-reporter"
+        install -Dm 0755 "$SOURCE_DIR/login-enroll-session-logout.sh" \
+            "$OUT_DIR/config/includes.chroot/usr/local/libexec/synveil-login-enroll-session-logout"
+        install -Dm 0644 "$SOURCE_DIR/login-enroll-session-logout.desktop" \
+            "$OUT_DIR/config/includes.chroot/etc/xdg/autostart/synveil-login-enroll-session-logout.desktop"
         install -Dm 0644 "$SOURCE_DIR/login-enroll-lightdm.conf" \
             "$OUT_DIR/config/includes.chroot/etc/lightdm/lightdm.conf.d/90-synveil-ci-login-enroll.conf"
         install -Dm 0644 "$SOURCE_DIR/login-enroll-reporter.service" \
