@@ -52,7 +52,12 @@ a claim of boot success on the physical machine.
 
 ## Mandatory gates before owner-side USB boot
 
-- [ ] Source-built hardware kernel and FAT/EFI image verified in CI.
+- [x] Source-built hardware kernel and FAT/EFI image verified in CI
+      ([hardware build proof at 0cc3879](https://github.com/magicmantheace/Synveil/actions/runs/39505922998)).
+      This is build-only evidence, not an actual hardware boot.
+- [ ] Experimental Debian/XFCE ISO built and EFI El Torito entries inspected
+      ([ISO build proof at 8be2d1d](https://github.com/magicmantheace/Synveil/actions/runs/39506908391));
+      UEFI boot and window interaction remain independently unproven.
 - [ ] Correct `tty0` screen diagnostics and UEFI firmware framebuffer
       tested in a disposable QEMU UEFI graphical session.
 - [ ] Real multiwindow desktop with graphical login and owner enrollment;
