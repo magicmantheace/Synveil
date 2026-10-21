@@ -116,8 +116,19 @@ jobs:
           python3 tests/smoke-desktop-live.py \
             --iso "$iso" \
             --evidence "$PWD/out/desktop-live/guest-proof-evidence" \
-            --timeout 480
+            --timeout 300
 
+      # This is a second *independent* cold boot of the same unmodified ISO,
+      # with fresh OVMF variables and zero writable guest disks. It exercises
+      # repeat startup reliability; it is NOT a persistence or reboot-update test.
+      - name: Boot the exact ISO again with fresh UEFI vars and confirm windows
+        run: |
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          test -n "$iso"
+          python3 tests/smoke-desktop-live.py \
+            --iso "$iso" \
+            --evidence "$PWD/out/desktop-live/guest-proof-evidence-second-boot" \
+            --timeout 300
 
       - name: Preserve metadata and logs without distributing insecure ISO
         if: always()
@@ -132,4 +143,7 @@ jobs:
             out/desktop-live/guest-proof-evidence/serial.log
             out/desktop-live/guest-proof-evidence/qemu.stderr.log
             out/desktop-live/guest-proof-evidence/desktop.ppm
+            out/desktop-live/guest-proof-evidence-second-boot/serial.log
+            out/desktop-live/guest-proof-evidence-second-boot/qemu.stderr.log
+            out/desktop-live/guest-proof-evidence-second-boot/desktop.ppm
             out/desktop-live/config
