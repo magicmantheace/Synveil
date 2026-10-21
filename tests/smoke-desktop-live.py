@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import signal
 import socket
 import subprocess
@@ -25,6 +26,9 @@ from qmp_input import QMPError, _read_reply, emit_command, send_keys  # noqa: E4
 
 PASS = b"SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS"
 FAIL = b"SYNVEIL_QEMU_DESKTOP_PROBE_FAILED"
+HOME_WRITTEN = b"SYNVEIL_QEMU_HOME_WRITTEN"
+HOME_RECOVERED = b"SYNVEIL_QEMU_HOME_RECOVERED"
+HOME_FAILED = b"SYNVEIL_QEMU_HOME_PROOF_FAILED"
 OVMF_PAIRS = (
     ("/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_VARS_4M.fd"),
     ("/usr/share/OVMF/OVMF_CODE.fd", "/usr/share/OVMF/OVMF_VARS.fd"),
@@ -130,7 +134,8 @@ def capture_screenshot(qmp: Path, output: Path):
             })
 
 
-def run(iso: Path, evidence: Path, timeout: float) -> bool:
+def run(iso: Path, evidence: Path, timeout: float, *,
+        home_disk: Path | None = None, home_stage: str = "none") -> bool:
     iso = iso.resolve(strict=True)
     if not iso.is_file() or iso.stat().st_size < 1024 * 1024:
         raise ValueError("expected a nonempty ISO file artifact")
@@ -138,6 +143,21 @@ def run(iso: Path, evidence: Path, timeout: float) -> bool:
         raise ValueError("evidence path already exists; refusing overwrite")
     if timeout < 30 or timeout > 900:
         raise ValueError("timeout must be between 30 and 900 seconds")
+    if home_stage not in ("none", "write", "read"):
+        raise ValueError("invalid VM-only home stage")
+    if (home_disk is None) != (home_stage == "none"):
+        raise ValueError("home disk requires explicit write/read test stage")
+    if home_disk is not None:
+        # A future caller cannot accidentally pass the owner's block device.
+        expected = ROOT / "out/desktop-live/home-persistence.img"
+        if (home_disk.is_symlink() or home_disk.parent.is_symlink() or
+                home_disk.absolute() != expected or not home_disk.is_file()):
+            raise ValueError("refusing a non-prototype or linked home disk")
+        disk_stat = home_disk.stat()
+        if (not stat.S_ISREG(disk_stat.st_mode) or disk_stat.st_nlink != 1 or
+                disk_stat.st_size != 256 * 1024 * 1024 or
+                disk_stat.st_mode & 0o077):
+            raise ValueError("unsafe VM-only home file")
     code, vars_base = find_ovmf()
     evidence.mkdir(mode=0o700, parents=True, exist_ok=False)
     vars_file = evidence / "OVMF_VARS.fd"
@@ -159,6 +179,10 @@ def run(iso: Path, evidence: Path, timeout: float) -> bool:
         "-drive", f"file={iso},media=cdrom,readonly=on",
         "-boot", "order=d", "-no-reboot",
     ]
+    if home_disk is not None:
+        # Only a single existing 256MiB regular file, not a device or loop.
+        command.extend(["-drive",
+                        f"if=virtio,format=raw,cache=writeback,file={home_disk}"])
     with stderr.open("wb") as errors:
         process = subprocess.Popen(
             command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
@@ -176,6 +200,23 @@ def run(iso: Path, evidence: Path, timeout: float) -> bool:
                     print("[desktop-qemu] guest window manager probe failed", file=sys.stderr)
                     break
                 if status == "passed":
+                    lines = {line.strip() for line in output.splitlines()}
+                    expected_home = {
+                        "none": None, "write": HOME_WRITTEN,
+                        "read": HOME_RECOVERED,
+                    }[home_stage]
+                    if HOME_FAILED in lines or (expected_home and
+                            (expected_home not in lines or (
+                                HOME_WRITTEN in lines and home_stage != "write"
+                            ) or (
+                                HOME_RECOVERED in lines and home_stage != "read"
+                            ))):
+                        print("[desktop-qemu] home persistence proof missing, "
+                              "failed or returned wrong stage", file=sys.stderr)
+                        break
+                    if expected_home:
+                        print("[desktop-qemu] verified separate home marker: " +
+                              expected_home.decode("ascii"), flush=True)
                     if not qmp.exists():
                         print("[desktop-qemu] QMP unavailable despite guest proof",
                               file=sys.stderr)
@@ -253,9 +294,14 @@ def main():
     parser.add_argument("--iso", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--timeout", type=float, default=360)
+    parser.add_argument("--home-disk", type=Path,
+                        help="fixed VM-only out/desktop-live/home-persistence.img")
+    parser.add_argument("--home-stage", choices=("none", "write", "read"),
+                        default="none")
     args = parser.parse_args()
     try:
-        okay = run(args.iso, args.evidence, args.timeout)
+        okay = run(args.iso, args.evidence, args.timeout,
+                   home_disk=args.home_disk, home_stage=args.home_stage)
     except (OSError, ValueError, RuntimeError) as exc:
         parser.error(str(exc))
     return 0 if okay else 1
