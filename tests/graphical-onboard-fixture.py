@@ -74,18 +74,17 @@ if boot == 1:
     assert wait_for(5)
     print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
 else:
-    assert wait_for(7)
-    # Seventh signal includes an actual framebuffer check before the wrong
-    # password; the sixth event is the read-only QMP scanout request.
-    # Sixth synthetic input is intentionally wrong on the independent
-    # boot, after five inputs from first-boot enrollment and login.
+    # Five first-boot passwords + its framebuffer = six events.
+    # The rebooted login framebuffer is event seven; the wrong reboot
+    # password is event eight. Never emit a rejection before that keypress.
+    assert wait_for(8)
     if mode == 'reboot-wrong-accepted':
         print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
         sys.exit(0)
     if mode == 'reboot-wrong-no-denial':
         sys.exit(0)
     print('SYNVEIL_GRAPHICAL_AUTH_DENIED', flush=True)
-    assert wait_for(8)
+    assert wait_for(9)
     if mode == 'reboot-denied':
         print('SYNVEIL_GRAPHICAL_AUTH_DENIED', flush=True)
         sys.exit(0)
