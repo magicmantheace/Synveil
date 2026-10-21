@@ -25,6 +25,7 @@ done
 send_marker SYNVEIL_QEMU_TEST_AUTH_GREETER_READY
 i=0
 stable=0
+active=0
 while [ "$i" -lt 170 ]; do
     i=$((i + 1))
     uid="$(id -u synveil 2>/dev/null || echo '')"
@@ -34,6 +35,7 @@ while [ "$i" -lt 170 ]; do
         stable=$((stable + 1))
         if [ "$stable" -ge 4 ]; then
             send_marker SYNVEIL_QEMU_TEST_AUTH_SESSION_ACTIVE
+            active=1
             break
         fi
     else
@@ -41,8 +43,10 @@ while [ "$i" -lt 170 ]; do
     fi
     sleep 1
 done
-send_marker SYNVEIL_QEMU_TEST_AUTH_FAILED
-exit 1
+if [ "$active" -ne 1 ]; then
+    send_marker SYNVEIL_QEMU_TEST_AUTH_FAILED
+    exit 1
+fi
 # Require the normal XFCE logout to actually revoke the first session,
 # restore LightDM, and leave the temporary user without a running desktop.
 # This is a test assertion, never authorization of a user action.
