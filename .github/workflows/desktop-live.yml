@@ -14,6 +14,8 @@ on:
       - experiments/desktop-live/**
       - tools/desktop_live.sh
       - tests/desktop-live.py
+      - tests/desktop-home.py
+      - tools/create_desktop_home_image.py
       - tests/smoke-desktop-live.py
       - tools/qmp_input.py
       - tools/inspect_desktop_iso.py
@@ -55,6 +57,9 @@ jobs:
           grep -F 'live-config.noroot' out/desktop-live/config/binary
           test ! -e out/desktop-live/live-image-amd64.hybrid.iso
 
+      - name: Validate file-only home volume creation fixture
+        run: python3 tests/desktop-home.py
+
       # Do not publish an autologin/unauthenticated preview as owner-ready.
       - name: Retain non-image configuration log only
         if: always()
@@ -88,7 +93,7 @@ jobs:
             ca-certificates git live-build debootstrap \
             squashfs-tools xorriso isolinux syslinux-common \
             grub-efi-amd64-bin mtools dosfstools \
-            qemu-system-x86 ovmf python3
+            qemu-system-x86 ovmf python3 e2fsprogs util-linux
 
       - name: Check out Synveil
         uses: actions/checkout@v6
@@ -130,6 +135,36 @@ jobs:
             --evidence "$PWD/out/desktop-live/guest-proof-evidence-second-boot" \
             --timeout 300
 
+      # Disposable ext4 home image: newly created 256MiB regular file only.
+      # The same file is attached to two separate, fully isolated QEMU guests.
+      # Never writes or partitions the runner's physical devices.
+      - name: Create VM-only home filesystem without mounting or formatting disks
+        run: |
+          python3 tools/create_desktop_home_image.py --create
+          test -f out/desktop-live/home-persistence.img
+          test "$(stat -c '%s' out/desktop-live/home-persistence.img)" = 268435456
+          test "$(blkid -p -s LABEL -o value out/desktop-live/home-persistence.img)" = synvmhome
+
+      - name: Real guest write of a home file on the VM-only filesystem
+        run: |
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          python3 tests/smoke-desktop-live.py \
+            --iso "$iso" \
+            --home-disk "$PWD/out/desktop-live/home-persistence.img" \
+            --home-stage write \
+            --evidence "$PWD/out/desktop-live/guest-home-write" \
+            --timeout 300
+
+      - name: Separate QEMU UEFI boot reads the same persisted home file
+        run: |
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          python3 tests/smoke-desktop-live.py \
+            --iso "$iso" \
+            --home-disk "$PWD/out/desktop-live/home-persistence.img" \
+            --home-stage read \
+            --evidence "$PWD/out/desktop-live/guest-home-read" \
+            --timeout 300
+
       - name: Preserve metadata and logs without distributing insecure ISO
         if: always()
         uses: actions/upload-artifact@v4
@@ -146,4 +181,10 @@ jobs:
             out/desktop-live/guest-proof-evidence-second-boot/serial.log
             out/desktop-live/guest-proof-evidence-second-boot/qemu.stderr.log
             out/desktop-live/guest-proof-evidence-second-boot/desktop.ppm
+            out/desktop-live/guest-home-write/serial.log
+            out/desktop-live/guest-home-write/qemu.stderr.log
+            out/desktop-live/guest-home-write/desktop.ppm
+            out/desktop-live/guest-home-read/serial.log
+            out/desktop-live/guest-home-read/qemu.stderr.log
+            out/desktop-live/guest-home-read/desktop.ppm
             out/desktop-live/config
