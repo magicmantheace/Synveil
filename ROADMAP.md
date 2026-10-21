@@ -53,6 +53,12 @@ ready; full AI optimization and package management are not prerequisites.
   - Native QEMU recovery, restart exhaustion, absent-binary, protocol and observer
     checks passed at [810f66d](docs/validation/native-810f66d/README.md).
 - [ ] Provide persistent writable storage that survives reboot
+  - The isolated Debian/XFCE integration ISO retained a real unprivileged
+    `/home` test file across two completely separate QEMU boots using
+    one 256 MiB file-backed ext4 device, with guest marker and desktop
+    validation at [0579de0](docs/validation/desktop-home-0579de/README.md).
+    **Native installed-root persistence, owner login, encryption and
+    system A/B remain unproven; the user install gate stays open.**
   - QEMU /var state disk survived independent write/reboot/read in the
     [partial guest evidence](docs/validation/persistence-2e1e54c/README.md).
     The demo user's protected bind-mounted home and preferences survived
