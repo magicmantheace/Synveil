@@ -1,0 +1,14 @@
+[Unit]
+Description=Synveil disposable QEMU real PAM login smoke
+After=lightdm.service
+ConditionPathExists=/etc/synveil/ci-login-enroll
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/synveil-login-enroll-reporter
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=graphical.target
