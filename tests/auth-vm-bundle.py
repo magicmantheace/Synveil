@@ -74,6 +74,7 @@ class AuthenticatedBundleTests(unittest.TestCase):
             "result": "passed", "independent_qemu_boots": 2,
             "locked_serial": True, "first_user_enrollment": True,
             "persistent_authentication": True,
+            "wrong_password_denied_after_cold_reboot": True,
         }))
 
     def create(self):
