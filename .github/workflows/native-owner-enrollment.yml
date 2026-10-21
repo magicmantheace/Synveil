@@ -118,6 +118,12 @@ jobs:
           frame_proof = "authenticated graphical session and RGB scanout verified"
           assert frame_proof in first
           assert frame_proof in reboot
+          # The screenshot helper deletes private captures; the receipt
+          # records only whether a real QMP framebuffer validation passed.
+          private_screens = list(
+              Path("out/guest-fixtures/graphical-onboard").rglob("*.ppm")
+          )
+          assert not private_screens, "sensitive native test screenshots retained"
           print("NATIVE_OWNER_ENROLL_TWO_BOOT_AND_WRONG_PASSWORD_PASS")
           PY
 
