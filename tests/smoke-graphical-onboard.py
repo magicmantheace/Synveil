@@ -147,7 +147,19 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                         # must authenticate on the independent cold boot.
                         return False
                     if phase == "logging-in" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
-                        evidence.write(b"[synveil] authenticated graphical session reached\n")
+                        # A serial marker alone could be emitted while the
+                        # seat is still on the login VT. Require independent
+                        # RGB QMP scanout after the guest reports success.
+                        # Never capture while any credential is being typed.
+                        time.sleep(0.6)
+                        frame_name = ("native-first-authenticated.ppm" if fresh
+                                      else "native-reboot-authenticated.ppm")
+                        if not capture_test_scanout(
+                            qmp, Path(temp) / frame_name, timeout=8
+                        ):
+                            evidence.write(b"[synveil] no visible graphical session after login\n")
+                            return False
+                        evidence.write(b"[synveil] authenticated graphical session and RGB scanout verified\n")
                         return True
                 evidence.write(("[synveil] incomplete: " + phase + "\n").encode())
                 return False
