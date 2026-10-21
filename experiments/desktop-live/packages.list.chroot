@@ -26,3 +26,4 @@ firmware-misc-nonfree
 wmctrl
 xdotool
 x11-utils
+procps
