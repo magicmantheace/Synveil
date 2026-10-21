@@ -84,7 +84,7 @@ jobs:
             ca-certificates git live-build debootstrap \
             squashfs-tools xorriso isolinux syslinux-common \
             grub-efi-amd64-bin mtools dosfstools \
-            qemu-system-x86 ovmf
+            qemu-system-x86 ovmf python3
 
       - name: Check out Synveil
         uses: actions/checkout@v6
