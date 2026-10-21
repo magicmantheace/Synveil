@@ -93,6 +93,87 @@ class QMPTests(unittest.TestCase):
                     break
                 connection.sendall(b'{"return":{}}\n')
 
+    def test_graphical_ppm_parser_rejects_blank_truncated_and_unsafe_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file = Path(tmp) / "test-frame.ppm"
+            header = b"P6\n320 200\n255\n"
+            good = b"\x00\x14\xfa" * (320 * 200)
+            for data, expected in (
+                (header + good, True),
+                (header + bytes(320 * 200 * 3), False),
+                (header + good[:100], False),
+                (b"P3\n320 200\n255\n" + good, False),
+                (b"P6\n1 1\n255\n" + b"\x00\xfa\xdd", False),
+                (header + good + b"junk", False),
+            ):
+                file.write_bytes(data)
+                self.assertIs(qmp_input.verified_ppm_test_frame(file), expected)
+            file.unlink()
+            file.symlink_to(Path(tmp) / "missing")
+            self.assertFalse(qmp_input.verified_ppm_test_frame(file))
+
+    def test_readonly_qmp_scanout_uses_private_ephemeral_output_and_exact_command(self):
+        def serve_capture(listener, commands, *, blank):
+            connection, _ = listener.accept()
+            with connection, connection.makefile("rb") as reader:
+                connection.sendall(
+                    b'{"QMP":{"version":{"qemu":{"major":1,"minor":0,"micro":0}}}}\n')
+                while line := reader.readline():
+                    item = json.loads(line)
+                    commands.append(item)
+                    if item.get("execute") == "screendump":
+                        frame = Path(item["arguments"]["filename"])
+                        frame.write_bytes(
+                            b"P6\n320 200\n255\n" +
+                            ((b"\x00\x11\xec" if not blank else b"\x00\x00\x00")
+                             * (320 * 200))
+                        )
+                    connection.sendall(b'{"return":{}}\n')
+
+        for blank in (False, True):
+            with self.subTest(blank=blank), tempfile.TemporaryDirectory() as tmp:
+                endpoint = Path(tmp) / "qmp.sock"
+                output = Path(tmp) / "reboot-login.ppm"
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+                    listener.bind(str(endpoint))
+                    listener.listen(1)
+                    commands = []
+                    worker = threading.Thread(
+                        target=serve_capture, args=(listener, commands),
+                        kwargs={"blank": blank}
+                    )
+                    worker.start()
+                    self.assertEqual(
+                        qmp_input.capture_test_scanout(endpoint, output, timeout=5),
+                        not blank
+                    )
+                    worker.join(timeout=3)
+                    self.assertFalse(worker.is_alive())
+                self.assertEqual([c["execute"] for c in commands],
+                                 ["qmp_capabilities", "screendump"])
+                self.assertFalse(output.exists())  # no password/owner screen retained
+                output.write_bytes(b"do-not-overwrite")
+                with self.assertRaises(ValueError):
+                    qmp_input.capture_test_scanout(endpoint, output, timeout=2)
+                self.assertEqual(output.read_bytes(), b"do-not-overwrite")
+
+    def test_graphical_screendump_refuses_public_or_symlink_destination(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            private = Path(tmp) / "private"
+            private.mkdir(mode=0o700)
+            public = Path(tmp) / "public"
+            public.mkdir(mode=0o755)
+            target = private / "target.ppm"
+            link = private / "alias.ppm"
+            link.symlink_to(target)
+            with self.assertRaises(ValueError):
+                qmp_input.capture_test_scanout(
+                    Path(tmp) / "none.sock", public / "frame.ppm")
+            with self.assertRaises(ValueError):
+                qmp_input.capture_test_scanout(
+                    Path(tmp) / "none.sock", link)
+            self.assertFalse(target.exists())
+
     def test_setting_navigation_uses_typed_qmp_keys(self):
         with tempfile.TemporaryDirectory() as tmp:
             endpoint = Path(tmp) / "qmp.sock"
