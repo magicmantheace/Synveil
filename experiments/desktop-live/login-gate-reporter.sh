@@ -5,7 +5,9 @@ set -eu
 [ -f /etc/synveil/ci-login-gate ] || exit 1
 send_marker() {
     if [ -c /dev/ttyS0 ]; then
-        printf '%s\n' "$1" > /dev/ttyS0
+        # Linux getty can leave an unfinished "synveil login: " prompt.
+        # Terminate that line before writing a fixed, machine-readable token.
+        printf '\n%s\n' "$1" > /dev/ttyS0
     fi
 }
 send_marker SYNVEIL_QEMU_LOGIN_GATE_STARTED
