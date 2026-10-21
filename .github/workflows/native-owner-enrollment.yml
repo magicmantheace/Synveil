@@ -107,6 +107,7 @@ jobs:
           assert receipt["persistent_authentication"] is True
           assert receipt["wrong_password_denied_after_cold_reboot"] is True
           assert receipt["graphical_scanout_after_cold_reboot"] is True
+          assert receipt["nonblank_rgb_after_login_both_boots"] is True
           assert receipt["locked_serial"] is True
           first = Path("out/guest-fixtures/graphical-onboard/logs/onboard-first.log").read_text()
           reboot = Path("out/guest-fixtures/graphical-onboard/logs/onboard-reboot.log").read_text()
@@ -114,6 +115,9 @@ jobs:
           assert "SYNVEIL_GRAPHICAL_AUTH_DENIED" in reboot
           assert "SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in reboot
           assert "SYNVEIL_ENROLL_READY" not in reboot
+          frame_proof = "authenticated graphical session and RGB scanout verified"
+          assert frame_proof in first
+          assert frame_proof in reboot
           print("NATIVE_OWNER_ENROLL_TWO_BOOT_AND_WRONG_PASSWORD_PASS")
           PY
 
