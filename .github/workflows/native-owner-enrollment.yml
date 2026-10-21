@@ -112,7 +112,6 @@ jobs:
           assert "SYNVEIL_GRAPHICAL_AUTH_DENIED" in reboot
           assert "SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in reboot
           assert "SYNVEIL_ENROLL_READY" not in reboot
-          assert "[REDACTED]" not in reboot or "SYNVEIL_" in reboot
           print("NATIVE_OWNER_ENROLL_TWO_BOOT_AND_WRONG_PASSWORD_PASS")
           PY
 
