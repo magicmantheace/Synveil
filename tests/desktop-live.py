@@ -65,6 +65,8 @@ class DesktopLiveProfileTests(unittest.TestCase):
         opts = args[args.index("--bootappend-live") + 1]
         self.assertIn("live-config.noroot", opts)
         self.assertIn("boot=live components", opts)
+        self.assertIn("console=ttyS0,115200n8", opts)
+        self.assertIn("console=tty0", opts)
         failsafe = args[args.index("--bootappend-live-failsafe") + 1]
         self.assertIn("nomodeset", failsafe)
         self.assertIn("live-config.noroot", failsafe)
@@ -140,6 +142,9 @@ class DesktopLiveProfileTests(unittest.TestCase):
             self.assertIn(operation, text)
         self.assertIn("SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS", text)
         self.assertIn("SYNVEIL_QEMU_DESKTOP_PROBE_FAILED", text)
+        relay_text = reporter.read_text()
+        self.assertIn("SYNVEIL_QEMU_RELAY_STARTED", relay_text)
+        self.assertIn("SYNVEIL_QEMU_DESKTOP_PROBE_STARTED", relay_text)
 
     def test_qemu_status_requires_exact_guest_marker_and_real_scanout(self):
         spec = importlib.util.spec_from_file_location(
