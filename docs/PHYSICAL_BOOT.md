@@ -59,11 +59,14 @@ a claim of boot success on the physical machine.
       boot entries verified ([image build](https://github.com/magicmantheace/Synveil/actions/runs/39506908391),
       [fail-closed UEFI inspection](https://github.com/magicmantheace/Synveil/actions/runs/39522697228)).
       An entry in an ISO is not proof of a running desktop.
-- [ ] Confirm actual UEFI QEMU boot and real Xfwm4 multiwindow interaction.
-      The previous timeout left the guest at the live boot menu, so the
-      developer VM test now recognizes that menu and sends one Return only
-      while booting. The [current isolated full-image test](https://github.com/magicmantheace/Synveil/actions/runs/39541711454)
-      must pass before this gate can be checked.
+- [x] Experimental **Debian/XFCE** image booted in actual OVMF/QEMU UEFI
+      and Xfwm4 moved/resized, maximized, minimized and restored its
+      real Terminal and Thunar application windows. Both the serial session
+      marker and framebuffer passed at exact SHA `c0242259f`
+      ([completed CI evidence](https://github.com/magicmantheace/Synveil/actions/runs/39541711454),
+      [validation record](validation/desktop-live-c024225/README.md)).
+      This is **not** a native Synveil compositor, protected owner login,
+      installed-system boot, hardware GPU test, or production release.
 - [ ] Correct `tty0` screen diagnostics and UEFI firmware framebuffer
       tested in a disposable QEMU UEFI graphical session.
 - [ ] Real multiwindow desktop with graphical login and owner enrollment;
