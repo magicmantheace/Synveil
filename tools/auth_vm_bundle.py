@@ -55,7 +55,8 @@ def verify_authenticated_fixture(fixture: Path, revision: str) -> dict:
             proof.get("locked_serial") is not True or
             proof.get("first_user_enrollment") is not True or
             proof.get("persistent_authentication") is not True or
-            proof.get("wrong_password_denied_after_cold_reboot") is not True):
+            proof.get("wrong_password_denied_after_cold_reboot") is not True or
+            proof.get("graphical_scanout_after_cold_reboot") is not True):
         raise ValueError("no matching successful independent QEMU onboarding proof")
     artifacts = manifest.get("artifacts")
     if not isinstance(artifacts, dict):
