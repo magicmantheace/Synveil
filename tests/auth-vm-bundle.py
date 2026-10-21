@@ -163,7 +163,9 @@ class AuthenticatedBundleTests(unittest.TestCase):
     def test_rejects_invalid_guest_proof_fields(self):
         path = self.fixture / "manifests/validation.json"
         for key, value in (("result", "failed"), ("independent_qemu_boots", 1),
-                           ("locked_serial", False), ("persistent_authentication", False)):
+                           ("locked_serial", False), ("persistent_authentication", False),
+                           ("wrong_password_denied_after_cold_reboot", False),
+                           ("wrong_password_denied_after_cold_reboot", None)):
             original = json.loads(path.read_text())
             original[key] = value
             path.write_text(json.dumps(original))
