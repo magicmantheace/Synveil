@@ -97,9 +97,14 @@ class QMPTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             file = Path(tmp) / "test-frame.ppm"
             header = b"P6\n320 200\n255\n"
-            good = b"\x00\x14\xfa" * (320 * 200)
+            # Genuine UI content contains multiple differently colored
+            # *pixels*. A solid nonblack RGB triplet must not qualify.
+            good = (b"\x00\x14\xfa" * 160 +
+                    b"\xff\xff\xff" * 160) * 200
             for data, expected in (
                 (header + good, True),
+                (header + b"\x00\x14\xfa" * (320 * 200), False),
+                (header + b"\x00\x00\xff" * (320 * 200), False),
                 (header + bytes(320 * 200 * 3), False),
                 (header + good[:100], False),
                 (b"P3\n320 200\n255\n" + good, False),
@@ -125,8 +130,9 @@ class QMPTests(unittest.TestCase):
                         frame = Path(item["arguments"]["filename"])
                         frame.write_bytes(
                             b"P6\n320 200\n255\n" +
-                            ((b"\x00\x11\xec" if not blank else b"\x00\x00\x00")
-                             * (320 * 200))
+                            (((b"\x00\x11\xec" * 160 +
+                                b"\xee\xee\xee" * 160) * 200)
+                             if not blank else bytes(320 * 200 * 3))
                         )
                     connection.sendall(b'{"return":{}}\n')
 
