@@ -20,6 +20,11 @@
 > application interaction at [c0242259f](docs/validation/desktop-live-c024225/README.md).
 > Two independent fresh UEFI boots with the panel, Settings Manager, Thunar
 > and Terminal also passed [at 437020d](docs/validation/desktop-live-437020d/README.md).
+> A separate test-only Debian/XFCE profile has also passed a real
+> **wrong-password denial then correct-password graphical login**
+> using an ephemeral QEMU test value (see
+> [00edc3d guest evidence](docs/validation/desktop-pam-00edc3d/README.md)).
+> That is **not user-controlled enrollment or a persistent secure login**.
 > This is **not a native, authenticated or persistent installed desktop**.
 > No physical USB validation, trusted installer or signed updater exists.
 
