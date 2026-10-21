@@ -331,11 +331,11 @@ class DesktopLiveProfileTests(unittest.TestCase):
         spec.loader.exec_module(mod)
         for marker in (mod.PAM_RELOCKED, mod.PAM_RELOGIN_ACTIVE):
             self.assertIn(marker, mod.locked_greeter_serial_markers(
-                b"synveil login: " + marker + b"\\n"))
+                b"synveil login: " + marker + b"\n"))
             self.assertNotIn(marker, mod.locked_greeter_serial_markers(
-                b"untrusted-prefix" + marker + b"\\n"))
+                b"untrusted-prefix" + marker + b"\n"))
             self.assertNotIn(marker, mod.locked_greeter_serial_markers(
-                marker + b" forged\\n"))
+                marker + b" forged\n"))
         src = (ROOT / "tests/smoke-desktop-live.py").read_text()
         self.assertIn('pam_stage = "relock"', src)
         self.assertIn('pam_stage = "relock-wrong"', src)
