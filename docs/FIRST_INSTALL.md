@@ -46,9 +46,13 @@ authenticated onboarding and uses Debian live-config's disposable-user
 behavior. It must not be presented as the first physical user release.
 
 The existing native development and authenticated framebuffer preview stay
-in the repository. A Debian ISO build, multiwindow QEMU runtime proof,
-first-user authentication, recovery, and later native integration all need
-independent validation before owner testing. See
+in the repository. The Debian ISO and real Xfwm4 multiwindow boot now pass
+[one full UEFI QEMU run](validation/desktop-live-c024225/README.md) and
+[two consecutive *independent* cold boots with terminal, file manager,
+panel and Settings Manager](validation/desktop-live-437020d/README.md).
+**Neither test preserved data across boots.** First-user authentication,
+recovery, installed-system persistence and eventual native integration
+still need independent validation before owner testing. See
 [ADR 0014](adr/0014-isolated-desktop-proof.md).
 
 ## Dependency order
