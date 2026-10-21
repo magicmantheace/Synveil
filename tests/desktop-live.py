@@ -27,7 +27,9 @@ class DesktopLiveProfileTests(unittest.TestCase):
                      "login-gate-prestart.sh", "login-gate-reporter.sh",
                      "login-gate-lightdm.conf", "login-gate-reporter.service",
                      "login-enroll-prestart.sh", "login-enroll-reporter.sh",
-                     "login-enroll-lightdm.conf", "login-enroll-reporter.service"):
+                     "login-enroll-lightdm.conf", "login-enroll-reporter.service",
+                     "login-enroll-session-logout.sh",
+                     "login-enroll-session-logout.desktop"):
             shutil.copy2(ROOT / "experiments/desktop-live" / name,
                          self.root / "experiments/desktop-live" / name)
         self.bin = self.root / "fake-bin"
@@ -208,7 +210,10 @@ class DesktopLiveProfileTests(unittest.TestCase):
         self.assertFalse((root / "etc/synveil/ci-login-gate").exists())
         prestart = root / "usr/local/libexec/synveil-login-enroll-prestart"
         reporter = root / "usr/local/libexec/synveil-login-enroll-reporter"
-        for script in (prestart, reporter):
+        logout = root / "usr/local/libexec/synveil-login-enroll-session-logout"
+        logout_autostart = root / ("etc/xdg/autostart/"
+                                   "synveil-login-enroll-session-logout.desktop")
+        for script in (prestart, reporter, logout):
             self.assertTrue(script.is_file())
             subprocess.run(["sh", "-n", str(script)], check=True)
         src = prestart.read_text()
@@ -221,6 +226,13 @@ class DesktopLiveProfileTests(unittest.TestCase):
         self.assertNotIn('chpasswd --encrypted', src)
         self.assertNotIn('secret=hardcoded', src)
         self.assertIn("SYNVEIL_QEMU_TEST_AUTH_SESSION_ACTIVE", reporter.read_text())
+        self.assertIn("SYNVEIL_QEMU_TEST_AUTH_RELOCKED", reporter.read_text())
+        self.assertIn("SYNVEIL_QEMU_TEST_AUTH_RELOGIN_ACTIVE", reporter.read_text())
+        self.assertIn("pgrep -u", reporter.read_text())
+        self.assertIn("exec xfce4-session-logout --logout --fast", logout.read_text())
+        self.assertIn("SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS", logout.read_text())
+        self.assertIn("Exec=/usr/local/libexec/synveil-login-enroll-session-logout",
+                      logout_autostart.read_text())
         self.assertIn("pgrep -u", reporter.read_text())
         self.assertTrue((root / "etc/systemd/system/lightdm.service.d/"
                          "50-synveil-ci-login-enroll.conf").is_file())
@@ -236,6 +248,9 @@ class DesktopLiveProfileTests(unittest.TestCase):
         self.assertIn("name=opt/synveil/ci-secret,string=", runner)
         self.assertIn("type_test_secret(qmp, wrong_secret", runner)
         self.assertIn("type_test_secret(qmp, ephemeral_secret", runner)
+        self.assertIn('pam_stage = "relock"', runner)
+        self.assertIn('pam_stage = "relock-wrong"', runner)
+        self.assertIn('pam_stage = "relogin"', runner)
 
     def test_default_preview_never_includes_locked_gate(self):
         self.assertEqual(self.invoke("configure", login_gate="0").returncode, 0)
