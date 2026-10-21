@@ -7,6 +7,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_DIR="$ROOT_DIR/experiments/desktop-live"
 OUT_DIR="$ROOT_DIR/out/desktop-live"
 PROFILE_MARKER=".synveil-desktop-live-prototype"
+# Separate opt-in test-only locked LightDM greeter (never enrolled).
+LOGIN_GATE="${SYNVEIL_DESKTOP_LOGIN_GATE:-0}"
+[[ "$LOGIN_GATE" == 0 || "$LOGIN_GATE" == 1 ]] || {
+    echo "[desktop-live] invalid explicit VM login gate" >&2
+    exit 2
+}
 
 usage() {
     printf 'Usage: bash tools/desktop_live.sh configure|build\n' >&2
@@ -37,6 +43,10 @@ if [[ "$mode" == configure ]]; then
     }
     mkdir -p "$ROOT_DIR/out"
     mkdir -m 0700 "$OUT_DIR"
+    login_flags=""
+    if [[ "$LOGIN_GATE" == 1 ]]; then
+        login_flags=" live-config.noautologin"
+    fi
     (
         cd "$OUT_DIR"
         lb config \
@@ -49,8 +59,8 @@ if [[ "$mode" == configure ]]; then
           --archive-areas 'main contrib non-free-firmware' \
           --checksums sha256 \
           --image-name synveil-desktop-preview \
-          --bootappend-live 'boot=live components live-config.username=synveil live-config.hostname=synveil live-config.noroot persistence persistence-label=synvmhome persistence-storage=filesystem console=tty0 console=ttyS0,115200n8 systemd.show_status=yes loglevel=6' \
-          --bootappend-live-failsafe 'boot=live components live-config.username=synveil live-config.hostname=synveil live-config.noroot nomodeset persistence persistence-label=synvmhome persistence-storage=filesystem console=tty0 console=ttyS0,115200n8 systemd.show_status=yes loglevel=6'
+          --bootappend-live "boot=live components live-config.username=synveil live-config.hostname=synveil live-config.noroot${login_flags} persistence persistence-label=synvmhome persistence-storage=filesystem console=tty0 console=ttyS0,115200n8 systemd.show_status=yes loglevel=6" \
+          --bootappend-live-failsafe "boot=live components live-config.username=synveil live-config.hostname=synveil live-config.noroot${login_flags} nomodeset persistence persistence-label=synvmhome persistence-storage=filesystem console=tty0 console=ttyS0,115200n8 systemd.show_status=yes loglevel=6"
     )
     install -Dm 0644 "$SOURCE_DIR/packages.list.chroot" \
         "$OUT_DIR/config/package-lists/synveil-desktop.list.chroot"
@@ -72,6 +82,29 @@ if [[ "$mode" == configure ]]; then
     mkdir -p "$OUT_DIR/config/includes.chroot/etc/systemd/system/multi-user.target.wants"
     ln -s ../synveil-guest-proof.service \
         "$OUT_DIR/config/includes.chroot/etc/systemd/system/multi-user.target.wants/synveil-guest-proof.service"
+    if [[ "$LOGIN_GATE" == 1 ]]; then
+        # Disposable test-only greeter; no credential or auto-login.
+        install -Dm 0644 /dev/null \
+            "$OUT_DIR/config/includes.chroot/etc/synveil/ci-login-gate"
+        install -Dm 0755 "$SOURCE_DIR/login-gate-prestart.sh" \
+            "$OUT_DIR/config/includes.chroot/usr/local/libexec/synveil-login-gate-prestart"
+        install -Dm 0755 "$SOURCE_DIR/login-gate-reporter.sh" \
+            "$OUT_DIR/config/includes.chroot/usr/local/libexec/synveil-login-gate-reporter"
+        install -Dm 0644 "$SOURCE_DIR/login-gate-lightdm.conf" \
+            "$OUT_DIR/config/includes.chroot/etc/lightdm/lightdm.conf.d/90-synveil-ci-login-gate.conf"
+        install -Dm 0644 "$SOURCE_DIR/login-gate-reporter.service" \
+            "$OUT_DIR/config/includes.chroot/etc/systemd/system/synveil-login-gate-reporter.service"
+        mkdir -p "$OUT_DIR/config/includes.chroot/etc/systemd/system/lightdm.service.d"
+        cat > "$OUT_DIR/config/includes.chroot/etc/systemd/system/lightdm.service.d/50-synveil-ci-login-gate.conf" <<'UNIT'
+[Service]
+ExecStartPre=/usr/local/libexec/synveil-login-gate-prestart
+UNIT
+        mkdir -p "$OUT_DIR/config/includes.chroot/etc/systemd/system/graphical.target.wants"
+        ln -s ../synveil-login-gate-reporter.service \
+            "$OUT_DIR/config/includes.chroot/etc/systemd/system/graphical.target.wants/synveil-login-gate-reporter.service"
+        printf '%s\n' 'VM-ONLY LOCK GATE: NO OWNER ENROLLMENT' \
+            > "$OUT_DIR/.synveil-desktop-login-gate"
+    fi
     printf '%s\n' 'Experimental desktop with no installer; VM use only.' > "$OUT_DIR/$PROFILE_MARKER"
     echo "[desktop-live] configured disposable live-build source in $OUT_DIR"
     echo "[desktop-live] NOT owner-ready: no authenticated first-user onboarding or A/B updates"
