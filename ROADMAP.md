@@ -18,6 +18,8 @@
 > not ready for physical owner boot. An **isolated Debian/XFCE integration ISO**
 > has now booted through UEFI in QEMU and passed real Xfwm4 multiwindow
 > application interaction at [c0242259f](docs/validation/desktop-live-c024225/README.md).
+> Two independent fresh UEFI boots with the panel, Settings Manager, Thunar
+> and Terminal also passed [at 437020d](docs/validation/desktop-live-437020d/README.md).
 > This is **not a native, authenticated or persistent installed desktop**.
 > No physical USB validation, trusted installer or signed updater exists.
 
