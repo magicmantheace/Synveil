@@ -65,6 +65,15 @@ if boot == 1:
     print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
 else:
     assert wait_for(6)
+    # Sixth synthetic input is intentionally wrong on the independent
+    # boot, after five inputs from first-boot enrollment and login.
+    if mode == 'reboot-wrong-accepted':
+        print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
+        sys.exit(0)
+    if mode == 'reboot-wrong-no-denial':
+        sys.exit(0)
+    print('SYNVEIL_GRAPHICAL_AUTH_DENIED', flush=True)
+    assert wait_for(7)
     if mode == 'reboot-denied':
         print('SYNVEIL_GRAPHICAL_AUTH_DENIED', flush=True)
         sys.exit(0)
@@ -111,7 +120,8 @@ class GraphicalOnboardFixtures(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(count, 2)
         self.assertEqual(signals, [
-            "KEYS", "KEY_WRONG", "KEYS", "KEYS", "KEYS", "KEYS",
+            "KEYS", "KEY_WRONG", "KEYS", "KEYS", "KEYS",
+            "KEY_WRONG", "KEYS",
         ])
 
     def test_early_boot_exit_never_passes(self):
@@ -131,6 +141,12 @@ class GraphicalOnboardFixtures(unittest.TestCase):
 
     def test_reboot_login_denial_fails(self):
         self.assertNotEqual(self.run_case("reboot-denied")[0], 0)
+
+    def test_reboot_wrong_password_must_not_open_session(self):
+        self.assertNotEqual(self.run_case("reboot-wrong-accepted")[0], 0)
+
+    def test_reboot_wrong_password_must_emit_denial_before_valid_login(self):
+        self.assertNotEqual(self.run_case("reboot-wrong-no-denial")[0], 0)
 
 
 if __name__ == "__main__":
