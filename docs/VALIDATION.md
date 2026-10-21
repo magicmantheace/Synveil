@@ -48,6 +48,26 @@ Multiple components operate together through the intended architecture.
 
 This is the strongest form of evidence for roadmap phase exit criteria.
 
+## First multiwindow desktop runtime evidence (experimental)
+
+The isolated Debian Trixie/XFCE live image passed an **actual UEFI/QEMU
+graphical runtime** at commit `c0242259f69a6ba4888421e9ce671644c67d9a5d`,
+in [Actions run 39541711454](https://github.com/magicmantheace/Synveil/actions/runs/39541711454).
+A fixed host keypress advanced the recognized Debian live selection menu;
+the guest loaded Linux and XFCE, the non-root session launched Thunar and
+XFCE Terminal, Xfwm4 performed real move/resize/maximize/minimize/restore
+operations, and QMP captured a nonblank 1280x800 framebuffer. The archived
+guest serial log contains the successful interaction marker; see the
+[exact-revision evidence record](validation/desktop-live-c024225/README.md).
+
+This evidence **does not** apply to the distinct source-built Synveil
+hardware-kernel profile. It does **not** validate first-user credential
+enrollment, interactive authenticated login, persistent home, physical
+NVIDIA graphics, removable-media installation, A/B update transactions or
+rollback. Repeated cold boot and Settings-panel guest validation are
+separate gates; adding their test code does not satisfy them until a
+corresponding completed guest run succeeds. Owner release remains blocked.
+
 ## Phase 1 validation contract
 
 Phase 1 is complete only when one committed Synveil revision demonstrates the following in one reproducible pipeline:
