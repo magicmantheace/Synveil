@@ -13,10 +13,13 @@
 > - [ ] Signed inactive-slot update with interrupted-update and rollback tests.
 > - [ ] Owner-approved graphical update controls.
 >
-> **Current scope:** A QEMU UEFI image and developer framebuffer preview
-> already exist. The opt-in hardware kernel *build profile* is an early
-> bring-up step, **not** a supported physical boot, graphical desktop,
-> installer, or updater.
+> **Current scope:** The source-built native Synveil kernel/EFI image and
+> separate opt-in hardware profile have passed *build* validation but are
+> not ready for physical owner boot. An **isolated Debian/XFCE integration ISO**
+> has now booted through UEFI in QEMU and passed real Xfwm4 multiwindow
+> application interaction at [c0242259f](docs/validation/desktop-live-c024225/README.md).
+> This is **not a native, authenticated or persistent installed desktop**.
+> No physical USB validation, trusted installer or signed updater exists.
 
 
 This roadmap is ordered by dependency. Phase numbers describe architectural maturity, not release versions.
@@ -68,6 +71,10 @@ ready; full AI optimization and package management are not prerequisites.
     [d875da39](docs/validation/native-d875da39/README.md);
     network settings UI and real hardware remain open.
 - [ ] Select and build a minimal graphical session with terminal and launcher
+  - An *isolated Debian/XFCE prototype* now passes a real graphical multiwindow
+    QEMU UEFI guest run at [c0242259f](docs/validation/desktop-live-c024225/README.md).
+    This does not satisfy secure first-user login, native OS integration or
+    installation persistence; keep the user-facing milestone unchecked.
   - QEMU framebuffer menu/autostart and fixed UID 1000 terminal guest
     checks passed at [d875da39](docs/validation/native-d875da39/README.md).
     The bounded crash-restart supervisor and QMP-initiated demo-shell
