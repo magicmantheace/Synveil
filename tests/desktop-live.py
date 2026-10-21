@@ -143,6 +143,12 @@ class DesktopLiveProfileTests(unittest.TestCase):
             self.assertIn(operation, text)
         self.assertIn("SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS", text)
         self.assertIn("SYNVEIL_QEMU_DESKTOP_PROBE_FAILED", text)
+        for operation in ("xfce4-settings-manager", "pgrep -u", "xfce4-panel",
+                          "wmctrl -ia \"$settings\"", 'xwininfo -id "$settings"'):
+            self.assertIn(operation, text)
+        packages = (self.root / "out/desktop-live/config/package-lists/"
+                    "synveil-desktop.list.chroot").read_text()
+        self.assertIn("procps\n", packages)
         relay_text = reporter.read_text()
         self.assertIn("SYNVEIL_QEMU_RELAY_STARTED", relay_text)
         self.assertIn("SYNVEIL_QEMU_DESKTOP_PROBE_STARTED", relay_text)
