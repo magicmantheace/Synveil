@@ -84,5 +84,34 @@ xwininfo -id "$settings" >/dev/null 2>&1
 # The original windows must remain present while Settings is opened.
 xwininfo -id "$terminal" >/dev/null 2>&1
 xwininfo -id "$files" >/dev/null 2>&1
+# The named, opt-in VM-only filesystem uses Debian live-boot's /home bind.
+# No candidate root, account secret, EFI or system partition is modified.
+# This marker is advisory *guest test evidence*, not authenticated storage.
+HOME_STATUS=/tmp/synveil-desktop-home-proof.status
+if mountpoint -q /home; then
+    probe="$HOME/.synveil-vm-home-proof"
+    if [ -L "$probe" ]; then
+        printf 'SYNVEIL_QEMU_HOME_PROOF_FAILED\n' > "$HOME_STATUS"
+        exit 1
+    elif [ -e "$probe" ]; then
+        [ -f "$probe" ] && [ "$(stat -c '%u' "$probe")" = "$(id -u)" ] || {
+            printf 'SYNVEIL_QEMU_HOME_PROOF_FAILED\n' > "$HOME_STATUS"
+            exit 1
+        }
+        [ "$(cat "$probe")" = 'synveil-vm-only-persistence-v1' ] || {
+            printf 'SYNVEIL_QEMU_HOME_PROOF_FAILED\n' > "$HOME_STATUS"
+            exit 1
+        }
+        printf 'SYNVEIL_QEMU_HOME_RECOVERED\n' > "$HOME_STATUS"
+    else
+        ( set -C; printf '%s\n' 'synveil-vm-only-persistence-v1' > "$probe" ) || {
+            printf 'SYNVEIL_QEMU_HOME_PROOF_FAILED\n' > "$HOME_STATUS"
+            exit 1
+        }
+        chmod 0600 "$probe"
+        sync "$probe"
+        printf 'SYNVEIL_QEMU_HOME_WRITTEN\n' > "$HOME_STATUS"
+    fi
+fi
 trap - EXIT HUP INT TERM
 printf 'SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS\n' > "$STATUS"
