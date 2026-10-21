@@ -215,7 +215,11 @@ class DesktopLiveProfileTests(unittest.TestCase):
         self.assertIn("qemu_fw_cfg", src)
         self.assertIn("chpasswd", src)
         self.assertIn("synveil/ci-secret/raw", src)
-        self.assertNotIn("123456", src)
+        # A numeric regexp character class is not a built-in password.
+        self.assertIn("IFS= read -r secret", src)
+        self.assertIn("printf 'synveil:%s", src)
+        self.assertNotIn('chpasswd --encrypted', src)
+        self.assertNotIn('secret=hardcoded', src)
         self.assertIn("SYNVEIL_QEMU_TEST_AUTH_SESSION_ACTIVE", reporter.read_text())
         self.assertIn("pgrep -u", reporter.read_text())
         self.assertTrue((root / "etc/systemd/system/lightdm.service.d/"
