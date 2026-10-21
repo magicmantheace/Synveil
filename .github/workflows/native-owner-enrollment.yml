@@ -35,6 +35,7 @@ jobs:
       - name: Validate native two-boot login denial sequence without QEMU
         run: |
           python3 tests/graphical-onboard-fixture.py
+          python3 tests/qmp-input.py
           python3 -m py_compile tests/smoke-graphical-onboard.py
           python3 tests/native-guest-fixture.py
 
