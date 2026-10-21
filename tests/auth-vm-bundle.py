@@ -166,7 +166,9 @@ class AuthenticatedBundleTests(unittest.TestCase):
         for key, value in (("result", "failed"), ("independent_qemu_boots", 1),
                            ("locked_serial", False), ("persistent_authentication", False),
                            ("wrong_password_denied_after_cold_reboot", False),
-                           ("wrong_password_denied_after_cold_reboot", None)):
+                           ("wrong_password_denied_after_cold_reboot", None),
+                           ("graphical_scanout_after_cold_reboot", False),
+                           ("graphical_scanout_after_cold_reboot", None)):
             original = json.loads(path.read_text())
             original[key] = value
             path.write_text(json.dumps(original))
