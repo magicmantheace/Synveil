@@ -204,7 +204,7 @@ def run(iso: Path, evidence: Path, timeout: float, *,
                 status = probe_status(output)
                 if locked_greeter:
                     markers = {line.strip() for line in output.splitlines()}
-                    if (LOGIN_FAILED in markers or PASS in markers or
+                    if (LOGIN_FAILED in markers or FAIL in markers or PASS in markers or
                             HOME_WRITTEN in markers or HOME_RECOVERED in markers):
                         print("[desktop-qemu] login-gate preauthentication violation",
                               file=sys.stderr)
@@ -219,7 +219,7 @@ def run(iso: Path, evidence: Path, timeout: float, *,
                         time.sleep(12)
                         followup = serial.read_bytes() if serial.is_file() else b""
                         lines = {line.strip() for line in followup.splitlines()}
-                        if (PASS in lines or LOGIN_FAILED in lines or
+                        if (PASS in lines or FAIL in lines or LOGIN_FAILED in lines or
                                 HOME_WRITTEN in lines or HOME_RECOVERED in lines):
                             print("[desktop-qemu] login gate unlocked unexpectedly",
                                   file=sys.stderr)
