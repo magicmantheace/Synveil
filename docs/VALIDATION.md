@@ -64,9 +64,13 @@ This evidence **does not** apply to the distinct source-built Synveil
 hardware-kernel profile. It does **not** validate first-user credential
 enrollment, interactive authenticated login, persistent home, physical
 NVIDIA graphics, removable-media installation, A/B update transactions or
-rollback. Repeated cold boot and Settings-panel guest validation are
-separate gates; adding their test code does not satisfy them until a
-corresponding completed guest run succeeds. Owner release remains blocked.
+rollback. The same unchanged ISO subsequently passed **two independent OVMF/QEMU
+cold starts**, including the active XFCE panel and a third genuine Settings
+Manager window, at source revision `437020d26070d0e2a231ad79087b39026fcfb47c`
+([completed CI run 39593790664](https://github.com/magicmantheace/Synveil/actions/runs/39593790664),
+[exact-revision evidence](validation/desktop-live-437020d/README.md)).
+This proves graphical repeat startup, **not** persistent user files or
+authenticated owner login. Owner release remains blocked.
 
 ## Phase 1 validation contract
 
