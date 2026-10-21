@@ -15,6 +15,7 @@ on:
       - tools/desktop_live.sh
       - tests/desktop-live.py
       - tests/smoke-desktop-live.py
+      - tools/qmp_input.py
       - .github/workflows/desktop-pam-test.yml
 
 permissions:
@@ -46,6 +47,7 @@ jobs:
           bash -n tools/desktop_live.sh
           sh -n experiments/desktop-live/login-enroll-prestart.sh
           sh -n experiments/desktop-live/login-enroll-reporter.sh
+          sh -n experiments/desktop-live/login-enroll-session-logout.sh
 
       - name: Verify an isolated no-autologin VM profile is configured
         run: |
@@ -89,14 +91,14 @@ jobs:
           python3 tools/inspect_desktop_iso.py --iso "$iso" > out/desktop-live/test-pam-uefi.json
           grep -F '"uefi_boot_entry_verified": true' out/desktop-live/test-pam-uefi.json
 
-      - name: Reject wrong ephemeral password, accept correct PAM login to non-root GUI
+      - name: Require real logout and LightDM re-lock after correct PAM login
         run: |
           iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
           python3 tests/smoke-desktop-live.py \
             --iso "$iso" \
             --pam-test \
             --evidence "$PWD/out/desktop-live/test-pam-evidence" \
-            --timeout 240
+            --timeout 330
 
       - name: Preserve no-password diagnostic evidence, never distribute ISO
         if: always()
@@ -110,3 +112,5 @@ jobs:
             out/desktop-live/test-pam-evidence/serial.log
             out/desktop-live/test-pam-evidence/qemu.stderr.log
             out/desktop-live/test-pam-evidence/desktop.ppm
+            out/desktop-live/test-pam-evidence/first-authenticated-session.ppm
+            out/desktop-live/test-pam-evidence/relocked-greeter.ppm
