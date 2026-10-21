@@ -265,6 +265,26 @@ class DesktopLiveProfileTests(unittest.TestCase):
             # An ordinary black QEMU/firmware screen never gets typed into.
             self.assertFalse(module.is_debian_live_boot_menu(screen))
 
+    def test_lightdm_serial_getty_prompt_is_not_false_negative_or_false_positive(self):
+        spec = importlib.util.spec_from_file_location(
+            "login_gate_serial", ROOT / "tests/smoke-desktop-live.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        yes = mod.LOGIN_LOCKED
+        actual = b"synveil login: " + yes + b"\n"
+        self.assertIn(yes, mod.locked_greeter_serial_markers(actual))
+        self.assertIn(yes, mod.locked_greeter_serial_markers(yes + b"\n"))
+        for invalid in (b"untrusted: " + yes + b"\n",
+                        b"xxx" + yes + b"\n",
+                        yes + b" forged\n",
+                        b"synveil login: xx" + yes + b"\n"):
+            with self.subTest(value=invalid):
+                self.assertNotIn(yes, mod.locked_greeter_serial_markers(invalid))
+        self.assertIn(mod.PASS, mod.locked_greeter_serial_markers(
+            b"synveil login: " + mod.PASS + b"\n"))
+        self.assertIn(mod.LOGIN_FAILED, mod.locked_greeter_serial_markers(
+            mod.LOGIN_FAILED + b"\n"))
+
     def test_shell_syntax(self):
         subprocess.run(["bash", "-n", str(self.root / "tools/desktop_live.sh")],
                        check=True)
