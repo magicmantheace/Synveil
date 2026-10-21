@@ -169,6 +169,8 @@ class AuthenticatedBundleTests(unittest.TestCase):
                            ("wrong_password_denied_after_cold_reboot", False),
                            ("wrong_password_denied_after_cold_reboot", None),
                            ("graphical_scanout_after_cold_reboot", False),
+                           ("nonblank_rgb_after_login_both_boots", False),
+                           ("nonblank_rgb_after_login_both_boots", None),
                            ("graphical_scanout_after_cold_reboot", None)):
             original = json.loads(path.read_text())
             original[key] = value
