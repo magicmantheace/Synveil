@@ -19,6 +19,10 @@ def type_test_secret(path, value, *, timeout):
         slot.write_text(value)
     with open(os.environ['QMP_SIGNALS'], 'a') as out:
         out.write('KEYS\\n' if slot.read_text() == value else 'KEY_WRONG\\n')
+def capture_test_scanout(path, output, *, timeout):
+    with open(os.environ['QMP_SIGNALS'], 'a') as out:
+        out.write('SCANOUT\\n')
+    return os.environ['FAKE_MODE'] != 'missing-scanout'
 """
 
 CONSOLE_FAKE = """import os, pathlib, sys, time
@@ -64,7 +68,9 @@ if boot == 1:
     assert wait_for(5)
     print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
 else:
-    assert wait_for(6)
+    assert wait_for(7)
+    # Seventh signal includes an actual framebuffer check before the wrong
+    # password; the sixth event is the read-only QMP scanout request.
     # Sixth synthetic input is intentionally wrong on the independent
     # boot, after five inputs from first-boot enrollment and login.
     if mode == 'reboot-wrong-accepted':
@@ -73,7 +79,7 @@ else:
     if mode == 'reboot-wrong-no-denial':
         sys.exit(0)
     print('SYNVEIL_GRAPHICAL_AUTH_DENIED', flush=True)
-    assert wait_for(7)
+    assert wait_for(8)
     if mode == 'reboot-denied':
         print('SYNVEIL_GRAPHICAL_AUTH_DENIED', flush=True)
         sys.exit(0)
@@ -121,7 +127,7 @@ class GraphicalOnboardFixtures(unittest.TestCase):
         self.assertEqual(count, 2)
         self.assertEqual(signals, [
             "KEYS", "KEY_WRONG", "KEYS", "KEYS", "KEYS",
-            "KEY_WRONG", "KEYS",
+            "SCANOUT", "KEY_WRONG", "KEYS",
         ])
 
     def test_early_boot_exit_never_passes(self):
@@ -141,6 +147,13 @@ class GraphicalOnboardFixtures(unittest.TestCase):
 
     def test_reboot_login_denial_fails(self):
         self.assertNotEqual(self.run_case("reboot-denied")[0], 0)
+
+    def test_reboot_login_must_have_actual_graphical_scanout(self):
+        code, count, signals = self.run_case("missing-scanout")
+        self.assertNotEqual(code, 0)
+        self.assertEqual(count, 2)
+        self.assertEqual(signals.count("SCANOUT"), 1)
+        self.assertEqual(signals.count("KEY_WRONG"), 1)  # First-boot mismatch only
 
     def test_reboot_wrong_password_must_not_open_session(self):
         self.assertNotEqual(self.run_case("reboot-wrong-accepted")[0], 0)
