@@ -29,6 +29,9 @@ FAIL = b"SYNVEIL_QEMU_DESKTOP_PROBE_FAILED"
 HOME_WRITTEN = b"SYNVEIL_QEMU_HOME_WRITTEN"
 HOME_RECOVERED = b"SYNVEIL_QEMU_HOME_RECOVERED"
 HOME_FAILED = b"SYNVEIL_QEMU_HOME_PROOF_FAILED"
+LOGIN_LOCKED = b"SYNVEIL_QEMU_LOGIN_GREETER_LOCKED"
+LOGIN_FAILED = b"SYNVEIL_QEMU_LOGIN_GREETER_FAILED"
+
 OVMF_PAIRS = (
     ("/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_VARS_4M.fd"),
     ("/usr/share/OVMF/OVMF_CODE.fd", "/usr/share/OVMF/OVMF_VARS.fd"),
@@ -135,7 +138,8 @@ def capture_screenshot(qmp: Path, output: Path):
 
 
 def run(iso: Path, evidence: Path, timeout: float, *,
-        home_disk: Path | None = None, home_stage: str = "none") -> bool:
+        home_disk: Path | None = None, home_stage: str = "none",
+        locked_greeter: bool = False) -> bool:
     iso = iso.resolve(strict=True)
     if not iso.is_file() or iso.stat().st_size < 1024 * 1024:
         raise ValueError("expected a nonempty ISO file artifact")
@@ -143,6 +147,8 @@ def run(iso: Path, evidence: Path, timeout: float, *,
         raise ValueError("evidence path already exists; refusing overwrite")
     if timeout < 30 or timeout > 900:
         raise ValueError("timeout must be between 30 and 900 seconds")
+    if locked_greeter and (home_disk is not None or home_stage != "none"):
+        raise ValueError("locked-greeter VM cannot attach any persistent data disk")
     if home_stage not in ("none", "write", "read"):
         raise ValueError("invalid VM-only home stage")
     if (home_disk is None) != (home_stage == "none"):
@@ -196,10 +202,43 @@ def run(iso: Path, evidence: Path, timeout: float, *,
             while time.monotonic() < deadline:
                 output = serial.read_bytes() if serial.is_file() else b""
                 status = probe_status(output)
-                if status == "failed":
+                if locked_greeter:
+                    markers = {line.strip() for line in output.splitlines()}
+                    if (LOGIN_FAILED in markers or PASS in markers or
+                            HOME_WRITTEN in markers or HOME_RECOVERED in markers):
+                        print("[desktop-qemu] login-gate preauthentication violation",
+                              file=sys.stderr)
+                        break
+                    if LOGIN_LOCKED in markers:
+                        # A graphics greeter without a real account remains
+                        # locked after Return; this is *denial* evidence,
+                        # never proof of successful owner authentication.
+                        if not qmp.exists():
+                            break
+                        send_keys(qmp, ("ret",), timeout=8)
+                        time.sleep(12)
+                        followup = serial.read_bytes() if serial.is_file() else b""
+                        lines = {line.strip() for line in followup.splitlines()}
+                        if (PASS in lines or LOGIN_FAILED in lines or
+                                HOME_WRITTEN in lines or HOME_RECOVERED in lines):
+                            print("[desktop-qemu] login gate unlocked unexpectedly",
+                                  file=sys.stderr)
+                            break
+                        try:
+                            capture_screenshot(qmp, screenshot)
+                            result = (screenshot_is_nonblank(screenshot) and
+                                      not is_debian_live_boot_menu(screenshot))
+                        except (OSError, QMPError) as exc:
+                            print(f"[desktop-qemu] login greeter scanout failed: {exc}",
+                                  file=sys.stderr)
+                        print("[desktop-qemu] locked LightDM greeter with "
+                              "no usable password: " +
+                              ("PASS" if result else "FAIL"), flush=True)
+                        break
+                if not locked_greeter and status == "failed":
                     print("[desktop-qemu] guest window manager probe failed", file=sys.stderr)
                     break
-                if status == "passed":
+                if not locked_greeter and status == "passed":
                     lines = {line.strip() for line in output.splitlines()}
                     expected_home = {
                         "none": None, "write": HOME_WRITTEN,
@@ -298,10 +337,13 @@ def main():
                         help="fixed VM-only out/desktop-live/home-persistence.img")
     parser.add_argument("--home-stage", choices=("none", "write", "read"),
                         default="none")
+    parser.add_argument("--locked-greeter", action="store_true",
+                        help="separate VM-only no-autologin login denial proof")
     args = parser.parse_args()
     try:
         okay = run(args.iso, args.evidence, args.timeout,
-                   home_disk=args.home_disk, home_stage=args.home_stage)
+                   home_disk=args.home_disk, home_stage=args.home_stage,
+                   locked_greeter=args.locked_greeter)
     except (OSError, ValueError, RuntimeError) as exc:
         parser.error(str(exc))
     return 0 if okay else 1
