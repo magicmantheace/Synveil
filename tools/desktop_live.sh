@@ -49,8 +49,8 @@ if [[ "$mode" == configure ]]; then
           --archive-areas 'main contrib non-free-firmware' \
           --checksums sha256 \
           --image-name synveil-desktop-preview \
-          --bootappend-live 'boot=live components live-config.username=synveil live-config.hostname=synveil live-config.noroot console=tty0 console=ttyS0,115200n8 systemd.show_status=yes loglevel=6' \
-          --bootappend-live-failsafe 'boot=live components live-config.username=synveil live-config.hostname=synveil live-config.noroot nomodeset console=tty0 console=ttyS0,115200n8 systemd.show_status=yes loglevel=6'
+          --bootappend-live 'boot=live components live-config.username=synveil live-config.hostname=synveil live-config.noroot persistence persistence-label=synvmhome persistence-storage=filesystem console=tty0 console=ttyS0,115200n8 systemd.show_status=yes loglevel=6' \
+          --bootappend-live-failsafe 'boot=live components live-config.username=synveil live-config.hostname=synveil live-config.noroot nomodeset persistence persistence-label=synvmhome persistence-storage=filesystem console=tty0 console=ttyS0,115200n8 systemd.show_status=yes loglevel=6'
     )
     install -Dm 0644 "$SOURCE_DIR/packages.list.chroot" \
         "$OUT_DIR/config/package-lists/synveil-desktop.list.chroot"
