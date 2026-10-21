@@ -50,6 +50,43 @@ source existence and ISO construction alone never satisfy it. The proof's
 autologin/demo session and serial reporting must not be shipped in a
 trusted physical installation; production auth and recovery are distinct.
 
+## VM-only home persistence acceptance experiment (not owner auth)
+
+The first two graphical QEMU cold boots at [437020d](../validation/desktop-live-437020d/README.md)
+proved repeatable XFCE startup but intentionally attached no writable disk.
+The next test retains the same read-only developer ISO and adds one
+**newly created, fixed-name, 256 MiB regular file** from
+`tools/create_desktop_home_image.py --create`. The unprivileged helper
+allows only `out/desktop-live/home-persistence.img`, refuses existing
+and symlinked paths, and uses file-only `mkfs.ext4 -d` to seed the
+small root `persistence.conf` specifying **only `/home`**.
+
+The kernel's VM preview opts into Debian live-boot's narrowly named
+`persistence-label=synvmhome persistence-storage=filesystem`. The exact
+label is intentionally distinct from generic `persistence` media, and
+`-net none` plus the two file-only VM drives prevent host device
+discovery. When the guest actually bind-mounts a separate `/home`,
+its non-root XFCE session creates a fixed benign 0600 test file and
+synchronizes it; a later independent QEMU process must read those same
+bytes from the unchanged file-backed virtual drive. The serial reporter
+emits separate allowlisted `HOME_WRITTEN` and `HOME_RECOVERED` markers.
+The host must require both **in their respective boot**, in addition to
+the actual window-management/graphical-framebuffer proof. The home image
+is never uploaded with the CI evidence.
+
+This remains a developer-only **unauthenticated live account** and
+unencrypted state. It is neither trusted user provisioning nor an
+installed root filesystem. The prototype does not protect private data,
+provide independent recovery or enable A/B update transactions.
+Successful file retention would **not** satisfy the user-ready test
+installer criterion. Any missing/incorrect guest marker must be
+recorded as failed, not inferred from image construction.
+
+The [Debian live manual](https://live-team.pages.debian.net/live-manual/html/live-manual/customizing-run-time-behaviours.en.html)
+documents `persistence.conf` with `/home`; the
+[live-boot parameters](https://sources.debian.org/src/live-boot/1%3A20250815/manpages/en/live-boot.7/)
+describe the restrictive persistence label and filesystem-only scan.
+
 ## Threat model, boundaries and first-user gate
 
 - A real desktop **does not equal** a trusted Synveil installation.
