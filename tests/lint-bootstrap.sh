@@ -49,6 +49,7 @@ python3 tests/network-config.py
 python3 tests/qemu-options.py
 python3 tests/kernel-seed.py
 python3 tests/desktop-live.py
+python3 tests/desktop-home.py
 python3 tests/inspect-desktop-iso.py
 python3 tests/desktop-supervisor.py
 python3 tests/serial-console-policy.py
