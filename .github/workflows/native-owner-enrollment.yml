@@ -104,6 +104,7 @@ jobs:
           assert receipt["independent_qemu_boots"] == 2
           assert receipt["first_user_enrollment"] is True
           assert receipt["persistent_authentication"] is True
+          assert receipt["wrong_password_denied_after_cold_reboot"] is True
           assert receipt["locked_serial"] is True
           first = Path("out/guest-fixtures/graphical-onboard/logs/onboard-first.log").read_text()
           reboot = Path("out/guest-fixtures/graphical-onboard/logs/onboard-reboot.log").read_text()
