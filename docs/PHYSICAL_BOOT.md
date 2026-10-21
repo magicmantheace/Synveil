@@ -55,9 +55,15 @@ a claim of boot success on the physical machine.
 - [x] Source-built hardware kernel and FAT/EFI image verified in CI
       ([hardware build proof at 0cc3879](https://github.com/magicmantheace/Synveil/actions/runs/39505922998)).
       This is build-only evidence, not an actual hardware boot.
-- [ ] Experimental Debian/XFCE ISO built and EFI El Torito entries inspected
-      ([ISO build proof at 8be2d1d](https://github.com/magicmantheace/Synveil/actions/runs/39506908391));
-      UEFI boot and window interaction remain independently unproven.
+- [x] Experimental Debian/XFCE ISO built with BIOS and UEFI El Torito
+      boot entries verified ([image build](https://github.com/magicmantheace/Synveil/actions/runs/39506908391),
+      [fail-closed UEFI inspection](https://github.com/magicmantheace/Synveil/actions/runs/39522697228)).
+      An entry in an ISO is not proof of a running desktop.
+- [ ] Confirm actual UEFI QEMU boot and real Xfwm4 multiwindow interaction.
+      The previous timeout left the guest at the live boot menu, so the
+      developer VM test now recognizes that menu and sends one Return only
+      while booting. The [current isolated full-image test](https://github.com/magicmantheace/Synveil/actions/runs/39541711454)
+      must pass before this gate can be checked.
 - [ ] Correct `tty0` screen diagnostics and UEFI firmware framebuffer
       tested in a disposable QEMU UEFI graphical session.
 - [ ] Real multiwindow desktop with graphical login and owner enrollment;
