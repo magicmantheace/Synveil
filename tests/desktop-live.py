@@ -324,6 +324,25 @@ class DesktopLiveProfileTests(unittest.TestCase):
             # An ordinary black QEMU/firmware screen never gets typed into.
             self.assertFalse(module.is_debian_live_boot_menu(screen))
 
+    def test_pam_relock_markers_are_exact_and_stage_specific(self):
+        spec = importlib.util.spec_from_file_location(
+            "pam_relock_serial", ROOT / "tests/smoke-desktop-live.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        for marker in (mod.PAM_RELOCKED, mod.PAM_RELOGIN_ACTIVE):
+            self.assertIn(marker, mod.locked_greeter_serial_markers(
+                b"synveil login: " + marker + b"\\n"))
+            self.assertNotIn(marker, mod.locked_greeter_serial_markers(
+                b"untrusted-prefix" + marker + b"\\n"))
+            self.assertNotIn(marker, mod.locked_greeter_serial_markers(
+                marker + b" forged\\n"))
+        src = (ROOT / "tests/smoke-desktop-live.py").read_text()
+        self.assertIn('pam_stage = "relock"', src)
+        self.assertIn('pam_stage = "relock-wrong"', src)
+        self.assertIn('pam_stage = "relogin"', src)
+        self.assertIn("PAM_RELOGIN_ACTIVE in markers", src)
+        self.assertIn("PAM_RELOCKED in markers", src)
+
     def test_lightdm_serial_getty_prompt_is_not_false_negative_or_false_positive(self):
         spec = importlib.util.spec_from_file_location(
             "login_gate_serial", ROOT / "tests/smoke-desktop-live.py")
