@@ -133,8 +133,19 @@ def verified_ppm_test_frame(path: Path) -> bool:
                 return False
             stream.seek(match.end())
             sample = stream.read(min(pixel_bytes, 1024 * 1024))
-            # A one-color framebuffer is not proof of a graphical greeter.
-            return len(set(sample)) > 1
+            # A single solid RGB color (e.g. uniform blue) has several
+            # distinct byte values. Compare whole pixel triplets instead;
+            # require enough changed pixels to show actual UI content.
+            if len(sample) < 3 or not any(sample):
+                return False
+            base = sample[:3]
+            differences = 0
+            for i in range(3, len(sample) - 2, 3):
+                if sample[i:i + 3] != base:
+                    differences += 1
+                    if differences >= 64:
+                        return True
+            return False
     except (OSError, ValueError):
         return False
 
