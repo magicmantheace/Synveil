@@ -14,6 +14,10 @@ on:
       - experiments/desktop-live/**
       - tools/desktop_live.sh
       - tests/desktop-live.py
+      - tests/smoke-desktop-live.py
+      - tools/qmp_input.py
+      - tools/inspect_desktop_iso.py
+      - tests/inspect-desktop-iso.py
       - .github/workflows/desktop-live.yml
 
 permissions:
