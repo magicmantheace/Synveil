@@ -35,6 +35,8 @@ LOGIN_FAILED = b"SYNVEIL_QEMU_LOGIN_GREETER_FAILED"
 PAM_READY = b"SYNVEIL_QEMU_TEST_AUTH_GREETER_READY"
 PAM_ACTIVE = b"SYNVEIL_QEMU_TEST_AUTH_SESSION_ACTIVE"
 PAM_FAILED = b"SYNVEIL_QEMU_TEST_AUTH_FAILED"
+PAM_RELOCKED = b"SYNVEIL_QEMU_TEST_AUTH_RELOCKED"
+PAM_RELOGIN_ACTIVE = b"SYNVEIL_QEMU_TEST_AUTH_RELOGIN_ACTIVE"
 
 
 def locked_greeter_serial_markers(serial: bytes) -> set[bytes]:
@@ -45,6 +47,7 @@ def locked_greeter_serial_markers(serial: bytes) -> set[bytes]:
     arbitrary suffix matches, terminal echoes or other untrusted text.
     """
     allowed = {LOGIN_LOCKED, LOGIN_FAILED, PAM_READY, PAM_ACTIVE, PAM_FAILED,
+               PAM_RELOCKED, PAM_RELOGIN_ACTIVE,
                FAIL, PASS,
                HOME_WRITTEN, HOME_RECOVERED}
     found = set()
@@ -199,6 +202,8 @@ def run(iso: Path, evidence: Path, timeout: float, *,
     serial = evidence / "serial.log"
     stderr = evidence / "qemu.stderr.log"
     screenshot = evidence / "desktop.ppm"
+    authenticated_first_screen = evidence / "first-authenticated-session.ppm"
+    relocked_screen = evidence / "relocked-greeter.ppm"
     menu_probe = evidence / "boot-menu-probe.ppm"
     command = [
         "qemu-system-x86_64", "-machine", "q35,accel=kvm:tcg",
@@ -275,16 +280,70 @@ def run(iso: Path, evidence: Path, timeout: float, *,
                                   "test password (value redacted)", flush=True)
                     elif pam_stage == "correct":
                         if PAM_ACTIVE in markers:
+                            capture_screenshot(qmp, authenticated_first_screen)
+                            if (not screenshot_is_nonblank(authenticated_first_screen) or
+                                    is_debian_live_boot_menu(authenticated_first_screen)):
+                                print("[desktop-qemu] initial PAM graphical image invalid",
+                                      file=sys.stderr)
+                                break
+                            pam_stage = "relock"
+                            pam_stage_deadline = time.monotonic() + 135
+                            print("[desktop-qemu] PAM password opened non-root GUI; "
+                                  "now requiring real logout and return to LightDM",
+                                  flush=True)
+                        elif time.monotonic() >= pam_stage_deadline:
+                            print("[desktop-qemu] correct PAM test password did "
+                                  "not open non-root XFCE session", file=sys.stderr)
+                            break
+                    elif pam_stage == "relock":
+                        if PAM_RELOGIN_ACTIVE in markers:
+                            print("[desktop-qemu] session reactivated without second "
+                                  "password", file=sys.stderr)
+                            break
+                        if PAM_RELOCKED in markers:
+                            capture_screenshot(qmp, relocked_screen)
+                            if (not screenshot_is_nonblank(relocked_screen) or
+                                    is_debian_live_boot_menu(relocked_screen)):
+                                print("[desktop-qemu] no visible graphical greeter "
+                                      "after logout", file=sys.stderr)
+                                break
+                            wrong_secret = secrets.token_hex(16)
+                            while wrong_secret == ephemeral_secret:
+                                wrong_secret = secrets.token_hex(16)
+                            type_test_secret(qmp, wrong_secret, timeout=20)
+                            pam_stage = "relock-wrong"
+                            pam_stage_deadline = time.monotonic() + 9
+                            print("[desktop-qemu] guest logged out to LightDM; "
+                                  "wrong second password submitted (redacted)",
+                                  flush=True)
+                        elif time.monotonic() >= pam_stage_deadline:
+                            print("[desktop-qemu] session did not log out and relock",
+                                  file=sys.stderr)
+                            break
+                    elif pam_stage == "relock-wrong":
+                        if PAM_RELOGIN_ACTIVE in markers:
+                            print("[desktop-qemu] wrong second password opened XFCE",
+                                  file=sys.stderr)
+                            break
+                        if time.monotonic() >= pam_stage_deadline:
+                            type_test_secret(qmp, ephemeral_secret, timeout=20)
+                            pam_stage = "relogin"
+                            pam_stage_deadline = time.monotonic() + 75
+                            print("[desktop-qemu] valid second PAM password submitted "
+                                  "(value redacted)", flush=True)
+                    elif pam_stage == "relogin":
+                        if PAM_RELOGIN_ACTIVE in markers:
                             capture_screenshot(qmp, screenshot)
                             result = (screenshot_is_nonblank(screenshot) and
                                       not is_debian_live_boot_menu(screenshot))
-                            print("[desktop-qemu] real non-root XFCE session "
-                                  "after valid PAM password: " +
-                                  ("PASS" if result else "FAIL"), flush=True)
+                            print("[desktop-qemu] confirmed logout/relock, denied "
+                                  "wrong password and accepted second non-root "
+                                  "XFCE login: " + ("PASS" if result else "FAIL"),
+                                  flush=True)
                             break
                         if time.monotonic() >= pam_stage_deadline:
-                            print("[desktop-qemu] correct PAM test password did "
-                                  "not open non-root XFCE session", file=sys.stderr)
+                            print("[desktop-qemu] second PAM session never started",
+                                  file=sys.stderr)
                             break
                 if locked_greeter:
                     markers = locked_greeter_serial_markers(output)
