@@ -86,6 +86,33 @@ not encrypted or authenticated storage, trustworthy owner login, installed
 system A/B boot, owner recovery, physical boot or signed updates. The
 normal Synveil install milestone remains incomplete.
 
+## Experimental LightDM lock-gate validation (separate from login)
+
+The Debian/XFCE four-boot persistence proof remains isolated to the
+developer live account; it is **not an authenticated desktop**.
+A separately opt-in profile is configured with
+`SYNVEIL_DESKTOP_LOGIN_GATE=1`, Debian
+`live-config.noautologin`, and a mandatory LightDM prestart that locks
+the disposable `synveil` system account before exposing its greeter.
+The profile also disables LightDM guest and autologin shortcuts.
+
+A complete `desktop-login-gate.yml` guest proof must:
+
+1. Boot the distinct image through QEMU OVMF and the recognized live
+   boot menu, without a writable home or physical device.
+2. Observe a real LightDM + GTK greeter, the locked system account,
+   no `xfce4-session` or panel, and an allowlisted guest serial marker.
+3. Press exactly one Return without entering any password and fail if
+   a non-root desktop user session starts.
+4. Capture actual guest graphics; a black screen, firmware boot menu,
+   mere source assertion or service marker alone does not pass.
+
+This is **negative authentication**: it deliberately provisions no
+working user password. It cannot establish successful password
+verification, initial enrollment, logout, reboot relock, recovery or
+native Synveil session authority. Passing this gate is necessary but
+not sufficient to release a real signed-in desktop.
+
 ## Phase 1 validation contract
 
 Phase 1 is complete only when one committed Synveil revision demonstrates the following in one reproducible pipeline:
