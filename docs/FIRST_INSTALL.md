@@ -59,6 +59,17 @@ recovery, installed-system persistence and eventual native integration
 still need independent validation before owner testing. See
 [ADR 0014](adr/0014-isolated-desktop-proof.md).
 
+## Password sign-in progress — developer VM only
+
+The separate disposable PAM test ISO successfully reached a real
+LightDM greeter, rejected an incorrect freshly generated test
+password, accepted the correct one and opened a non-root XFCE session
+with a graphical panel in [QEMU run 39626829728](validation/desktop-pam-00edc3d/README.md).
+This is **not owner enrollment**: the test secret came from QEMU's
+unsafe-for-production virtual firmware channel. A real local
+password-creation flow, persistent trusted credentials, logout/relock,
+independent recovery and native integration remain blockers.
+
 ## Dependency order
 
 1. Finish deterministic core recovery and define its service lifecycle.
