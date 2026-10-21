@@ -22,6 +22,35 @@ and settings to shorten the route to actual everyday desktop behavior.
 5. The host checks the marker and captures a nonblank QMP screenshot. Both
    observations are required. Source/ISO validation alone cannot pass.
 
+## VM-only /home persistence proof
+
+The [first real multiwindow proof](../../docs/validation/desktop-live-c024225/README.md)
+and [two separate cold boots](../../docs/validation/desktop-live-437020d/README.md)
+passed before persistence was added.
+
+To test file survival without touching real storage, the developer CI
+workflow can now create a **256 MiB file-only** ext4 home volume:
+
+```sh
+# Only after 'bash tools/desktop_live.sh configure' in a disposable checkout:
+python3 tools/create_desktop_home_image.py --create
+# Creates out/desktop-live/home-persistence.img; NEVER a block device.
+```
+
+The image has the special label `synvmhome` and a restricted
+`persistence.conf` containing just `/home`. The experimental live
+kernel permits that specific filesystem label. QEMU attaches the file
+using a virtual virtio disk while remaining completely offline.
+The first graphical guest writes a benign test file and synchronizes it;
+a second independent guest must find and validate the same bytes.
+It still checks the real XFCE panel, Settings Manager, Terminal and Thunar.
+
+This test does not enroll a user, encrypt the volume, install a
+root filesystem, establish authenticated login, or prove a power-loss
+safe A/B update. **The untrusted test home image is never uploaded as a
+public artifact**. A VM-only developer account must never store real
+personal information or credentials.
+
 The automated workflow retains only build/proof evidence, not the ISO.
 It cannot establish actual NVIDIA RTX 3060 support, user authentication,
 boot persistence, signed release delivery, A/B updates, or recovery.
