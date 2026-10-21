@@ -144,6 +144,27 @@ def run(iso: Path, evidence: Path, timeout: float) -> bool:
                 print("[desktop-qemu] timed out before guest multiwindow proof",
                       file=sys.stderr)
         finally:
+            # A guest missing its session marker must still yield *visual*
+            # evidence. Capture before terminating QEMU, but never mistake
+            # an ordinary firmware/login screenshot for a desktop pass.
+            if not result and qmp.exists() and not screenshot.exists() and process.poll() is None:
+                try:
+                    capture_screenshot(qmp, screenshot)
+                    print("[desktop-qemu] retained failure screenshot; "
+                          "this does not establish graphical login", flush=True)
+                except (OSError, QMPError) as exc:
+                    print(f"[desktop-qemu] failure screenshot unavailable: {exc}",
+                          file=sys.stderr)
+            if serial.exists():
+                serial_content = serial.read_bytes()
+                for marker in (
+                    b"SYNVEIL_QEMU_RELAY_STARTED",
+                    b"SYNVEIL_QEMU_DESKTOP_PROBE_STARTED",
+                    FAIL,
+                ):
+                    if marker in serial_content:
+                        print("[desktop-qemu] diagnostic marker observed: " +
+                              marker.decode("ascii"), flush=True)
             try:
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
