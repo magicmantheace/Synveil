@@ -25,7 +25,9 @@ class DesktopLiveProfileTests(unittest.TestCase):
                      "guest-proof-session.sh", "guest-proof-relay.sh",
                      "guest-proof.desktop", "guest-proof.service",
                      "login-gate-prestart.sh", "login-gate-reporter.sh",
-                     "login-gate-lightdm.conf", "login-gate-reporter.service"):
+                     "login-gate-lightdm.conf", "login-gate-reporter.service",
+                     "login-enroll-prestart.sh", "login-enroll-reporter.sh",
+                     "login-enroll-lightdm.conf", "login-enroll-reporter.service"):
             shutil.copy2(ROOT / "experiments/desktop-live" / name,
                          self.root / "experiments/desktop-live" / name)
         self.bin = self.root / "fake-bin"
@@ -195,6 +197,41 @@ class DesktopLiveProfileTests(unittest.TestCase):
         self.assertIn("SYNVEIL_QEMU_LOGIN_GREETER_LOCKED", reporter.read_text())
         self.assertTrue((self.root / "out/desktop-live/.synveil-desktop-login-gate")
                         .is_file())
+
+    def test_opt_in_pam_login_uses_fw_cfg_and_no_baked_credential(self):
+        self.assertEqual(self.invoke("configure", login_gate="2").returncode, 0)
+        args = self.log.read_text().splitlines()
+        for option in ("--bootappend-live", "--bootappend-live-failsafe"):
+            self.assertIn("live-config.noautologin", args[args.index(option) + 1])
+        root = self.root / "out/desktop-live/config/includes.chroot"
+        self.assertTrue((root / "etc/synveil/ci-login-enroll").exists())
+        self.assertFalse((root / "etc/synveil/ci-login-gate").exists())
+        prestart = root / "usr/local/libexec/synveil-login-enroll-prestart"
+        reporter = root / "usr/local/libexec/synveil-login-enroll-reporter"
+        for script in (prestart, reporter):
+            self.assertTrue(script.is_file())
+            subprocess.run(["sh", "-n", str(script)], check=True)
+        src = prestart.read_text()
+        self.assertIn("qemu_fw_cfg", src)
+        self.assertIn("chpasswd", src)
+        self.assertIn("synveil/ci-secret/raw", src)
+        self.assertNotIn("123456", src)
+        self.assertIn("SYNVEIL_QEMU_TEST_AUTH_SESSION_ACTIVE", reporter.read_text())
+        self.assertIn("pgrep -u", reporter.read_text())
+        self.assertTrue((root / "etc/systemd/system/lightdm.service.d/"
+                         "50-synveil-ci-login-enroll.conf").is_file())
+        self.assertTrue((root / "etc/lightdm/lightdm.conf.d/"
+                         "90-synveil-ci-login-enroll.conf").is_file())
+        wants = root / ("etc/systemd/system/graphical.target.wants/"
+                        "synveil-login-enroll-reporter.service")
+        self.assertTrue(wants.is_symlink())
+        self.assertTrue((self.root / "out/desktop-live/"
+                         ".synveil-desktop-login-enroll").is_file())
+        runner = (ROOT / "tests/smoke-desktop-live.py").read_text()
+        self.assertIn("secrets.token_hex(16)", runner)
+        self.assertIn("name=opt/synveil/ci-secret,string=", runner)
+        self.assertIn("type_test_secret(qmp, wrong_secret", runner)
+        self.assertIn("type_test_secret(qmp, ephemeral_secret", runner)
 
     def test_default_preview_never_includes_locked_gate(self):
         self.assertEqual(self.invoke("configure", login_gate="0").returncode, 0)
