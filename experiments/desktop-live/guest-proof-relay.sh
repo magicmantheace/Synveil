@@ -25,6 +25,17 @@ while [ "$i" -lt 150 ]; do
                 fi
                 ;;
             SYNVEIL_QEMU_DESKTOP_MULTIWINDOW_PASS|SYNVEIL_QEMU_DESKTOP_PROBE_FAILED)
+                # Home-state proof is a separate exact marker and must never
+                # substitute for the real desktop/widow-management proof.
+                home_status=/tmp/synveil-desktop-home-proof.status
+                if [ -f "$home_status" ] && [ ! -L "$home_status" ]; then
+                    IFS= read -r home_result < "$home_status" || home_result=''
+                    case "$home_result" in
+                        SYNVEIL_QEMU_HOME_WRITTEN|SYNVEIL_QEMU_HOME_RECOVERED|SYNVEIL_QEMU_HOME_PROOF_FAILED)
+                            send_marker "$home_result"
+                            ;;
+                    esac
+                fi
                 send_marker "$answer"
                 exit 0
                 ;;
