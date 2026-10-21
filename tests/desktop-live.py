@@ -23,7 +23,9 @@ class DesktopLiveProfileTests(unittest.TestCase):
         shutil.copy2(ROOT / "tools/desktop_live.sh", self.root / "tools/desktop_live.sh")
         for name in ("packages.list.chroot", "live-config.conf", "lightdm.conf",
                      "guest-proof-session.sh", "guest-proof-relay.sh",
-                     "guest-proof.desktop", "guest-proof.service"):
+                     "guest-proof.desktop", "guest-proof.service",
+                     "login-gate-prestart.sh", "login-gate-reporter.sh",
+                     "login-gate-lightdm.conf", "login-gate-reporter.service"):
             shutil.copy2(ROOT / "experiments/desktop-live" / name,
                          self.root / "experiments/desktop-live" / name)
         self.bin = self.root / "fake-bin"
@@ -42,10 +44,11 @@ class DesktopLiveProfileTests(unittest.TestCase):
                     "TEST_LB_LOG": str(self.log),
                     "TEST_UID": "1000"}
 
-    def invoke(self, *args, uid="1000"):
+    def invoke(self, *args, uid="1000", login_gate="0"):
         return subprocess.run(
             ["bash", str(self.root / "tools/desktop_live.sh"), *args],
-            env={**self.env, "TEST_UID": uid},
+            env={**self.env, "TEST_UID": uid,
+                 "SYNVEIL_DESKTOP_LOGIN_GATE": login_gate},
             capture_output=True, text=True, timeout=10,
         )
 
@@ -158,6 +161,55 @@ class DesktopLiveProfileTests(unittest.TestCase):
         relay_text = reporter.read_text()
         self.assertIn("SYNVEIL_QEMU_RELAY_STARTED", relay_text)
         self.assertIn("SYNVEIL_QEMU_DESKTOP_PROBE_STARTED", relay_text)
+
+    def test_optional_locked_greeter_isolated_from_autologin_profile(self):
+        self.assertEqual(self.invoke("configure", login_gate="1").returncode, 0)
+        args = self.log.read_text().splitlines()
+        normal = args[args.index("--bootappend-live") + 1]
+        failsafe = args[args.index("--bootappend-live-failsafe") + 1]
+        for flags in (normal, failsafe):
+            self.assertIn("live-config.noautologin", flags)
+            self.assertIn("live-config.noroot", flags)
+        root = self.root / "out/desktop-live/config/includes.chroot"
+        marker = root / "etc/synveil/ci-login-gate"
+        prestart = root / "usr/local/libexec/synveil-login-gate-prestart"
+        reporter = root / "usr/local/libexec/synveil-login-gate-reporter"
+        greeter = root / "etc/lightdm/lightdm.conf.d/90-synveil-ci-login-gate.conf"
+        unit = root / "etc/systemd/system/lightdm.service.d/50-synveil-ci-login-gate.conf"
+        wants = (root / "etc/systemd/system/graphical.target.wants/"
+                 "synveil-login-gate-reporter.service")
+        self.assertTrue(marker.is_file())
+        self.assertTrue(prestart.stat().st_mode & 0o111)
+        self.assertTrue(reporter.stat().st_mode & 0o111)
+        self.assertTrue(wants.is_symlink())
+        self.assertEqual(wants.resolve(), (root / "etc/systemd/system/"
+                         "synveil-login-gate-reporter.service").resolve())
+        for sh in (prestart, reporter):
+            subprocess.run(["sh", "-n", str(sh)], check=True)
+        self.assertIn("passwd -l synveil", prestart.read_text())
+        self.assertIn("getent passwd synveil", prestart.read_text())
+        self.assertIn("ExecStartPre=/usr/local/libexec/synveil-login-gate-prestart",
+                      unit.read_text())
+        self.assertIn("allow-guest=false", greeter.read_text())
+        self.assertIn("autologin-user=", greeter.read_text())
+        self.assertIn("SYNVEIL_QEMU_LOGIN_GREETER_LOCKED", reporter.read_text())
+        self.assertTrue((self.root / "out/desktop-live/.synveil-desktop-login-gate")
+                        .is_file())
+
+    def test_default_preview_never_includes_locked_gate(self):
+        self.assertEqual(self.invoke("configure", login_gate="0").returncode, 0)
+        opts = self.log.read_text().splitlines()
+        self.assertNotIn("live-config.noautologin",
+                         opts[opts.index("--bootappend-live") + 1])
+        self.assertFalse((self.root / "out/desktop-live/config/includes.chroot/"
+                          "etc/synveil/ci-login-gate").exists())
+        self.assertFalse((self.root / "out/desktop-live/"
+                          ".synveil-desktop-login-gate").exists())
+
+    def test_invalid_login_gate_rejected_before_configuration(self):
+        bad = self.invoke("configure", login_gate="anything")
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertFalse((self.root / "out/desktop-live").exists())
 
     def test_qemu_status_requires_exact_guest_marker_and_real_scanout(self):
         spec = importlib.util.spec_from_file_location(
