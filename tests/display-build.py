@@ -99,7 +99,6 @@ class DisplaySourceTests(unittest.TestCase):
                  "-I", str(ROOT / "src/veil-display"),
                  str(ROOT / "tests/display-enroll.c"),
                  str(ROOT / "src/veil-display/enroll.c"),
-                 str(ROOT / "src/veil-display/files.c"),
                  "-o", str(executable)],
                 check=True, timeout=15,
             )
@@ -137,6 +136,7 @@ class DisplaySourceTests(unittest.TestCase):
                  str(ROOT / "src/veil-display/network_diag.c"),
                  str(ROOT / "src/veil-display/pressure_diag.c"),
                  str(ROOT / "src/veil-display/enroll.c"),
+                 str(ROOT / "src/veil-display/files.c"),
                  "-o", str(executable)],
                 check=True,
             )
