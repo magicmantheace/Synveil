@@ -160,6 +160,36 @@ def cross_build(p, source, out):
         raise ValueError("missing target Pixman static library")
     if not subprocess.check_output([str(bins["ar"]), "t", str(lib)]).strip():
         raise ValueError("empty target library")
+    # The target-specific archive also has to link into a real x86_64 Synveil
+    # executable using its own libc, not the host runner's native compiler.
+    smoke_source = out / "pixman-link-smoke.c"
+    smoke_executable = out / "pixman-link-smoke"
+    smoke_source.write_text(
+        "#include <pixman.h>\n"
+        "int main(void) {\n"
+        "  pixman_color_t color = {65535, 0, 0, 65535};\n"
+        "  pixman_image_t *p = pixman_image_create_solid_fill(&color);\n"
+        "  if (!p) return 1;\n"
+        "  pixman_image_unref(p);\n"
+        "  return 0;\n"
+        "}\n"
+    )
+    subprocess.run([str(bins["gcc"]), "--sysroot=" + str(sysroot),
+                    "-I" + str(stage / "usr/include/pixman-1"),
+                    str(smoke_source), str(lib), "-lm", "-pthread",
+                    "-o", str(smoke_executable)], env=env, check=True)
+    readelf = TC / "bin" / (TARGET + "-readelf")
+    if not readelf.is_file() or readelf.is_symlink():
+        raise ValueError("Synveil target ELF verifier missing")
+    headers = subprocess.check_output(
+        [str(readelf), "-h", str(smoke_executable)], text=True
+    )
+    program = subprocess.check_output(
+        [str(readelf), "-l", str(smoke_executable)], text=True
+    )
+    if ("Machine:" not in headers or "Advanced Micro Devices X86-64" not in headers
+            or "/lib64/ld-linux-x86-64.so.2" not in program):
+        raise ValueError("Pixman smoke executable is not a Synveil target ELF")
     receipt = {"result": "native-pixman-staged", "target": TARGET,
                "source_sha512": p["sha512"], "library_sha256": file_hash(lib, "sha256"),
                "compositor_integrated": False, "boot_image_changed": False}

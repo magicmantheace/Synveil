@@ -57,3 +57,9 @@ checksum verification, and the full target cross-build are distinct CI gates.
 Wayland protocol libraries, source-built Weston, audited non-root DRM/seat
 handoff and native QEMU multiwindow testing are still required. The initial
 owner-install milestone remains unchecked.
+
+The cross-stage also links a disposable **target x86_64 executable** against
+its staged Pixman static library, using only Synveil's glibc sysroot, and
+inspects the ELF machine and target dynamic-loader path with the cross
+`readelf`. This binary is discarded with the isolated build output; its
+existence is not evidence of framebuffer or compositor runtime operation.
