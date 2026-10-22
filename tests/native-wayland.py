@@ -62,6 +62,35 @@ class WaylandSourceTests(unittest.TestCase):
                 wayland.extract_source(archive, base / "staged")
             self.assertFalse((base / "escape").exists())
 
+    def test_scanner_protocol_requires_real_core_interfaces(self):
+        valid = (b"/* synthetic header */\n"
+                 b"struct wl_interface;\n"
+                 b"extern const struct wl_interface wl_display_interface;\n"
+                 b"extern const struct wl_interface wl_registry_interface;\n"
+                 b"extern const struct wl_interface wl_compositor_interface;\n")
+        padding = b"/* comment */\n" * 200
+        self.assertTrue(wayland.generated_protocol_is_valid(
+            valid + padding, kind="client"))
+        self.assertTrue(wayland.generated_protocol_is_valid(
+            valid + padding, kind="server"))
+        self.assertTrue(wayland.generated_protocol_is_valid(
+            valid + padding, kind="code"))
+        for bad in (b"", valid, (valid + padding).replace(
+                b"wl_registry_interface", b"wl_registry_interface_missing")):
+            # The short payload and missing interface cannot establish code.
+            if bad == valid + padding:
+                continue
+            if bad == valid:
+                self.assertFalse(wayland.generated_protocol_is_valid(
+                    bad, kind="client"))
+            elif not bad:
+                self.assertFalse(wayland.generated_protocol_is_valid(
+                    bad, kind="code"))
+        self.assertFalse(wayland.generated_protocol_is_valid(
+            (valid + padding).replace(
+                b"wl_registry_interface;", b"registry_dummy;"),
+            kind="client"))
+
     def test_existing_and_symlinked_destination_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

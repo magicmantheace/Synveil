@@ -42,6 +42,8 @@ jobs:
           assert proof["target_libraries_built"] is False
           assert proof["native_boot_image_changed"] is False
           assert len(proof["scanner_sha256"]) == 64
+          assert set(proof["generated_protocol_sha256"]) == {"client", "server", "code"}
+          assert all(len(digest) == 64 for digest in proof["generated_protocol_sha256"].values())
           assert (root / "stage/usr/bin/wayland-scanner").is_file()
           print("PINNED_WAYLAND_HOST_SCANNER_OK")
           PY

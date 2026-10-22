@@ -116,6 +116,44 @@ def extract_source(archive, out):
         raise
 
 
+def generated_protocol_is_valid(source, *, kind):
+    """Reject truncated/misaddressed protocol output, not just a running scanner."""
+    if len(source) < 4096 or len(source) > 4 * 1024 * 1024:
+        return False
+    required = (b"wl_display_interface", b"wl_registry_interface",
+                b"wl_compositor_interface")
+    if not all(symbol in source for symbol in required):
+        return False
+    if kind == "code":
+        return b"struct wl_interface" in source
+    if kind in ("client", "server"):
+        return b"wl_interface" in source
+    return False
+
+
+def generate_protocol_proof(scanner, source, out):
+    """Run the actual pinned scanner on the pinned core Wayland XML."""
+    protocol = source / "protocol/wayland.xml"
+    if not protocol.is_file() or protocol.is_symlink():
+        raise ValueError("canonical Wayland XML unavailable")
+    generated = out / "generated-protocol"
+    generated.mkdir(mode=0o700)
+    hashes = {}
+    for kind, mode, suffix in (
+        ("client", "client-header", "h"),
+        ("server", "server-header", "h"),
+        ("code", "private-code", "c"),
+    ):
+        target = generated / ("wayland-" + kind + "." + suffix)
+        subprocess.run([str(scanner), mode, str(protocol), str(target)],
+                       check=True, timeout=25)
+        payload = target.read_bytes()
+        if not generated_protocol_is_valid(payload, kind=kind):
+            raise ValueError("scanner generated incomplete " + kind + " protocol")
+        hashes[kind] = sha_file(target, "sha256")
+    return hashes
+
+
 def build_host_scanner(src, out, item):
     for cmd in ("meson", "ninja"):
         if not shutil.which(cmd):
@@ -138,6 +176,7 @@ def build_host_scanner(src, out, item):
     if (not scanner.is_file() or scanner.is_symlink() or
         not (scanner.stat().st_mode & stat.S_IXUSR)):
         raise ValueError("host scanner binary absent")
+    generated_hashes = generate_protocol_proof(scanner, src, out)
     # This is a host-tool build only. Native C libraries are not installed.
     if list(stage.rglob("libwayland-*.so*")):
         raise ValueError("unexpected target Wayland library in scanner stage")
@@ -146,6 +185,7 @@ def build_host_scanner(src, out, item):
         "version": item["version"],
         "source_sha512": item["sha512"],
         "scanner_sha256": sha_file(scanner, "sha256"),
+        "generated_protocol_sha256": generated_hashes,
         "target_libraries_built": False,
         "native_boot_image_changed": False,
         "owner_device_modified": False
