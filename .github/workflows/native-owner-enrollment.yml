@@ -16,6 +16,12 @@ on:
       - src/veil-core/src/credential.rs
       - src/veil-display/enroll.c
       - src/veil-display/login_keyboard.h
+      - src/veil-display/main.c
+      - src/veil-display/files.c
+      - src/veil-display/files.h
+      - tests/display-files.c
+      - tests/display-build.py
+      - build/scripts/rootfs.sh
       - tests/display-keyboard-grab.c
       - build/rootfs/mount-state
       - .github/workflows/native-owner-enrollment.yml

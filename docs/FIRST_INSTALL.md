@@ -29,6 +29,23 @@ See [ADR 0013](adr/0013-first-boot-desktop-priority.md).
 enrollment, a real window manager, reliable screen/input/network drivers,
 independent owner recovery, portable image delivery and physical validation.
 
+## Native authenticated Files browser (development)
+
+The native framebuffer **UID 1000 authenticated** session now contains a
+read-only Files tile for browsing the owner's private home and descending
+into bounded child directories. Its standalone C helper uses directory file
+descriptors, rejects symlink entries, refuses to navigate above the home
+root, limits displayed entries and enforces UID ownership of the home.
+The unauthenticated developer launcher retains its original five tiles;
+the Files view is not exposed before login. Host tests exercise directory
+navigation and symlink/path traversal refusals. A native-QEMU guest run at
+the exact code revision is still necessary to establish image integration.
+
+This is an **in-process framebuffer file list**, not an independent
+file-manager application, Weston compositor, true multiwindow desktop, or
+owner-ready installer. File mutation and opening arbitrary files are
+intentionally unsupported in this preliminary view.
+
 ## Isolated multiwindow desktop experiment
 
 An explicitly **VM/developer-only** Debian Trixie/Xfce live-image profile
