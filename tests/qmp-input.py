@@ -12,7 +12,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys, type_test_secret, logout_user_desktop, switch_to_login_vt, open_user_terminal, exit_user_terminal
+from qmp_input import QMPError, settings_toggle, open_demo_terminal, press, send_keys, type_test_secret, logout_user_desktop, switch_to_login_vt, open_user_terminal, open_user_files, exit_user_terminal
 import qmp_input
 
 
@@ -163,6 +163,51 @@ class QMPTests(unittest.TestCase):
                     qmp_input.capture_test_scanout(endpoint, output, timeout=2)
                 self.assertEqual(output.read_bytes(), b"do-not-overwrite")
 
+    def test_graphical_scanout_fingerprint_is_ephemeral_and_rejects_blank(self):
+        def serve_frame(listener, commands, *, blank):
+            connection, _ = listener.accept()
+            with connection, connection.makefile("rb") as reader:
+                connection.sendall(b'{"QMP":{"version":{"qemu":{"major":1}}}}\n')
+                while line := reader.readline():
+                    command = json.loads(line)
+                    commands.append(command)
+                    if command.get("execute") == "screendump":
+                        path = Path(command["arguments"]["filename"])
+                        raw = bytes(320 * 200 * 3) if blank else (
+                            (b"\x10\x30\xfa" * 160 + b"\xf0\xf0\xf0" * 160) * 200
+                        )
+                        path.write_bytes(b"P6\n320 200\n255\n" + raw)
+                    connection.sendall(b'{"return":{}}\n')
+
+        for blank in (False, True):
+            with self.subTest(blank=blank), tempfile.TemporaryDirectory() as tmp:
+                endpoint = Path(tmp) / "qmp.sock"
+                shot = Path(tmp) / "private.ppm"
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+                    listener.bind(str(endpoint))
+                    listener.listen(1)
+                    commands = []
+                    worker = threading.Thread(
+                        target=serve_frame, args=(listener, commands),
+                        kwargs={"blank": blank},
+                    )
+                    worker.start()
+                    digest = qmp_input.capture_test_scanout(
+                        endpoint, shot, timeout=5, fingerprint=True
+                    )
+                    worker.join(timeout=3)
+                    self.assertFalse(worker.is_alive())
+                if blank:
+                    self.assertIsNone(digest)
+                else:
+                    self.assertEqual(len(digest), 64)
+                    self.assertTrue(all(c in "0123456789abcdef" for c in digest))
+                self.assertFalse(shot.exists())
+                self.assertEqual(
+                    [c["execute"] for c in commands],
+                    ["qmp_capabilities", "screendump"]
+                )
+
     def test_graphical_screendump_refuses_public_or_symlink_destination(self):
         with tempfile.TemporaryDirectory() as tmp:
             private = Path(tmp) / "private"
@@ -269,6 +314,25 @@ class QMPTests(unittest.TestCase):
                 self.assertEqual(keys, expected)
         with self.assertRaises(ValueError):
             send_keys(Path("/unused.sock"), ("x", "y"), timeout=1)
+
+    def test_private_files_tile_has_fixed_keyboard_sequence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            endpoint = Path(tmp) / "qmp.sock"
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+                listener.bind(str(endpoint))
+                listener.listen(1)
+                commands = []
+                worker = threading.Thread(target=self.serve, args=(listener, commands))
+                worker.start()
+                open_user_files(endpoint)
+                worker.join(timeout=3)
+                self.assertFalse(worker.is_alive())
+            pressed = [
+                c["arguments"]["events"][0]["data"]["key"]["data"]
+                for c in commands[1:]
+                if c["arguments"]["events"][0]["data"]["down"]
+            ]
+            self.assertEqual(pressed, ["right"] * 5 + ["ret"])
 
     def test_fixed_logout_exits_desktop_without_shell_text(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -5,6 +5,7 @@
 This module is a *host-side test helper*, not a guest service or AI action.
 The QMP socket grants complete emulator control and must stay private.
 """
+import hashlib
 import json
 import re
 import os
@@ -150,12 +151,14 @@ def verified_ppm_test_frame(path: Path) -> bool:
         return False
 
 
-def capture_test_scanout(socket_path: Path, output: Path, *, timeout=8.0) -> bool:
-    """QMP screendump for an isolated VM, into a new owner-private test file.
+def capture_test_scanout(socket_path: Path, output: Path, *, timeout=8.0,
+                         fingerprint=False):
+    """QMP screendump inside a private, automatically deleted host test file.
 
-    QMP grants full VM control and is forbidden for a production/owner
-    login. The caller provides only a path inside a private tempfile dir.
-    Never record a screenshot while the secret is being typed.
+    With fingerprint=True, return SHA256 of a *validated, nonblank* complete
+    RGB frame, or None. Otherwise retain the historical strict boolean API.
+    Neither screenshots nor their digests are printed, saved or archived.
+    QMP is test-only and is never used with a real owner's password.
     """
     socket_path = Path(socket_path)
     output = Path(output)
@@ -164,8 +167,8 @@ def capture_test_scanout(socket_path: Path, output: Path, *, timeout=8.0) -> boo
             (output.parent.stat().st_mode & 0o077) != 0 or
             output.exists() or output.is_symlink()):
         raise ValueError("QMP framebuffer proof requires an unused private path")
-    if not (1 <= timeout <= 30):
-        raise ValueError("invalid QMP screenshot timeout")
+    if not (1 <= timeout <= 30) or type(fingerprint) is not bool:
+        raise ValueError("invalid QMP screenshot options")
     # Reserve the name exclusively before QMP writes, then remove the empty
     # regular file: QMP's screendump requires a pathname it may create.
     fd = os.open(output, os.O_CREAT | os.O_EXCL | os.O_WRONLY |
@@ -183,9 +186,15 @@ def capture_test_scanout(socket_path: Path, output: Path, *, timeout=8.0) -> boo
                     "execute": "screendump",
                     "arguments": {"filename": str(output)}
                 })
-        return verified_ppm_test_frame(output)
+        if not verified_ppm_test_frame(output):
+            return None if fingerprint else False
+        if fingerprint:
+            # Read only the already size-bounded, structurally verified frame.
+            with output.open("rb") as frame:
+                return hashlib.file_digest(frame, "sha256").hexdigest()
+        return True
     except (OSError, QMPError):
-        return False
+        return None if fingerprint else False
     finally:
         # A native login image can show private user/account details;
         # screenshots remain only in ephemeral private host temp storage.
@@ -244,6 +253,15 @@ def open_user_terminal(socket_path: Path, *, timeout=5.0):
     """Navigate to the fixed non-root terminal tile inside an active desktop."""
     return send_keys(socket_path, ("right", "right", "right", "ret", "ret"),
                      timeout=timeout)
+
+
+def open_user_files(socket_path: Path, *, timeout=8.0):
+    """Open the sixth tile in the authenticated UID1000 home dashboard.
+
+    The test sends only five Right keys and Enter; no arbitrary paths,
+    file names, shell input, or privileged instructions cross this channel.
+    """
+    return send_keys(socket_path, ("right",) * 5 + ("ret",), timeout=timeout)
 
 
 def exit_user_terminal(socket_path: Path, *, timeout=5.0):

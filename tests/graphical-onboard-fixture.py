@@ -19,7 +19,7 @@ def type_test_secret(path, value, *, timeout):
         slot.write_text(value)
     with open(os.environ['QMP_SIGNALS'], 'a') as out:
         out.write('KEYS\\n' if slot.read_text() == value else 'KEY_WRONG\\n')
-def capture_test_scanout(path, output, *, timeout):
+def capture_test_scanout(path, output, *, timeout, fingerprint=False):
     with open(os.environ['QMP_SIGNALS'], 'a') as out:
         out.write('SCANOUT\\n')
     name = pathlib.Path(output).name
@@ -32,8 +32,19 @@ def capture_test_scanout(path, output, *, timeout):
     if mode == 'missing-post-auth-scanout' and name.startswith('native-reboot-authenticated-'):
         return False
     if mode == 'missing-first-auth-scanout' and name.startswith('native-first-authenticated-'):
-        return False
-    return True
+        return None if fingerprint else False
+    if name.startswith('native-files-'):
+        logged = pathlib.Path(os.environ['QMP_SIGNALS']).read_text().splitlines()
+        if 'NAV_FILES' not in logged:
+            return None if fingerprint else False
+        if mode == 'files-no-visible-change':
+            return 'aa' * 32 if fingerprint else True
+        return 'bb' * 32 if fingerprint else True
+    return 'aa' * 32 if fingerprint else True
+
+def open_user_files(path, *, timeout):
+    with open(os.environ['QMP_SIGNALS'], 'a') as out:
+        out.write('NAV_FILES\\n')
 """
 
 CONSOLE_FAKE = """import os, pathlib, sys, time
@@ -96,7 +107,7 @@ else:
         print('SYNVEIL_GRAPHICAL_AUTH_DENIED', flush=True)
         sys.exit(0)
     print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
-time.sleep(3)
+time.sleep(5)
 """
 
 
@@ -139,16 +150,24 @@ class GraphicalOnboardFixtures(unittest.TestCase):
         self.assertEqual(count, 2)
         self.assertEqual(signals, [
             "KEYS", "KEY_WRONG", "KEYS", "KEYS", "KEYS",
-            "SCANOUT", "SCANOUT", "KEY_WRONG", "KEYS", "SCANOUT",
+            "SCANOUT", "NAV_FILES", "SCANOUT", "SCANOUT",
+            "KEY_WRONG", "KEYS", "SCANOUT", "NAV_FILES", "SCANOUT",
         ])
 
     def test_delayed_frame_visibility_does_not_skip_wrong_password_challenge(self):
         code, count, signals = self.run_case("delayed-reboot-scanout")
         self.assertEqual((code, count), (0, 2))
         # The reboot greeter is retried twice before the wrong password.
-        self.assertEqual(signals[6:9], ["SCANOUT", "SCANOUT", "SCANOUT"])
-        self.assertEqual(signals[9:11], ["KEY_WRONG", "KEYS"])
-        self.assertEqual(signals.count("SCANOUT"), 5)
+        self.assertEqual(signals[8:11], ["SCANOUT", "SCANOUT", "SCANOUT"])
+        self.assertEqual(signals[11:13], ["KEY_WRONG", "KEYS"])
+        self.assertEqual(signals.count("SCANOUT"), 7)
+
+    def test_authenticated_files_tile_requires_changed_real_scanout(self):
+        code, count, signals = self.run_case("files-no-visible-change")
+        self.assertNotEqual(code, 0)
+        self.assertEqual(count, 1)
+        self.assertIn("NAV_FILES", signals)
+        self.assertGreaterEqual(signals.count("SCANOUT"), 12)
 
     def test_early_boot_exit_never_passes(self):
         self.assertNotEqual(self.run_case("early-exit")[0], 0)

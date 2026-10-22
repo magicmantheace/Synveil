@@ -14,7 +14,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, type_test_secret, capture_test_scanout  # noqa: E402
+from qmp_input import QMPError, type_test_secret, capture_test_scanout, open_user_files  # noqa: E402
 
 BOOT = {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY",
         b"SYNVEIL_SEAT_READY", b"SYNVEIL_SERIAL_RECOVERY_LOCKED"}
@@ -23,7 +23,7 @@ DENIED = {b"SYNVEIL_SERIAL_RECOVERY_DEVELOPER",
 
 
 def wait_for_visible_scanout(qmp: Path, private_dir: Path, stem: str,
-                             *, seconds: float = 6.0) -> bool:
+                             *, seconds: float = 6.0, fingerprint=False):
     """Require actual validated RGB scanout, with bounded video-refresh slack.
 
     A serial READY marker cannot pass this check. Each QMP screenshot is
@@ -36,8 +36,12 @@ def wait_for_visible_scanout(qmp: Path, private_dir: Path, stem: str,
         if remaining <= 0:
             return False
         filename = private_dir / f"{stem}-{attempt}.ppm"
-        if capture_test_scanout(qmp, filename, timeout=min(2.0, max(1.0, remaining))):
-            return True
+        proof = capture_test_scanout(
+            qmp, filename, timeout=min(2.0, max(1.0, remaining)),
+            fingerprint=fingerprint,
+        )
+        if proof:
+            return proof
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return False
@@ -176,10 +180,36 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                         time.sleep(0.6)
                         frame_name = ("native-first-authenticated" if fresh
                                       else "native-reboot-authenticated")
-                        if not wait_for_visible_scanout(qmp, Path(temp), frame_name):
+                        baseline = wait_for_visible_scanout(
+                            qmp, Path(temp), frame_name, fingerprint=True
+                        )
+                        if not baseline:
                             evidence.write(b"[synveil] no visible graphical session after login\n")
                             return False
-                        evidence.write(b"[synveil] authenticated graphical session and RGB scanout verified\n")
+                        # A framebuffer dashboard is not considered interactive
+                        # merely because a generic nonblank image was captured.
+                        # The test sends only fixed keys to the *authenticated*
+                        # UID1000 Files tile and requires a different real RGB
+                        # framebuffer. No private filenames are logged.
+                        try:
+                            open_user_files(qmp, timeout=12)
+                        except (QMPError, OSError, ValueError):
+                            evidence.write(b"[synveil] native Files navigation input failed\n")
+                            return False
+                        changed = False
+                        for attempt in range(12):
+                            proof = capture_test_scanout(
+                                qmp, Path(temp) / f"native-files-{attempt}.ppm",
+                                timeout=2, fingerprint=True
+                            )
+                            if proof and proof != baseline:
+                                changed = True
+                                break
+                            time.sleep(0.2)
+                        if not changed:
+                            evidence.write(b"[synveil] native Files view did not alter graphical scanout\n")
+                            return False
+                        evidence.write(b"[synveil] authenticated graphical session, RGB scanout and interactive Files tile verified\n")
                         return True
                 evidence.write(("[synveil] incomplete: " + phase + "\n").encode())
                 return False

@@ -13,6 +13,8 @@ on:
     paths:
       - tests/smoke-graphical-onboard.py
       - tests/graphical-onboard-fixture.py
+      - tools/qmp_input.py
+      - tests/qmp-input.py
       - src/veil-core/src/credential.rs
       - src/veil-display/enroll.c
       - src/veil-display/login_keyboard.h
@@ -124,8 +126,11 @@ jobs:
           assert "SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in reboot
           assert "SYNVEIL_ENROLL_READY" not in reboot
           frame_proof = "authenticated graphical session and RGB scanout verified"
-          assert frame_proof in first
-          assert frame_proof in reboot
+          # Native Files tile must visibly respond after authenticated input;
+          # a static framebuffer plus marker alone does not satisfy this.
+          files_proof = "interactive Files tile verified"
+          assert files_proof in first
+          assert files_proof in reboot
           # The screenshot helper deletes private captures; the receipt
           # records only whether a real QMP framebuffer validation passed.
           private_screens = list(
