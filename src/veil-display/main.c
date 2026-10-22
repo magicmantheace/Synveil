@@ -1187,6 +1187,14 @@ static int run_auth_login(const struct surface *screen) {
             if (errno == EINTR) continue;
             break;
         }
+        if (n == 0) {
+            // Virtio framebuffer scanout is asynchronous. If the initial
+            // paint was missed during VT activation, maintain a visible
+            // locked greeter without accepting input or changing auth state.
+            // One masked repaint per second avoids a busy redraw loop.
+            auth_render(screen, &state);
+            continue;
+        }
         if (fd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
             close(keyboard);
             keyboard = -1;

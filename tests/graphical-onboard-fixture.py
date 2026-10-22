@@ -23,13 +23,15 @@ def capture_test_scanout(path, output, *, timeout):
     with open(os.environ['QMP_SIGNALS'], 'a') as out:
         out.write('SCANOUT\\n')
     name = pathlib.Path(output).name
-    if os.environ['FAKE_MODE'] == 'missing-scanout' and name == 'native-reboot-login.ppm':
+    mode = os.environ['FAKE_MODE']
+    if mode == 'missing-scanout' and name.startswith('native-reboot-login-'):
         return False
-    if (os.environ['FAKE_MODE'] == 'missing-post-auth-scanout' and
-            name == 'native-reboot-authenticated.ppm'):
+    if (mode == 'delayed-reboot-scanout' and
+            name in ('native-reboot-login-0.ppm', 'native-reboot-login-1.ppm')):
         return False
-    if (os.environ['FAKE_MODE'] == 'missing-first-auth-scanout' and
-            name == 'native-first-authenticated.ppm'):
+    if mode == 'missing-post-auth-scanout' and name.startswith('native-reboot-authenticated-'):
+        return False
+    if mode == 'missing-first-auth-scanout' and name.startswith('native-first-authenticated-'):
         return False
     return True
 """
@@ -55,9 +57,12 @@ if boot == 1 or mode == 'second-enrollment':
 else:
     print('SYNVEIL_LOGIN_READY', flush=True)
 def wait_for(count):
-    for attempt in range(200):
-        if signal.exists() and len(signal.read_text().splitlines()) >= count:
-            return True
+    for attempt in range(600):
+        if signal.exists():
+            lines = signal.read_text().splitlines()
+            keys = sum(line in ('KEYS', 'KEY_WRONG') for line in lines)
+            if keys >= count:
+                return True
         time.sleep(0.01)
     return False
 if boot == 1:
@@ -77,17 +82,16 @@ if boot == 1:
     assert wait_for(5)
     print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
 else:
-    # Five first-boot passwords + its framebuffer = six events.
-    # The rebooted login framebuffer is event seven; the wrong reboot
-    # password is event eight. Never emit a rejection before that keypress.
-    assert wait_for(8)
+    # Five enrollment/login key sequences were entered on boot one.
+    # Screenshot attempts are *not* password input and cannot cause denial.
+    assert wait_for(6)
     if mode == 'reboot-wrong-accepted':
         print('SYNVEIL_GRAPHICAL_AUTH_ACTIVE', flush=True)
         sys.exit(0)
     if mode == 'reboot-wrong-no-denial':
         sys.exit(0)
     print('SYNVEIL_GRAPHICAL_AUTH_DENIED', flush=True)
-    assert wait_for(9)
+    assert wait_for(7)
     if mode == 'reboot-denied':
         print('SYNVEIL_GRAPHICAL_AUTH_DENIED', flush=True)
         sys.exit(0)
@@ -138,6 +142,14 @@ class GraphicalOnboardFixtures(unittest.TestCase):
             "SCANOUT", "SCANOUT", "KEY_WRONG", "KEYS", "SCANOUT",
         ])
 
+    def test_delayed_frame_visibility_does_not_skip_wrong_password_challenge(self):
+        code, count, signals = self.run_case("delayed-reboot-scanout")
+        self.assertEqual((code, count), (0, 2))
+        # The reboot greeter is retried twice before the wrong password.
+        self.assertEqual(signals[6:9], ["SCANOUT", "SCANOUT", "SCANOUT"])
+        self.assertEqual(signals[9:11], ["KEY_WRONG", "KEYS"])
+        self.assertEqual(signals.count("SCANOUT"), 5)
+
     def test_early_boot_exit_never_passes(self):
         self.assertNotEqual(self.run_case("early-exit")[0], 0)
 
@@ -160,20 +172,20 @@ class GraphicalOnboardFixtures(unittest.TestCase):
         code, count, signals = self.run_case("missing-scanout")
         self.assertNotEqual(code, 0)
         self.assertEqual(count, 2)
-        self.assertEqual(signals.count("SCANOUT"), 2)
+        self.assertGreaterEqual(signals.count("SCANOUT"), 2)
         self.assertEqual(signals.count("KEY_WRONG"), 1)  # First-boot mismatch only
 
     def test_first_boot_success_marker_without_visible_user_desktop_fails(self):
         code, count, signals = self.run_case("missing-first-auth-scanout")
         self.assertNotEqual(code, 0)
         self.assertEqual(count, 1)
-        self.assertEqual(signals.count("SCANOUT"), 1)
+        self.assertGreaterEqual(signals.count("SCANOUT"), 1)
 
     def test_reboot_success_marker_without_visible_user_desktop_fails(self):
         code, count, signals = self.run_case("missing-post-auth-scanout")
         self.assertNotEqual(code, 0)
         self.assertEqual(count, 2)
-        self.assertEqual(signals.count("SCANOUT"), 3)
+        self.assertGreaterEqual(signals.count("SCANOUT"), 3)
 
     def test_reboot_wrong_password_must_not_open_session(self):
         self.assertNotEqual(self.run_case("reboot-wrong-accepted")[0], 0)

@@ -22,6 +22,29 @@ DENIED = {b"SYNVEIL_SERIAL_RECOVERY_DEVELOPER",
           b"SYNVEIL_LOGIN_INPUT_UNAVAILABLE"}
 
 
+def wait_for_visible_scanout(qmp: Path, private_dir: Path, stem: str,
+                             *, seconds: float = 6.0) -> bool:
+    """Require actual validated RGB scanout, with bounded video-refresh slack.
+
+    A serial READY marker cannot pass this check. Each QMP screenshot is
+    examined once and destroyed immediately, even if malformed or blank.
+    No screenshot is taken while an input sequence is being typed.
+    """
+    deadline = time.monotonic() + seconds
+    for attempt in range(16):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        filename = private_dir / f"{stem}-{attempt}.ppm"
+        if capture_test_scanout(qmp, filename, timeout=min(2.0, max(1.0, remaining))):
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        time.sleep(min(0.25, remaining))
+    return False
+
+
 def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
     output = out / "logs" / ("onboard-first.log" if fresh else "onboard-reboot.log")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -88,11 +111,10 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                         # status marker. Capture *before* typing passwords;
                         # the image is checked and immediately discarded.
                         if not fresh:
-                            if not capture_test_scanout(
-                                qmp, Path(temp) / "native-reboot-login.ppm",
-                                timeout=8
+                            if not wait_for_visible_scanout(
+                                qmp, Path(temp), "native-reboot-login"
                             ):
-                                evidence.write(b"[synveil] native graphical scanout missing on reboot\n")
+                                evidence.write(b"[synveil] native graphical scanout missing on reboot after bounded refresh\n")
                                 return False
                         try:
                             type_test_secret(qmp, secret if fresh else incorrect,
@@ -152,11 +174,9 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                         # RGB QMP scanout after the guest reports success.
                         # Never capture while any credential is being typed.
                         time.sleep(0.6)
-                        frame_name = ("native-first-authenticated.ppm" if fresh
-                                      else "native-reboot-authenticated.ppm")
-                        if not capture_test_scanout(
-                            qmp, Path(temp) / frame_name, timeout=8
-                        ):
+                        frame_name = ("native-first-authenticated" if fresh
+                                      else "native-reboot-authenticated")
+                        if not wait_for_visible_scanout(qmp, Path(temp), frame_name):
                             evidence.write(b"[synveil] no visible graphical session after login\n")
                             return False
                         evidence.write(b"[synveil] authenticated graphical session and RGB scanout verified\n")
