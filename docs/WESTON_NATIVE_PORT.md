@@ -104,3 +104,22 @@ The target library and headers are staged privately under
 A complete Wayland cross-build must use these artifacts together with a
 pinned, correctly built protocol scanner, and provide separate runtime proof.
 No physical device is written and this does not complete M1.
+
+
+## Cross-stage libwayland-client and libwayland-server experiment
+
+The first target Wayland recipe lives in \`tools/native_wayland_target.py\`.
+This uses the verified Synveil target GCC/glibc, a source-built target
+libffi 3.5.2 archive, the pinned host Wayland 1.26.0 scanner, and upstream
+Wayland 1.26.0 source to attempt **static target client/server libraries**.
+The staging recipe constrains target pkg-config to the private native libffi
+installation and overrides the host scanner pkg-config lookup with an exact
+staged executable. It has offline tests and a separate expensive CI gate.
+
+An eventual successful result must show \`libwayland-client.a\` and
+\`libwayland-server.a\` under private \`out/native-wayland-target/stage\`,
+and an x86_64 Synveil ELF linked against both and libffi. This is
+**build-level evidence only**. No Weston compositor, DRM device, window
+manager, user session, native rootfs or update pathway changes are made
+by this isolated experiment. The CI gate's actual conclusion must be
+checked before describing target Wayland libraries as built.
