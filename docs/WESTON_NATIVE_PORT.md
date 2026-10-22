@@ -63,3 +63,18 @@ its staged Pixman static library, using only Synveil's glibc sysroot, and
 inspects the ELF machine and target dynamic-loader path with the cross
 `readelf`. This binary is discarded with the isolated build output; its
 existence is not evidence of framebuffer or compositor runtime operation.
+
+## Next source-built prerequisite: Wayland host protocol scanner
+
+Wayland 1.26.0 is pinned in `build/manifests/native-wayland.json` to the
+SHA-512 from the July 16, 2026 upstream announcement. The independent
+`tools/native_wayland.py` verifies this archive, safely extracts in-root
+symlinks and (in the CI job) compiles the `wayland-scanner` **host executable**
+with the protocol libraries and demos disabled. This scanner is necessary to
+generate Wayland protocol C headers/sources during later cross builds.
+
+It does **not** cross-compile libwayland-client/server. That step also needs
+source-built target libffi, expat, a disciplined native pkg-config sysroot,
+and separate ELF/link validation. Neither the scanner nor a Wayland client
+is in the Synveil boot image yet. No auth, UEFI or hardware completion claims
+follow from this host build.
