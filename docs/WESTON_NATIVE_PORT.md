@@ -33,3 +33,27 @@ relaxing its VT and crash cleanup; then test an actual visible multiwindow
 native UEFI/QEMU session with terminal, file manager and settings.
 Separate signed A/B installation and physical owner tests follow.
 See docs/adr/0013-first-boot-desktop-priority.md. Do not mark M1 complete.
+
+## Source-built rendering prerequisite: Pixman
+
+The separate Pixman-only prototype uses an upstream release pinned in
+`build/manifests/native-graphics.json` (0.46.4 with the published SHA-512).
+The verified download and target build are separate operations:
+
+```
+python3 tools/native_pixman.py --check-lock
+python3 tools/native_pixman.py --verify-source
+# In a fresh checkout after compiling the native Synveil toolchain:
+python3 tools/native_pixman.py --build
+```
+
+Each run that creates a directory refuses a prior `out/native-desktop` tree.
+The cross-build uses Synveil's pinned GCC/glibc sysroot and Meson to stage a
+static Pixman library and headers under `out/native-desktop/stage`, not in
+the boot image or host system. Static Python/unit validation, official archive
+checksum verification, and the full target cross-build are distinct CI gates.
+
+**Limitations:** Pixman is only one library used by Weston, not a compositor.
+Wayland protocol libraries, source-built Weston, audited non-root DRM/seat
+handoff and native QEMU multiwindow testing are still required. The initial
+owner-install milestone remains unchecked.
