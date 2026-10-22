@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import posixpath
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -72,6 +73,31 @@ def verified_archive(p, out):
     return target
 
 
+def safe_archive_member(item):
+    """Refuse any archive entry or link which can reach outside the source root.
+
+    A published Pixman tarball contains internal symlinks in .gitlab-ci.d.
+    This check treats their targets as relative to the link's parent and
+    normalizes .. before confirming the same fixed archive root.
+    """
+    name = PurePosixPath(item.name)
+    root = "pixman-0.46.4"
+    if (name.is_absolute() or ".." in name.parts or not name.parts or
+        name.parts[0] != root):
+        return False
+    if item.isfile() or item.isdir():
+        return True
+    if not item.issym() or not item.linkname or item.linkname.startswith("/"):
+        return False
+    # A relative link target must stay under the *same* source root.
+    # This also refuses self-references to '.', and never permits a link to
+    # the root directory itself as a future parent of another archive item.
+    target = posixpath.normpath(
+        posixpath.join(posixpath.dirname(item.name), item.linkname)
+    )
+    return target.startswith(root + "/") and target != item.name
+
+
 def extract(source, folder):
     folder.mkdir(mode=0o700)
     try:
@@ -80,10 +106,7 @@ def extract(source, folder):
             if not entries or len(entries) > 12000:
                 raise ValueError("unexpected Pixman tar")
             for item in entries:
-                name = PurePosixPath(item.name)
-                if (name.is_absolute() or ".." in name.parts or not name.parts or
-                    name.parts[0] != "pixman-0.46.4" or
-                    not (item.isfile() or item.isdir())):
+                if not safe_archive_member(item):
                     raise ValueError(f"unsafe archive entry: {item.name!r} type={item.type!r}")
             tar.extractall(folder, filter="data")
         result = folder / "pixman-0.46.4"

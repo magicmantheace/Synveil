@@ -90,6 +90,49 @@ class PixmanStagingTests(unittest.TestCase):
                 self.assertFalse(unpack.exists())
                 self.assertFalse((Path(d) / "escape").exists())
 
+    def test_relative_internal_source_symlink_is_bounded(self):
+        # A known-good internal link is allowed; a link to an outside file
+        # remains forbidden even if the archive checksum is known.
+        import tarfile
+        def member(path, link):
+            item = tarfile.TarInfo(path)
+            item.type = tarfile.SYMTYPE
+            item.linkname = link
+            return item
+
+        internal = member("pixman-0.46.4/.gitlab-ci.d/01-docker/target-env/linux-ppc.env",
+                          "../linux.env")
+        self.assertTrue(native.safe_archive_member(internal))
+        for link in ("/etc/passwd", "../../../../../etc/passwd",
+                     "../../../../../../escape", "linux-ppc.env"):
+            self.assertFalse(native.safe_archive_member(
+                member(internal.name, link)))
+        self.assertFalse(native.safe_archive_member(
+            member("pixman-0.46.4/.gitlab-ci.d/link", "../../../../escape")))
+        self.assertFalse(native.safe_archive_member(
+            member("pixman-0.46.4/link", "..")))
+        self.assertFalse(native.safe_archive_member(
+            member("../outside", "pixman-0.46.4/example")))
+
+    def test_internal_symlink_extracts_under_verified_source_root(self):
+        import tarfile
+        import io
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            archive = root / "ok.tar.xz"
+            with tarfile.open(archive, "w:xz") as tar:
+                data = b"project('pixman', 'c')\n"
+                file = tarfile.TarInfo("pixman-0.46.4/meson.build")
+                file.size = len(data)
+                tar.addfile(file, io.BytesIO(data))
+                link = tarfile.TarInfo("pixman-0.46.4/link")
+                link.type = tarfile.SYMTYPE
+                link.linkname = "meson.build"
+                tar.addfile(link)
+            extracted = native.extract(archive, root / "extracted")
+            self.assertEqual((extracted / "link").read_bytes(),
+                             b"project('pixman', 'c')\n")
+
     def test_refuses_host_compiler_as_native(self):
         with tempfile.TemporaryDirectory() as d:
             with patch.object(native, "TC", Path(d)):
