@@ -68,7 +68,7 @@ class WaylandSourceTests(unittest.TestCase):
                  b"extern const struct wl_interface wl_display_interface;\n"
                  b"extern const struct wl_interface wl_registry_interface;\n"
                  b"extern const struct wl_interface wl_compositor_interface;\n")
-        padding = b"/* comment */\n" * 200
+        padding = b"/* comment */\n" * 450
         self.assertTrue(wayland.generated_protocol_is_valid(
             valid + padding, kind="client"))
         self.assertTrue(wayland.generated_protocol_is_valid(
