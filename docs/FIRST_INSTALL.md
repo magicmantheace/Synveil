@@ -474,3 +474,16 @@ After first use, the state disk contains private credentials and user files;
 the archive tool deliberately refuses to distribute it. This is a VM-only
 preview with limited artifact retention; physical installation and owner
 password recovery remain open.
+
+## VM-only A/B signed update experiment
+
+The regular-file GPT prototype now has a separate, **VM/host-fixture-only**
+signed update transaction path. It verifies the mirrored GPT identities,
+checks a detached release signature and payload hash, writes only to the
+inactive system region, and retains the confirmed slot across simulated
+interrupted writes and candidate rollback. It does **not** set UEFI boot
+targets, verify owner/vendor signing keys, run actual guest boot-health
+checks, or install a bootable Synveil system. See [VM_AB_UPDATE.md](VM_AB_UPDATE.md).
+
+This must not be described as an approved physical installer or as passing
+the M4/M5 owner acceptance gates.

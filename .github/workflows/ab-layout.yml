@@ -6,6 +6,8 @@ on:
     paths:
       - tools/ab_image_prototype.py
       - tests/ab-image-prototype.py
+      - tools/ab_vm_update.py
+      - tests/ab-vm-update.py
       - .github/workflows/ab-layout.yml
   workflow_dispatch:
 
@@ -21,8 +23,10 @@ jobs:
         uses: actions/checkout@v6
       - name: Validate non-destructive protective MBR and mirrored GPT
         run: python3 tests/ab-image-prototype.py
+      - name: Check signed inactive-slot transactions on real GPT files
+        run: python3 tests/ab-vm-update.py
       - name: Parse source-only syntax
-        run: python3 -m py_compile tools/ab_image_prototype.py tests/ab-image-prototype.py
+        run: python3 -m py_compile tools/ab_image_prototype.py tests/ab-image-prototype.py tools/ab_vm_update.py tests/ab-vm-update.py
       - name: Confirm no physical disk access or installer permission
         run: |
           test ! -e out/install-prototype
