@@ -41,7 +41,7 @@ def file_hash(path, alg):
 
 
 def only_new_output():
-    if (ROOT / "out").is_symlink() or OUT.is_symlink() or OUT.exists()):
+    if (ROOT / "out").is_symlink() or OUT.is_symlink() or OUT.exists():
         raise ValueError("unsafe native graphics staging destination")
     OUT.mkdir(parents=True, mode=0o700)
     return OUT
