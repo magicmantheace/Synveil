@@ -57,7 +57,7 @@ def find_one_pc(folder, filename):
     return matches[0]
 
 
-def machine_files(stage, cc, sysroot, ffi_pc_dir, scanner_pc_dir):
+def machine_files(stage, cc, sysroot, ffi_pc_dir, scanner_pc_dir, ffi_stage):
     cross = stage / "cross.ini"
     native = stage / "native.ini"
     cross.write_text("\n".join([
@@ -69,7 +69,10 @@ def machine_files(stage, cc, sysroot, ffi_pc_dir, scanner_pc_dir):
         "[host_machine]", "system = 'linux'", "cpu_family = 'x86_64'",
         "cpu = 'x86_64'", "endian = 'little'",
         "[properties]", "needs_exe_wrapper = true",
-        "sys_root = " + repr(str(sysroot)),
+        # Meson's sys_root rewrites -I/-L paths from libffi.pc (prefix=/usr).
+        # It must point at the *staged libffi* image, not the compiler libc
+        # sysroot; target GCC remains explicitly bound to native glibc below.
+        "sys_root = " + repr(str(ffi_stage)),
         "pkg_config_libdir = " + repr([str(ffi_pc_dir)]),
         "[built-in options]",
         "c_args = " + repr(["--sysroot=" + str(sysroot)]),
@@ -121,7 +124,7 @@ def build_native_wayland(stage, wp, fp):
         raise ValueError("dependency source receipts not trustworthy")
     scanner_pc = scanner_pc_override(stage / "native-pc", scanner)
     cross, native = machine_files(stage, tools, sysroot,
-                                  ffi_pc.parent, scanner_pc.parent)
+                                  ffi_pc.parent, scanner_pc.parent, ffi_stage)
     env = os.environ.copy()
     for key in ("CFLAGS", "CXXFLAGS", "LDFLAGS", "CPPFLAGS", "CPATH",
                 "LIBRARY_PATH", "PKG_CONFIG_PATH", "PKG_CONFIG_LIBDIR",

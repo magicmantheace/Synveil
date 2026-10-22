@@ -49,10 +49,13 @@ class WaylandTargetTests(unittest.TestCase):
                   for name in ("gcc", "ar")}
             cross, native = bridge.machine_files(
                 base, cc, base / "target-sysroot",
-                base / "private-ffi-pc", base / "private-scanner-pc")
+                base / "private-ffi-pc", base / "private-scanner-pc",
+                base / "private-ffi-stage")
             contents = cross.read_text()
             self.assertIn("pkg_config_libdir", contents)
             self.assertIn("private-ffi-pc", contents)
+            self.assertIn("sys_root = " + repr(str(base / "private-ffi-stage")), contents)
+            self.assertIn("--sysroot=" + str(base / "target-sysroot"), contents)
             self.assertIn("needs_exe_wrapper = true", contents)
             self.assertNotIn("/usr/lib/x86_64-linux-gnu/pkgconfig", contents)
             self.assertIn("private-scanner-pc", native.read_text())
