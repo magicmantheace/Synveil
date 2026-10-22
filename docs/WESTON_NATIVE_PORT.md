@@ -78,3 +78,29 @@ source-built target libffi, expat, a disciplined native pkg-config sysroot,
 and separate ELF/link validation. Neither the scanner nor a Wayland client
 is in the Synveil boot image yet. No auth, UEFI or hardware completion claims
 follow from this host build.
+
+
+## Native Wayland ABI prerequisite: libffi
+
+Wayland's source-built target server/client libraries depend on libffi, not
+just the Wayland protocol scanner. \`build/manifests/native-libffi.json\`
+pins upstream libffi **3.5.2** to its release SHA-256 (also independently
+recorded in Buildroot's 2026 source lock). The \`tools/native_libffi.py\`
+builder checks download integrity and safe archive extraction, requires the
+existing Synveil target compiler and glibc marker, builds a static target
+library, and links/inspects a disposable x86-64 Synveil ELF that calls
+\`ffi_prep_cif\` and \`ffi_call\`.
+
+Run the source-only verification with:
+
+    python3 tools/native_libffi.py --verify-source
+
+Or on a fresh checkout with the pinned compiler already present, run:
+
+    python3 tools/native_libffi.py --build
+
+The target library and headers are staged privately under
+\`out/native-libffi/stage\`. They are **not** copied to the native rootfs.
+A complete Wayland cross-build must use these artifacts together with a
+pinned, correctly built protocol scanner, and provide separate runtime proof.
+No physical device is written and this does not complete M1.
