@@ -36,6 +36,7 @@
 #include "seat_privacy.h"
 #include "login_keyboard.h"
 #include "enroll.h"
+#include "files.h"
 
 struct surface {
     unsigned char *mapped;
@@ -193,8 +194,13 @@ static void menu_key(struct menu_state *state, unsigned code) {
             state->cursor_scale = 0u;
         }
     } else if (state->page < 0) {
-        if (code == KEY_LEFT || code == KEY_A) state->selected = (state->selected + 4u) % 5u;
-        else if (code == KEY_RIGHT || code == KEY_D) state->selected = (state->selected + 1u) % 5u;
+        if (code == KEY_LEFT || code == KEY_A) {
+            unsigned count = state->authenticated ? 6u : 5u;
+            state->selected = (state->selected + count - 1u) % count;
+        } else if (code == KEY_RIGHT || code == KEY_D) {
+            unsigned count = state->authenticated ? 6u : 5u;
+            state->selected = (state->selected + 1u) % count;
+        }
         else if (code == KEY_ENTER) state->page = (int)state->selected;
     }
 }
@@ -312,8 +318,15 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
     rectangle(screen, 0, 0, w, h / 11u, rgb(screen, 21, 51, 78));
     heading(screen, "SYNVEIL", 24u, 18u, 3u, title);
     if (state->page >= 0) {
-        const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL", "SETTINGS"};
+        const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL", "SETTINGS", "FILES"};
         heading(screen, pages[state->page], 32u, h / 5u, 3u, title);
+        if (state->page == 5 && state->authenticated) {
+            heading(screen, "PRIVATE HOME", 32u, h / 3u, 2u, muted);
+            heading(screen, "ARROWS SELECT ENTER DIR BACKSPACE UP",
+                    32u, h * 4u / 5u, 2u, muted);
+            heading(screen, "BACK", w > 125u ? w - 105u : 0u, 18u, 2u, title);
+            return;
+        }
         if (state->page == 4) {
             heading(screen, state->high_contrast ? "BRIGHT COLORS" : "DARK COLORS",
                     32u, h / 3u, 2u, muted);
@@ -350,10 +363,11 @@ static void render_menu(const struct surface *screen, const struct menu_state *s
     }
     heading(screen, state->authenticated ? "USER DESKTOP" : "SYSTEM LAUNCHER",
             32u, h / 5u, 3u, title);
-    const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL", "SETTINGS"};
-    for (unsigned i = 0; i < 5u; ++i) {
-        unsigned x = 32u + i * ((w > 140u ? w - 64u : w) / 5u);
-        unsigned tile = w > 140u ? (w - 72u) / 5u : 20u;
+    const char *pages[] = {"STATUS", "STORAGE", "NETWORK", "TERMINAL", "SETTINGS", "FILES"};
+    unsigned count = state->authenticated ? 6u : 5u;
+    for (unsigned i = 0; i < count; ++i) {
+        unsigned x = 32u + i * ((w > 140u ? w - 64u : w) / count);
+        unsigned tile = w > 140u ? (w - 72u) / count : 20u;
         rectangle(screen, x, h / 3u, tile, h / 5u,
                   i == state->selected ? highlight : rgb(screen, 34, 61, 78));
         unsigned scale = tile >= 120u ? 2u : 1u;
@@ -498,10 +512,11 @@ static void menu_click(struct menu_state *state, unsigned x, unsigned y,
         }
         return;
     }
-    unsigned tile_spacing = (width > 140u ? width - 64u : width) / 5u;
-    unsigned tile_width = width > 140u ? (width - 72u) / 5u : 20u;
+    unsigned count = state->authenticated ? 6u : 5u;
+    unsigned tile_spacing = (width > 140u ? width - 64u : width) / count;
+    unsigned tile_width = width > 140u ? (width - 72u) / count : 20u;
     if (y < height / 3u || y >= height / 3u + height / 5u) return;
-    for (unsigned i = 0; i < 5u; ++i) {
+    for (unsigned i = 0; i < count; ++i) {
         unsigned left = 32u + i * tile_spacing;
         if (x >= left && x - left < tile_width) {
             state->selected = i;
@@ -736,6 +751,55 @@ static struct pointer_device session_pointer(void) {
     return pointer;
 }
 
+// Display only non-sensitive, read-only directory labels in a UID1000
+// authenticated session. The login VT and unauthenticated demo menu cannot
+// call this painter or open the file browser.
+static void render_private_files(const struct surface *screen,
+                                 const struct synveil_file_browser *files,
+                                 const struct menu_state *state) {
+    if (!state->authenticated || state->page != 5) return;
+    unsigned h = screen->variable.yres;
+    uint32_t text = state->high_contrast ? rgb(screen, 9, 22, 31) :
+                                           rgb(screen, 219, 237, 244);
+    uint32_t muted = state->high_contrast ? rgb(screen, 29, 53, 67) :
+                                            rgb(screen, 134, 171, 190);
+    if (!files->available) {
+        heading(screen, "FILES UNAVAILABLE", 32u, h / 3u + 45u, 2u, muted);
+        return;
+    }
+    if (!files->count) {
+        heading(screen, "EMPTY DIRECTORY", 32u, h / 3u + 45u, 2u, muted);
+        return;
+    }
+    unsigned first = files->selected > 6u ? files->selected - 6u : 0u;
+    unsigned rows = files->count - first;
+    if (rows > 8u) rows = 8u;
+    for (unsigned row = 0u; row < rows; row++) {
+        unsigned index = first + row;
+        unsigned y = h / 3u + 45u + row * 26u;
+        if (index == files->selected) {
+            unsigned width = screen->variable.xres > 65u ?
+                             screen->variable.xres - 56u : 0u;
+            rectangle(screen, 28u, y - 4u, width, 24u,
+                      state->high_contrast ? rgb(screen, 229, 186, 84) :
+                                             rgb(screen, 38, 86, 115));
+        }
+        heading(screen, files->entries[index].directory ? "DIR" : "FILE",
+                35u, y, 2u, muted);
+        char label[25] = {0};
+        for (unsigned j = 0; j + 1u < sizeof(label) &&
+             files->entries[index].name[j]; j++) {
+            unsigned char c = (unsigned char)files->entries[index].name[j];
+            if (c >= 'a' && c <= 'z') c = (unsigned char)(c - ('a' - 'A'));
+            label[j] = (char)(((c >= 'A' && c <= 'Z') ||
+                                (c >= '0' && c <= '9') || c == '.') ? c : ' ');
+        }
+        heading(screen, label, 125u, y, 2u, text);
+    }
+    if (files->truncated)
+        heading(screen, "MORE FILES NOT SHOWN", 35u, h * 3u / 4u, 1u, muted);
+}
+
 static int run_user_session(const struct surface *screen) {
     if (geteuid() != 1000 || getuid() != 1000 || !isatty(STDIN_FILENO))
         return 1;
@@ -758,6 +822,8 @@ static int run_user_session(const struct surface *screen) {
         state.cursor_scale = saved.cursor_scale;
     }
     struct pointer_device pointer = session_pointer();
+    struct synveil_file_browser files;
+    (void)synveil_files_open(&files, "/home/synveil");
     render_menu(screen, &state);
     render_cursor(screen, &pointer, &state);
     puts("\nSYNVEIL_USER_DESKTOP_READY");
@@ -783,7 +849,22 @@ static int run_user_session(const struct surface *screen) {
                 result = 1;
                 break;
             }
-            if (code) menu_key(&state, code);
+            if (code && state.page == 5) {
+                if (code == KEY_UP && files.available && files.count) {
+                    synveil_files_select(&files,
+                        (files.selected + files.count - 1u) % files.count);
+                } else if (code == KEY_DOWN && files.available && files.count) {
+                    synveil_files_select(&files, (files.selected + 1u) % files.count);
+                } else if (code == KEY_ENTER) {
+                    (void)synveil_files_enter(&files);
+                } else if (code == KEY_BACKSPACE) {
+                    if (synveil_files_back(&files) != 0) state.page = -1;
+                } else if (code == KEY_ESC) {
+                    state.page = -1;
+                }
+            } else if (code) {
+                menu_key(&state, code);
+            }
         }
         if (pointer.fd >= 0 && (fds[1].revents & (POLLERR | POLLHUP | POLLNVAL))) {
             close(pointer.fd);
@@ -798,9 +879,18 @@ static int run_user_session(const struct surface *screen) {
                 else if (event.type == EV_ABS && event.code == ABS_Y)
                     pointer.screen_y = absolute_pixel(event.value, pointer.y.minimum,
                                                       pointer.y.maximum, screen->variable.yres);
-                else if (event.type == EV_KEY && event.code == BTN_LEFT && event.value == 1)
-                    menu_click(&state, pointer.screen_x, pointer.screen_y,
-                               screen->variable.xres, screen->variable.yres);
+                else if (event.type == EV_KEY && event.code == BTN_LEFT && event.value == 1) {
+                    unsigned base = screen->variable.yres / 3u + 45u;
+                    if (state.page == 5 && files.available &&
+                        pointer.screen_y >= base && pointer.screen_y < base + 8u * 26u) {
+                        unsigned first = files.selected > 6u ? files.selected - 6u : 0u;
+                        synveil_files_select(&files, first +
+                            (pointer.screen_y - base) / 26u);
+                    } else {
+                        menu_click(&state, pointer.screen_x, pointer.screen_y,
+                                   screen->variable.xres, screen->variable.yres);
+                    }
+                }
             } else if (n == 0 || (n < 0 && errno != EAGAIN && errno != EINTR)) {
                 close(pointer.fd);
                 pointer.fd = -1;
@@ -828,9 +918,11 @@ static int run_user_session(const struct surface *screen) {
         }
         if (!state.quit) {
             render_menu(screen, &state);
+            render_private_files(screen, &files, &state);
             render_cursor(screen, &pointer, &state);
         }
     }
+    synveil_files_close(&files);
     if (pointer.fd >= 0) close(pointer.fd);
     (void)tcsetattr(STDIN_FILENO, TCSANOW, &original);
     puts("\nSYNVEIL_USER_DESKTOP_EXITED");
