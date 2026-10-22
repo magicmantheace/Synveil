@@ -84,7 +84,7 @@ def extract(source, folder):
                 if (name.is_absolute() or ".." in name.parts or not name.parts or
                     name.parts[0] != "pixman-0.46.4" or
                     not (item.isfile() or item.isdir())):
-                    raise ValueError("unsafe archive entry")
+                    raise ValueError(f"unsafe archive entry: {item.name!r} type={item.type!r}")
             tar.extractall(folder, filter="data")
         result = folder / "pixman-0.46.4"
         if not (result / "meson.build").is_file():
@@ -161,9 +161,13 @@ def main():
     out = only_new_output()
     source = verified_archive(p, out)
     print("NATIVE_PIXMAN_SHA512_VERIFIED")
+    # Extract in the cheap provenance gate so source-layout failures cannot
+    # squander a full pinned GCC/glibc rebuild before being diagnosed.
+    verified_tree = extract(source, out / "src")
+    print("NATIVE_PIXMAN_ARCHIVE_EXTRACTION_VERIFIED")
     if a.verify_source:
         return 0
-    return cross_build(p, extract(source, out / "src"), out)
+    return cross_build(p, verified_tree, out)
 
 
 if __name__ == "__main__":
