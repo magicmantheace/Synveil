@@ -1,0 +1,36 @@
+name: Weston headless compositor protocol proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - tools/weston_headless_probe.py
+      - tests/weston-headless.py
+      - docs/WESTON_NATIVE_PORT.md
+      - .github/workflows/weston-headless-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  headless-two-window:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Offline safety and protocol tests
+        run: |
+          python3 -m py_compile tools/weston_headless_probe.py tests/weston-headless.py
+          python3 tests/weston-headless.py
+      - name: Install test-host Weston, not native Synveil
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y weston
+          dpkg-query -W weston
+          command -v weston-terminal
+          command -v weston-simple-shm
+      - name: Unprivileged Wayland windows
+        run: |
+          test "$(id -u)" -ne 0
+          python3 tools/weston_headless_probe.py --timeout 45
