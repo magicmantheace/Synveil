@@ -46,8 +46,8 @@ def checksum(path):
 
 
 def new_stage():
-    if (ROOT / "out").is_symlink() or
-        STAGE_ROOT.exists() or STAGE_ROOT.is_symlink()):
+    if ((ROOT / "out").is_symlink() or
+            STAGE_ROOT.exists() or STAGE_ROOT.is_symlink()):
         raise ValueError("existing or symlinked libffi output")
     STAGE_ROOT.mkdir(mode=0o700, parents=True)
     STAGE_ROOT.chmod(0o700)
