@@ -123,3 +123,26 @@ and an x86_64 Synveil ELF linked against both and libffi. This is
 manager, user session, native rootfs or update pathway changes are made
 by this isolated experiment. The CI gate's actual conclusion must be
 checked before describing target Wayland libraries as built.
+
+## Pinned xdg-shell window-interface generation
+
+The first native multiwindow desktop needs the Wayland `xdg-shell` interfaces
+`xdg_wm_base`, `xdg_surface`, and `xdg_toplevel`. The source-only
+`build/manifests/native-xdg-shell.json` pins the official
+**wayland-protocols 1.49** release to the June 7, 2026 announcement SHA-512.
+The locally compiled Wayland 1.26.0 scanner satisfies that release's
+minimum scanner version.
+
+`tools/native_xdg_shell.py` rejects unsafe archives, validates upstream
+stable `xdg-shell.xml` and its window configure events, checks scanner
+binary/source provenance, and generates separately hashed client/server
+headers and C interface code. The exact CI run
+[39891808737](https://github.com/magicmantheace/Synveil/actions/runs/39891808737)
+completed **SUCCESS** at commit `69c6558`. These files are not yet
+cross-compiled into native Synveil or used by Weston on a real display.
+No login authority, native rootfs, physical disks, or firmware were changed.
+
+The separate native `libwayland-client` and `libwayland-server`
+target-cross-build checks must finish successfully before Weston dependency
+integration. Even then, a headless/protocol source proof is **not** evidence
+of the required native multiwindow UEFI/QEMU and signed A/B install gates.
