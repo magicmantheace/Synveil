@@ -146,3 +146,27 @@ The separate native `libwayland-client` and `libwayland-server`
 target-cross-build checks must finish successfully before Weston dependency
 integration. Even then, a headless/protocol source proof is **not** evidence
 of the required native multiwindow UEFI/QEMU and signed A/B install gates.
+
+## First original Synveil xdg-shell application window — headless runtime evidence
+
+The developer-only C application at src/desktop-wayland/first-window.c
+creates a non-root xdg_toplevel window with its own ARGB shared-memory
+drawing buffer. It uses a Linux memfd, asks the real compositor to configure
+the window, acknowledges the configuration, attaches the buffer and commits
+the surface. This is an actual Wayland client, not the native framebuffer
+launcher or a simulated in-process window.
+
+At commit e0e4ce6, GitHub Actions run 39972930715 finished SUCCESS.
+The workflow compiled the original C source against the independently
+verified source-pinned xdg-shell C code, using disposable runner host
+libwayland-client, then completed the real configure/ack/attach/commit
+handshake under unprivileged headless Weston. A bounded host process and
+strict trace gate reject an empty socket, unconfigured surface or absent
+buffer attachment.
+
+This is HEADLESS HOST runtime evidence, not a native Synveil guest running
+the new window. It does not prove native GCC target linking, RGB display,
+seat and input, trusted native owner login, desktop taskbar, physical NVIDIA,
+installed system updateability, or first-install readiness. The next gate
+cross-links this exact source with the verified native Wayland/libffi
+archives, then needs a native compositor and visible QEMU window runtime.
