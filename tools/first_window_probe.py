@@ -65,7 +65,50 @@ def target_command(binary, *, loader=None, library_path=None):
     if (not roots or any(not p.is_absolute() or not p.is_dir()
                          for p in roots)):
         raise ValueError("target glibc search directories unavailable")
-    return [str(loader), "--library-path", library_path, str(binary)]
+    return [str(loader), "--inhibit-cache", "--library-path", library_path, str(binary)]
+
+
+def validate_target_libraries(output, library_path):
+    """Reject loader cache/default-directory fallback, including symlink escapes."""
+    roots = [Path(p).resolve(strict=True) for p in library_path.split(":")]
+    saw_libc = saw_loader = False
+    count = 0
+    for line in output.splitlines():
+        if not line.strip():
+            continue
+        if re.fullmatch(r"\s*linux-vdso\.so\.1 \(0x[0-9a-fA-F]+\)\s*", line):
+            continue
+        match = re.fullmatch(
+            r"\s*(?:(\S+)\s+=>\s+)?(/\S+)\s+\(0x[0-9a-fA-F]+\)\s*", line)
+        if not match:
+            raise ValueError("unrecognized target loader dependency: " + line[:200])
+        identity, filename = match.groups()
+        path = Path(filename).resolve(strict=True)
+        if not path.is_file() or not any(path.is_relative_to(root) for root in roots):
+            raise ValueError("target loader resolved a library outside Synveil: " + filename)
+        saw_libc |= identity == "libc.so.6"
+        saw_loader |= path.name == "ld-linux-x86-64.so.2"
+        count += 1
+    if not saw_libc or not saw_loader or count < 2:
+        raise ValueError("target runtime did not resolve both native libc and loader")
+
+
+def clean_loader_environment(environment):
+    # These are disposable public-code probes. Do not allow injected host DSOs
+    # or loader configuration to masquerade as execution with target glibc.
+    return {k: v for k, v in environment.items()
+            if not k.startswith("LD_") and k not in (
+                "GLIBC_TUNABLES", "GCONV_PATH", "LOCPATH", "NLSPATH")}
+
+
+def require_target_runtime(argv, library_path, env):
+    result = subprocess.run(argv[:-1] + ["--list", argv[-1]], env=env,
+                            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True, timeout=10)
+    if result.returncode:
+        raise RuntimeError("target glibc loader preflight failed: " + result.stdout[-1200:])
+    validate_target_libraries(result.stdout, library_path)
+    print("SYNVEIL_TARGET_GLIBC_DEPENDENCY_CLOSURE_VERIFIED")
 
 
 def run(binary, timeout=25, *, loader=None, library_path=None, exercise_resize=False):
@@ -77,13 +120,16 @@ def run(binary, timeout=25, *, loader=None, library_path=None, exercise_resize=F
     if not weston or not binary.is_file() or binary.is_symlink():
         raise ValueError("missing verified Weston/client executable")
     argv = target_command(binary, loader=loader, library_path=library_path)
+    clean_env = clean_loader_environment(os.environ)
+    if loader is not None:
+        require_target_runtime(argv, library_path, clean_env)
     if exercise_resize:
         argv.append("--exercise-resize")
     with tempfile.TemporaryDirectory(prefix="synveil-window-") as temp:
         root = Path(temp)
         run_dir = root / "run"
         run_dir.mkdir(mode=0o700)
-        env = os.environ.copy()
+        env = clean_env.copy()
         for key in ("DISPLAY", "WAYLAND_DISPLAY", "WAYLAND_SOCKET",
                     "DBUS_SESSION_BUS_ADDRESS", "WESTON_CONFIG_FILE"):
             env.pop(key, None)

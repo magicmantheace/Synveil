@@ -54,13 +54,43 @@ class Tests(unittest.TestCase):
                 mod.target_command(program, library_path=str(lib))
             self.assertEqual(
                 mod.target_command(program, loader=loader, library_path=str(lib)),
-                [str(loader), "--library-path", str(lib), str(program)])
+                [str(loader), "--inhibit-cache", "--library-path", str(lib), str(program)])
             with self.assertRaises(ValueError):
                 mod.target_command(program, loader=base / "not-real",
                                    library_path=str(lib))
             with self.assertRaises(ValueError):
                 mod.target_command(program, loader=loader,
                                    library_path=str(base / "no-libs"))
+
+    def test_target_loader_must_not_use_host_cache_or_symlink_escape(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            target = root / "target"
+            target.mkdir()
+            for name in ("libc.so.6", "ld-linux-x86-64.so.2"):
+                (target / name).write_bytes(b"target fixture")
+            good = ("linux-vdso.so.1 (0x1234)\n"
+                    f"libc.so.6 => {target}/libc.so.6 (0x2345)\n"
+                    f"/lib64/ld-linux-x86-64.so.2 => {target}/ld-linux-x86-64.so.2 (0x3456)\n")
+            mod.validate_target_libraries(good, str(target))
+            host_lib = root / "host.so"
+            host_lib.write_bytes(b"host fixture")
+            for bad in (good.replace(str(target / "libc.so.6"), str(host_lib)),
+                        good.replace("libc.so.6 =>", "other.so =>"),
+                        good + "libm.so.6 => not found\n"):
+                with self.assertRaises(ValueError):
+                    mod.validate_target_libraries(bad, str(target))
+            (target / "libc.so.6").unlink()
+            (target / "libc.so.6").symlink_to(host_lib)
+            with self.assertRaises(ValueError):
+                mod.validate_target_libraries(good, str(target))
+
+    def test_host_loader_injection_is_removed(self):
+        env = {"PATH": "/bin", "LD_PRELOAD": "host.so", "LD_AUDIT": "audit.so",
+               "LD_LIBRARY_PATH": "/host", "GLIBC_TUNABLES": "bad",
+               "GCONV_PATH": "/host", "LOCPATH": "/host", "NLSPATH": "/host"}
+        self.assertEqual(mod.clean_loader_environment(env), {"PATH": "/bin"})
 
     def test_nonroot_and_bounded_timeout(self):
         with patch.object(mod.os, "geteuid", return_value=0):

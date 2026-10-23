@@ -222,3 +222,17 @@ must pass before describing this new resize path as runtime verified.
 The default bounded first-window proof remains available. These client
 changes do not install Weston in the native image or establish a desktop,
 authenticated graphical session, QEMU scanout or physical compatibility.
+
+At `5fe82281c7260391efd0130b9868bcc3a7ac2cb9`, the completed host
+[window workflow 39995710146](https://github.com/magicmantheace/Synveil/actions/runs/39995710146)
+passed compilation, initial shm submission, and real maximize/restore with
+changed and restored pixel-buffer geometry. This validates host resize
+negotiation and repaint, not pointer-driven interaction or guest graphics.
+
+The target-runtime probe now additionally uses the pinned loader's `--list`
+preflight with its cache disabled, checks that every resolved dependency
+(including libc and the loader) stays within the target library roots after
+symlink resolution, and removes host loader injection variables. A missing
+native library fails instead of silently resolving from the host filesystem.
+This stricter closure must pass a full native target run before runtime
+certification; offline refusal tests alone do not establish native execution.
