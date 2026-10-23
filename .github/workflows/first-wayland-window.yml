@@ -43,3 +43,5 @@ jobs:
           python3 tools/first_window_probe.py out/synveil-first-window --timeout 25
       - name: Exercise actual compositor maximize, restore and buffer redraw
         run: python3 tools/first_window_probe.py out/synveil-first-window --timeout 25 --exercise-resize
+      - name: Keep an independent interactive window alive through a second window resize cycle
+        run: python3 tools/first_window_probe.py out/synveil-first-window --timeout 25 --exercise-resize --two-windows

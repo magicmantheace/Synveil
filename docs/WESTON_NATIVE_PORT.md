@@ -236,3 +236,9 @@ symlink resolution, and removes host loader injection variables. A missing
 native library fails instead of silently resolving from the host filesystem.
 This stricter closure must pass a full native target run before runtime
 certification; offline refusal tests alone do not establish native execution.
+
+The host probe also accepts `--two-windows`: it first maps an independent
+`--interactive` client, runs the second client's resize cycle, and requires
+the first process and its configured shm toplevel to remain alive throughout.
+Both clients and the private compositor are cleaned up on success or failure.
+This is a host-only protocol acceptance case, not guest or RGB proof.

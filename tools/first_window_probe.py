@@ -111,7 +111,7 @@ def require_target_runtime(argv, library_path, env):
     print("SYNVEIL_TARGET_GLIBC_DEPENDENCY_CLOSURE_VERIFIED")
 
 
-def run(binary, timeout=25, *, loader=None, library_path=None, exercise_resize=False):
+def run(binary, timeout=25, *, loader=None, library_path=None, exercise_resize=False, two_windows=False):
     if os.geteuid() == 0:
         raise ValueError("refusing root Wayland session")
     if not 8 <= timeout <= 60:
@@ -135,7 +135,7 @@ def run(binary, timeout=25, *, loader=None, library_path=None, exercise_resize=F
             env.pop(key, None)
         env.update(XDG_RUNTIME_DIR=str(run_dir), WAYLAND_DISPLAY=SOCKET,
                    HOME=str(root), XDG_CONFIG_HOME=str(root))
-        server = client = None
+        server = client = sibling = None
         try:
             with (root / "weston.log").open("wb") as log:
                 server = subprocess.Popen([weston, "--backend=headless",
@@ -158,6 +158,20 @@ def run(binary, timeout=25, *, loader=None, library_path=None, exercise_resize=F
                 time.sleep(.08)
             else:
                 raise RuntimeError("private Weston socket missing")
+            if two_windows:
+                sibling_argv = target_command(binary, loader=loader, library_path=library_path)
+                with (root / "interactive.log").open("wb") as log:
+                    sibling = subprocess.Popen(sibling_argv + ["--interactive"],
+                        env={**env, "WAYLAND_DEBUG": "client"}, stdin=subprocess.DEVNULL,
+                        stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                while time.monotonic() < deadline:
+                    if server.poll() is not None or sibling.poll() is not None:
+                        raise RuntimeError("interactive window or compositor exited before mapping")
+                    if valid_trace((root / "interactive.log").read_text(errors="replace")):
+                        break
+                    time.sleep(.08)
+                else:
+                    raise RuntimeError("interactive toplevel did not map")
             with (root / "window.log").open("wb") as log:
                 client = subprocess.Popen(argv, env={**env, "WAYLAND_DEBUG": "client"},
                     stdin=subprocess.DEVNULL, stdout=log,
@@ -171,12 +185,19 @@ def run(binary, timeout=25, *, loader=None, library_path=None, exercise_resize=F
             output = (root / "window.log").read_text(errors="replace")
             if client.returncode != 0 or not valid_trace(output, exercise_resize=exercise_resize):
                 raise RuntimeError("actual xdg/shm window handshake missing: " + output[-1200:])
+            if two_windows:
+                if sibling.pid == client.pid or sibling.poll() is not None:
+                    raise RuntimeError("independent interactive window did not survive resize client")
+                if not valid_trace((root / "interactive.log").read_text(errors="replace")):
+                    raise RuntimeError("independent interactive window handshake missing")
+                print("SYNVEIL_HOST_WESTON_TWO_ORIGINAL_WINDOWS_VERIFIED")
             print("SYNVEIL_HOST_WESTON_SHM_XDG_WINDOW_VERIFIED")
             if exercise_resize:
                 print("SYNVEIL_HOST_WESTON_RESIZE_REPAINT_VERIFIED")
             print("native_synveil=false; headless=true")
         finally:
             terminate(client)
+            terminate(sibling)
             terminate(server)
 
 
@@ -187,11 +208,12 @@ if __name__ == "__main__":
     parser.add_argument("--target-loader", type=Path)
     parser.add_argument("--target-library-path")
     parser.add_argument("--exercise-resize", action="store_true")
+    parser.add_argument("--two-windows", action="store_true")
     args = parser.parse_args()
     try:
         run(args.binary.resolve(), args.timeout,
             loader=args.target_loader, library_path=args.target_library_path,
-            exercise_resize=args.exercise_resize)
+            exercise_resize=args.exercise_resize, two_windows=args.two_windows)
     except (OSError, ValueError, RuntimeError) as error:
         # This isolated probe has no credentials or user data. Preserve its bounded
         # diagnostic in Actions annotations when raw job logs are inaccessible.

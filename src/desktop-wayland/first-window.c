@@ -199,6 +199,7 @@ static int render(struct app *a) {
     wl_surface_commit(a->surface);
     a->redraw = 0; a->configured++;
     printf("SYNVEIL_XDG_SHM_SIZE %d %d\n", a->width, a->height);
+    if (a->configured == 1) puts("SYNVEIL_XDG_TOPLEVEL_SHM_SUBMITTED");
     if (a->exercise && a->exercise_stage == 0) {
         a->exercise_stage = 1;
         xdg_toplevel_set_maximized(a->top);
@@ -263,7 +264,6 @@ int main(int argc, char **argv) {
     if (a.failed || !a.configured || (!a.interactive && a.closed) ||
         wl_display_flush(a.display) < 0) goto out;
     if (a.exercise) puts("SYNVEIL_XDG_RESIZE_CYCLE_COMPLETE");
-    puts("SYNVEIL_XDG_TOPLEVEL_SHM_SUBMITTED");
     fflush(stdout);
     if (!a.interactive) usleep(750000);
     success = 1;
