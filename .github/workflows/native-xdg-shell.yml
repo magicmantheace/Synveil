@@ -1,0 +1,59 @@
+name: Pinned xdg-shell desktop-window interfaces
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - build/manifests/native-xdg-shell.json
+      - tools/native_xdg_shell.py
+      - tests/native-xdg-shell.py
+      - .github/workflows/native-xdg-shell.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-window-protocol:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check source lock and archive safety
+        run: |
+          python3 -m py_compile tools/native_xdg_shell.py tests/native-xdg-shell.py
+          python3 tests/native-xdg-shell.py
+          python3 tools/native_xdg_shell.py --check-lock
+      - name: Install scanner host build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build libexpat1-dev libffi-dev
+      - name: Build verified Wayland scanner and xdg-shell interfaces
+        run: python3 tools/native_xdg_shell.py --generate
+      - name: Require actual xdg toplevel protocol generated
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          out = Path("out/native-xdg-shell")
+          report = json.loads((out / "validation.json").read_text())
+          assert report["result"] == "xdg-shell-generated"
+          assert report["version"] == "1.49"
+          assert report["interfaces"] == ["xdg_wm_base", "xdg_surface", "xdg_toplevel"]
+          assert set(report["generated_sha256"]) == {"client", "server", "code"}
+          assert all(len(h) == 64 for h in report["generated_sha256"].values())
+          assert report["native_compositor_integrated"] is False
+          assert report["native_boot_image_changed"] is False
+          assert (out / "generated/xdg-shell-client.h").is_file()
+          assert (out / "generated/xdg-shell-server.h").is_file()
+          assert (out / "generated/xdg-shell-code.c").is_file()
+          print("SYNVEIL_XDG_TOPLEVEL_PROTOCOL_GENERATED")
+          PY
+      - name: Save source and generated hash evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-xdg-shell-hashes-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: out/native-xdg-shell/validation.json

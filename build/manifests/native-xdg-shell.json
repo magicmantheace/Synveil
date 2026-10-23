@@ -1,0 +1,10 @@
+{
+  "schema": "synveil.xdg-shell/v1",
+  "target": "x86_64-synveil-linux-gnu",
+  "release": {
+    "version": "1.49",
+    "filename": "wayland-protocols-1.49.tar.xz",
+    "url": "https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/1.49/downloads/wayland-protocols-1.49.tar.xz",
+    "sha512": "c6f58586c4e3046fb545f31959eb662426ddf94cab627a136bec905c3a1c75087ed2850d49e44964241a9158a3559ad02607647a19fb5f1c1fb254160b04806c"
+  }
+}
