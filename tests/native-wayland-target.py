@@ -92,6 +92,16 @@ class WaylandTargetTests(unittest.TestCase):
                         bridge.verify_private_scanner_lookup(scanner, pc.parent),
                         str(scanner))
 
+    def test_client_and_server_smokes_have_independent_interfaces(self):
+        client = bridge.CLIENT_LINK_SOURCE
+        server = bridge.SERVER_LINK_SOURCE
+        self.assertIn("#include <wayland-client-core.h>", client)
+        self.assertIn("wl_display_connect_to_fd", client)
+        self.assertNotIn("wayland-server-core.h", client)
+        self.assertIn("#include <wayland-server-core.h>", server)
+        self.assertIn("wl_display_create", server)
+        self.assertNotIn("wayland-client-core.h", server)
+
     def test_ambiguously_named_libffi_pc_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

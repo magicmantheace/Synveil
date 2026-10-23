@@ -24,6 +24,25 @@ OUT = ROOT / "out/native-wayland-target"
 TOOLCHAIN = ROOT / "build/toolchain/out"
 TARGET = "x86_64-synveil-linux-gnu"
 
+# These are link probes, not runtime guest execution.
+CLIENT_LINK_SOURCE = (
+    "#include <wayland-client-core.h>\n"
+    "int main(void) {\n"
+    "  struct wl_display *d = wl_display_connect_to_fd(-1);\n"
+    "  if (d) wl_display_disconnect(d);\n"
+    "  return 0;\n"
+    "}\n"
+)
+SERVER_LINK_SOURCE = (
+    "#include <wayland-server-core.h>\n"
+    "int main(void) {\n"
+    "  struct wl_display *d = wl_display_create();\n"
+    "  if (!d) return 1;\n"
+    "  wl_display_destroy(d);\n"
+    "  return 0;\n"
+    "}\n"
+)
+
 
 def prerequisites():
     wp = wayland.release_spec()
@@ -189,33 +208,30 @@ def build_native_wayland(stage, wp, fp):
     ffi_header = list(ffi_stage.rglob("ffi.h"))
     if not ffi_archive.is_file() or len(ffi_header) != 1:
         raise ValueError("source-built target libffi link input unavailable")
-    # Link both interfaces and the verified libffi archive against the target
-    # glibc. This does not execute target code or open DRM/Wayland sockets.
-    smoke = stage / "wayland-link-smoke.c"
-    target = stage / "wayland-link-smoke"
-    smoke.write_text(
-        "#include <wayland-client-core.h>\n"
-        "#include <wayland-server-core.h>\n"
-        "int main(void) {\n"
-        "  struct wl_display *server = wl_display_create();\n"
-        "  if (!server) return 1;\n"
-        "  wl_display_destroy(server);\n"
-        "  struct wl_display *client = wl_display_connect_to_fd(-1);\n"
-        "  if (client) wl_display_disconnect(client);\n"
-        "  return 0;\n"
-        "}\n"
-    )
-    subprocess.run([str(tools["gcc"]), "--sysroot=" + str(sysroot),
-        "-I" + str(result / "usr/include"),
-        "-I" + str(ffi_header[0].parent), str(smoke),
-        str(server), str(client), str(ffi_archive),
-        "-lm", "-pthread", "-o", str(target)], env=env, check=True)
+    # Link client and server *independently* against Synveil glibc/libffi.
+    # Combining the client/server headers and archives in one executable can
+    # conceal symbol conflicts and does not verify each ABI in isolation.
     readelf = TOOLCHAIN / "bin" / (TARGET + "-readelf")
-    h = subprocess.check_output([str(readelf), "-h", str(target)], text=True)
-    p = subprocess.check_output([str(readelf), "-l", str(target)], text=True)
-    if ("Advanced Micro Devices X86-64" not in h or
-        "/lib64/ld-linux-x86-64.so.2" not in p):
-        raise ValueError("Wayland test link is not a native Synveil ELF")
+    smoke_hashes = {}
+    for kind, code, archive in (
+        ("client", CLIENT_LINK_SOURCE, client),
+        ("server", SERVER_LINK_SOURCE, server),
+    ):
+        smoke = stage / ("wayland-" + kind + "-link-smoke.c")
+        target = stage / ("wayland-" + kind + "-link-smoke")
+        smoke.write_text(code)
+        subprocess.run([str(tools["gcc"]), "--sysroot=" + str(sysroot),
+            "-I" + str(result / "usr/include"),
+            "-I" + str(ffi_header[0].parent), str(smoke),
+            str(archive), str(ffi_archive),
+            "-lm", "-lrt", "-ldl", "-pthread", "-o", str(target)],
+            env=env, check=True)
+        h = subprocess.check_output([str(readelf), "-h", str(target)], text=True)
+        p = subprocess.check_output([str(readelf), "-l", str(target)], text=True)
+        if ("Advanced Micro Devices X86-64" not in h or
+            "/lib64/ld-linux-x86-64.so.2" not in p):
+            raise ValueError(kind + " test link is not a native Synveil ELF")
+        smoke_hashes[kind] = hashlib.sha256(target.read_bytes()).hexdigest()
     receipt = {
         "result": "native-wayland-client-server-staged",
         "target": TARGET, "version": wp["version"],
@@ -223,7 +239,7 @@ def build_native_wayland(stage, wp, fp):
         "ffi_source_sha256": fp["sha256"],
         "server_archive_sha256": hashlib.sha256(server.read_bytes()).hexdigest(),
         "client_archive_sha256": hashlib.sha256(client.read_bytes()).hexdigest(),
-        "target_elf_sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+        "linked_target_elf_sha256": smoke_hashes,
         "native_boot_image_changed": False,
         "native_compositor_integrated": False
     }

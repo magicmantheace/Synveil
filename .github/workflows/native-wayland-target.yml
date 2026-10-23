@@ -58,7 +58,7 @@ jobs:
           bash build.sh toolchain 2>&1 | tee out/logs/wayland-target-toolchain.log
       - name: Cross-stage pinned libffi, scanner and Wayland libraries
         run: python3 tools/native_wayland_target.py --build
-      - name: Verify both target libraries link in one native ELF
+      - name: Verify independent client and server native target ELF links
         run: |
           python3 - <<'PY'
           import json
@@ -69,7 +69,8 @@ jobs:
           assert data["target"] == "x86_64-synveil-linux-gnu"
           assert len(data["server_archive_sha256"]) == 64
           assert len(data["client_archive_sha256"]) == 64
-          assert len(data["target_elf_sha256"]) == 64
+          assert set(data["linked_target_elf_sha256"]) == {"client", "server"}
+          assert all(len(h) == 64 for h in data["linked_target_elf_sha256"].values())
           assert data["native_boot_image_changed"] is False
           assert data["native_compositor_integrated"] is False
           assert (stage / "stage/usr/lib64/libwayland-client.a").is_file()
