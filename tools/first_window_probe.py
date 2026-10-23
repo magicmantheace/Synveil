@@ -38,7 +38,25 @@ def terminate(proc):
         proc.wait(timeout=3)
 
 
-def run(binary, timeout=25):
+def target_command(binary, *, loader=None, library_path=None):
+    """Optional pinned libc loader for executing a Synveil ELF on host Linux.
+
+    Both arguments must be set; never silently fall back to host libc.
+    """
+    if (loader is None) != (library_path is None):
+        raise ValueError("target loader and libc library path must be paired")
+    if loader is None:
+        return [str(binary)]
+    if not loader.is_file():
+        raise ValueError("target glibc dynamic loader missing")
+    roots = [Path(x) for x in library_path.split(":")]
+    if (not roots or any(not p.is_absolute() or not p.is_dir()
+                         for p in roots)):
+        raise ValueError("target glibc search directories unavailable")
+    return [str(loader), "--library-path", library_path, str(binary)]
+
+
+def run(binary, timeout=25, *, loader=None, library_path=None):
     if os.geteuid() == 0:
         raise ValueError("refusing root Wayland session")
     if not 8 <= timeout <= 60:
@@ -46,6 +64,7 @@ def run(binary, timeout=25):
     weston = shutil.which("weston")
     if not weston or not binary.is_file() or binary.is_symlink():
         raise ValueError("missing verified Weston/client executable")
+    argv = target_command(binary, loader=loader, library_path=library_path)
     with tempfile.TemporaryDirectory(prefix="synveil-window-") as temp:
         root = Path(temp)
         run_dir = root / "run"
@@ -80,7 +99,7 @@ def run(binary, timeout=25):
             else:
                 raise RuntimeError("private Weston socket missing")
             with (root / "window.log").open("wb") as log:
-                client = subprocess.Popen([str(binary)], env={**env, "WAYLAND_DEBUG": "client"},
+                client = subprocess.Popen(argv, env={**env, "WAYLAND_DEBUG": "client"},
                     stdin=subprocess.DEVNULL, stdout=log,
                     stderr=subprocess.STDOUT, start_new_session=True)
             while time.monotonic() < deadline and client.poll() is None:
@@ -103,5 +122,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("binary", type=Path)
     parser.add_argument("--timeout", type=float, default=25)
+    parser.add_argument("--target-loader", type=Path)
+    parser.add_argument("--target-library-path")
     args = parser.parse_args()
-    run(args.binary.resolve(), args.timeout)
+    run(args.binary.resolve(), args.timeout,
+        loader=args.target_loader, library_path=args.target_library_path)

@@ -15,6 +15,8 @@ on:
       - tests/native-wayland-target.py
       - tools/native_first_window.py
       - tests/native-first-window.py
+      - tools/first_window_probe.py
+      - tests/first-window-probe.py
       - tools/native_xdg_shell.py
       - src/desktop-wayland/first-window.c
       - build/manifests/native-wayland.json
@@ -36,6 +38,8 @@ jobs:
           python3 tests/native-wayland-target.py
           python3 -m py_compile tools/native_first_window.py tests/native-first-window.py
           python3 tests/native-first-window.py
+          python3 -m py_compile tools/first_window_probe.py tests/first-window-probe.py
+          python3 tests/first-window-probe.py
           python3 tools/native_wayland_target.py --plan
           python3 tools/native_first_window.py --plan
 
@@ -57,7 +61,7 @@ jobs:
             libgmp-dev libmpfr-dev libmpc-dev libisl-dev \
             libelf-dev libssl-dev bc rsync autoconf automake libtool \
             qemu-system-x86 ovmf e2fsprogs meson ninja-build pkg-config \
-            libexpat1-dev libffi-dev
+            libexpat1-dev libffi-dev weston
       - name: Build pinned Synveil target GCC/glibc
         run: |
           set -o pipefail
@@ -105,6 +109,14 @@ jobs:
           assert (out / "first-window-target").is_file()
           print("SYNVEIL_ORIGINAL_WINDOW_LINKED_WITH_TARGET_WAYLAND")
           PY
+      - name: Execute target-built Synveil app through pinned glibc under disposable headless Weston
+        run: |
+          set -Eeuo pipefail
+          SYSROOT="$PWD/build/toolchain/out/x86_64-synveil-linux-gnu/sysroot"
+          test -f "$SYSROOT/lib64/ld-linux-x86-64.so.2"
+          test -d "$SYSROOT/usr/lib64"
+          test -f out/native-wayland-target/first-window-validation.json
+          python3 tools/first_window_probe.py             out/native-wayland-target/first-window-target --timeout 30             --target-loader "$SYSROOT/lib64/ld-linux-x86-64.so.2"             --target-library-path "$SYSROOT/lib64:$SYSROOT/usr/lib64"
       - name: Retain dependency identities, not any executable or owner data
         if: always()
         uses: actions/upload-artifact@v4

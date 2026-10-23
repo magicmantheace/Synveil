@@ -22,6 +22,32 @@ class Tests(unittest.TestCase):
         for piece in mod.NEEDED:
             self.assertFalse(mod.valid_trace(s.replace(piece, "REMOVED")))
 
+    def test_glibc_loader_is_explicit_and_cannot_fallback(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as root:
+            from pathlib import Path
+            base = Path(root)
+            program = base / "window"
+            loader = base / "ld-linux-x86-64.so.2"
+            lib = base / "target-lib64"
+            program.write_bytes(b"fake")
+            loader.write_bytes(b"fake")
+            lib.mkdir()
+            self.assertEqual(mod.target_command(program), [str(program)])
+            with self.assertRaises(ValueError):
+                mod.target_command(program, loader=loader)
+            with self.assertRaises(ValueError):
+                mod.target_command(program, library_path=str(lib))
+            self.assertEqual(
+                mod.target_command(program, loader=loader, library_path=str(lib)),
+                [str(loader), "--library-path", str(lib), str(program)])
+            with self.assertRaises(ValueError):
+                mod.target_command(program, loader=base / "not-real",
+                                   library_path=str(lib))
+            with self.assertRaises(ValueError):
+                mod.target_command(program, loader=loader,
+                                   library_path=str(base / "no-libs"))
+
     def test_nonroot_and_bounded_timeout(self):
         with patch.object(mod.os, "geteuid", return_value=0):
             with self.assertRaises(ValueError):

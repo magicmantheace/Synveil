@@ -186,3 +186,16 @@ The CI target build must pass before claiming this application
 is native-linkable. Linking is distinct from guest execution:
 Weston compositor integration, user session, visible windows,
 signed A/B updates, and owner hardware readiness remain pending.
+
+## Host runtime proof of the target-linked first window
+
+Following the source-built ELF link, the native Wayland CI job also
+uses the exact Synveil glibc dynamic loader and private target
+library directories to execute the **target-built** first-window
+binary against a disposable, unprivileged headless Weston instance.
+The existing trace must still show xdg configure/ack, shared-memory
+buffer attachment, surface commit and a clean bounded exit.
+This does not run a Synveil kernel, graphics seat or native Weston
+compositor and does not test physical RGB scanout or installation.
+Only describe this stronger runtime milestone as passed if the
+target-built host-run CI step itself concludes successfully.
