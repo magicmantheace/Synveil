@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -105,33 +106,49 @@ def run(argv, **kwargs):
     subprocess.run([str(a) for a in argv], check=True, **kwargs)
 
 
-def pristine_overrides():
+def pristine_overrides(*, cached=False):
     # Fetch fresh archives against the project's existing canonical pins. Do not
     # reuse possibly modified source trees or change to the recipe set's older
     # Wayland/Pixman versions. Their normal .hash bypass for local source trees
     # is compensated here by verified downloads and fresh safe extraction.
     folder = OUT / "sources"
-    folder.mkdir(mode=0o700)
+    folder.mkdir(mode=0o700, exist_ok=cached)
+    if folder.is_symlink():
+        raise ValueError("unsafe cached source directory")
     sources = {}
+
+    def archive(part, pin, algorithm, fetch):
+        if part.is_symlink():
+            raise ValueError("unsafe cached source component")
+        part.mkdir(exist_ok=cached)
+        path = part / pin["filename"]
+        if cached:
+            if (path.is_symlink() or not path.is_file() or
+                    hashlib.new(algorithm, path.read_bytes()).hexdigest() != pin[algorithm]):
+                raise ValueError("cached archive differs from canonical source pin")
+            tree = part / "tree"
+            if tree.is_symlink():
+                raise ValueError("unsafe cached extraction tree")
+            if tree.exists():
+                shutil.rmtree(tree)
+            return path
+        return fetch(pin, part)
+
     wp = wayland.release_spec()
     part = folder / "wayland"
-    part.mkdir()
-    sources["WAYLAND"] = wayland.extract_source(wayland.fetch_source(wp, part), part / "tree")
+    sources["WAYLAND"] = wayland.extract_source(archive(part, wp, "sha512", wayland.fetch_source), part / "tree")
     sources["HOST_WAYLAND"] = sources["WAYLAND"]
     fp = ffi.source_pin()
     part = folder / "ffi"
-    part.mkdir()
-    sources["LIBFFI"] = ffi.extract(ffi.download_verified(fp, part), part / "tree")
+    sources["LIBFFI"] = ffi.extract(archive(part, fp, "sha256", ffi.download_verified), part / "tree")
     sources["HOST_LIBFFI"] = sources["LIBFFI"]
     pp = pixman.pin()
     part = folder / "pixman"
-    part.mkdir()
-    sources["PIXMAN"] = pixman.extract(pixman.verified_archive(pp, part), part / "tree")
+    sources["PIXMAN"] = pixman.extract(archive(part, pp, "sha512", pixman.verified_archive), part / "tree")
     sources["HOST_PIXMAN"] = sources["PIXMAN"]
     xp = xdg.pin()
     part = folder / "protocols"
-    part.mkdir()
-    xdg.extract_archive(xdg.fetch_verified(xp, part), part / "tree")
+    xdg.extract_archive(archive(part, xp, "sha512", xdg.fetch_verified), part / "tree")
     sources["WAYLAND_PROTOCOLS"] = part / "tree" / xdg.PREFIX
     sources["HOST_WAYLAND_PROTOCOLS"] = sources["WAYLAND_PROTOCOLS"]
     versions = {"WAYLAND": wp["version"], "HOST_WAYLAND": wp["version"],
@@ -146,7 +163,7 @@ def pristine_overrides():
                   "pixman_sha512": pp["sha512"], "protocols_sha512": xp["sha512"]}
 
 
-def build():
+def build(*, resume=False):
     pin = source_pin()
     if os.geteuid() == 0:
         raise ValueError("refusing privileged desktop dependency build")
@@ -162,22 +179,48 @@ def build():
         actual = hashlib.sha256((sysroot / "usr/lib64" / name).read_bytes()).hexdigest()
         if proof.get("runtime_sha256", {}).get(name) != actual:
             raise ValueError("native C++ runtime changed after its build")
-    if (ROOT / "out").is_symlink() or OUT.exists() or OUT.is_symlink():
+    if (ROOT / "out").is_symlink() or OUT.is_symlink() or (OUT.exists() and not resume):
         raise ValueError("refusing existing or symlinked desktop dependency output")
     if any(character.isspace() for character in str(ROOT)):
         raise ValueError("dependency build path cannot contain whitespace")
-    OUT.mkdir(parents=True, mode=0o700)
+    context = {"recipe_commit": RECIPE_COMMIT, "native_sources": {
+        "wayland_sha512": wayland.release_spec()["sha512"],
+        "ffi_sha256": ffi.source_pin()["sha256"],
+        "pixman_sha512": pixman.pin()["sha512"],
+        "protocols_sha512": xdg.pin()["sha512"]},
+        "native_cxx": proof, "toolchain_marker": marker.read_text()}
     source = OUT / "recipes"
-    run(["git", "init", source])
-    run(["git", "-C", source, "remote", "add", "origin", pin["recipe_builder"]["repository"]])
-    run(["git", "-C", source, "fetch", "--depth", "1", "origin", "refs/tags/2026.08.1"])
-    run(["git", "-C", source, "checkout", "--detach", "FETCH_HEAD"])
-    commit = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
-    if commit != RECIPE_COMMIT:
-        raise ValueError("dependency recipe tag moved from reviewed commit")
-    if WESTON_SHA256 not in (source / "package/weston/weston.hash").read_text():
-        raise ValueError("Weston release digest missing from pinned recipes")
-    overrides, native_sources = pristine_overrides()
+    if OUT.exists():
+        if not OUT.is_dir() or (OUT.stat().st_mode & 0o077):
+            raise ValueError("cached desktop output must be private")
+        if json.loads((OUT / "build-context.json").read_text()) != context:
+            raise ValueError("cached dependency build does not match native source/toolchain pins")
+        commit = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
+        if commit != RECIPE_COMMIT or subprocess.check_output(
+                ["git", "-C", str(source), "status", "--porcelain"], text=True).strip():
+            raise ValueError("cached source recipes changed")
+        overrides, native_sources = pristine_overrides(cached=True)
+    else:
+        OUT.mkdir(parents=True, mode=0o700)
+        run(["git", "init", source])
+        run(["git", "-C", source, "remote", "add", "origin", pin["recipe_builder"]["repository"]])
+        run(["git", "-C", source, "fetch", "--depth", "1", "origin", "refs/tags/2026.08.1"])
+        run(["git", "-C", source, "checkout", "--detach", "FETCH_HEAD"])
+        commit = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
+        if commit != RECIPE_COMMIT:
+            raise ValueError("dependency recipe tag moved from reviewed commit")
+        if WESTON_SHA256 not in (source / "package/weston/weston.hash").read_text():
+            raise ValueError("Weston release digest missing from pinned recipes")
+        overrides, native_sources = pristine_overrides()
+        (OUT / "build-context.json").write_text(json.dumps(context, sort_keys=True) + "\n")
+    # The hook preserves real mutexes and reports the actual configure compiler
+    # error before hundreds of secondary Cairo missing-mutex build errors.
+    hook = ("\ndefine SYNVEIL_CAIRO_VERIFY_PTHREADS\n"
+            "\tpython3 " + str(ROOT / "tools/native_cairo_probe.py") +
+            " $(@D)/buildroot-build\nendef\n"
+            "CAIRO_POST_CONFIGURE_HOOKS += SYNVEIL_CAIRO_VERIFY_PTHREADS\n")
+    text = overrides.read_text().split("\ndefine SYNVEIL_CAIRO_VERIFY_PTHREADS", 1)[0]
+    overrides.write_text(text + hook)
     config = OUT / "desktop.defconfig"
     config.write_text(configuration(ffi.TOOLCHAIN, overrides))
     build_dir = OUT / "build"
@@ -190,6 +233,12 @@ def build():
     run(base + ["BR2_DEFCONFIG=" + str(config), "defconfig"], env=env)
     check_configuration((build_dir / ".config").read_text(), ffi.TOOLCHAIN)
     # Deliberately invoke packages only, never `all`, `target-finalize`, or images.
+    if resume:
+        # A previous failure may have left Cairo configured without pthreads.
+        # Reconfigure only that dependency; retain the proven compiler and
+        # unrelated packages. This is build caching, not runtime evidence.
+        if list((build_dir / "build").glob("cairo-*/.stamp_configured")):
+            run(base + ["cairo-reconfigure"], env=env)
     run(base + ["-j4", "weston", "dejavu"], env=env)
     target = build_dir / "target"
     required = ("usr/bin/weston", "usr/bin/weston-terminal", "usr/bin/weston-simple-shm",
@@ -242,9 +291,10 @@ if __name__ == "__main__":
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--plan", action="store_true")
     mode.add_argument("--build", action="store_true")
+    parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     source_pin()
     if args.build:
-        build()
+        build(resume=args.resume)
     else:
         print("SYNVEIL_NATIVE_WESTON_SOURCE_BUILD_PLAN_VERIFIED")

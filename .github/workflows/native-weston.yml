@@ -15,7 +15,9 @@ on:
       - build/scripts/toolchain-cxx.sh
       - tools/native_cxx_runtime.py
       - tools/native_weston.py
+      - tools/native_cairo_probe.py
       - tests/native-weston.py
+      - tests/native-cairo-probe.py
       - build/manifests/native-weston.json
       - .github/workflows/native-weston.yml
 
@@ -34,6 +36,7 @@ jobs:
           python3 -m py_compile tools/native_cxx_runtime.py tools/native_weston.py
           python3 tools/native_weston.py --plan
           python3 tests/native-weston.py
+          python3 tests/native-cairo-probe.py
 
   native-desktop-components:
     needs: source-boundary
@@ -55,19 +58,54 @@ jobs:
             libgmp-dev libmpfr-dev libmpc-dev libisl-dev libelf-dev libssl-dev \
             bc rsync autoconf automake libtool meson ninja-build pkg-config \
             wget curl unzip file patch perl gperf cmake libncurses-dev
+      - name: Restore source-built native compiler cache
+        id: native-sdk
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/toolchain/out
+            out/native-cxx
+          key: native-desktop-sdk-v1-${{ runner.os }}-${{ hashFiles('build/manifests/sources.json', 'build/scripts/toolchain.sh', 'build/scripts/toolchain-cxx.sh', 'tools/native_cxx_runtime.py') }}
       - name: Build unchanged pinned C and glibc foundation
+        if: steps.native-sdk.outputs.cache-hit != 'true'
         run: |
           set -o pipefail
           mkdir -p out/logs
           bash build.sh toolchain 2>&1 | tee out/logs/weston-toolchain.log
       - name: Build native C++ and thread/exception runtime against existing glibc
+        if: steps.native-sdk.outputs.cache-hit != 'true'
         run: |
           set -o pipefail
           bash build.sh toolchain-cxx 2>&1 | tee out/logs/weston-cxx.log
+      - name: Verify native compiler cache identity and linked runtime bytes
+        run: python3 tools/native_cxx_runtime.py --verify
+      - name: Save compiler independently of later component failures
+        if: steps.native-sdk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/toolchain/out
+            out/native-cxx
+          key: ${{ steps.native-sdk.outputs.cache-primary-key }}
+      - name: Restore verified partial native dependency build
+        uses: actions/cache/restore@v4
+        with:
+          path: out/native-weston
+          key: native-weston-packages-v1-${{ runner.os }}-${{ hashFiles('build/manifests/sources.json', 'build/scripts/toolchain.sh', 'build/scripts/toolchain-cxx.sh', 'tools/native_cxx_runtime.py', 'build/manifests/native-weston.json') }}-${{ github.run_id }}
+          restore-keys: |
+            native-weston-packages-v1-${{ runner.os }}-${{ hashFiles('build/manifests/sources.json', 'build/scripts/toolchain.sh', 'build/scripts/toolchain-cxx.sh', 'tools/native_cxx_runtime.py', 'build/manifests/native-weston.json') }}-
       - name: Build Weston and its dependencies from pinned source recipes
+        id: weston-build
         run: |
           set -o pipefail
-          python3 tools/native_weston.py --build 2>&1 | tee out/logs/weston-components.log
+          mkdir -p out/logs
+          python3 tools/native_weston.py --build --resume 2>&1 | tee out/logs/weston-components.log
+      - name: Preserve partial build for focused dependency repair
+        if: always() && hashFiles('out/native-weston/build-context.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: out/native-weston
+          key: native-weston-packages-v1-${{ runner.os }}-${{ hashFiles('build/manifests/sources.json', 'build/scripts/toolchain.sh', 'build/scripts/toolchain-cxx.sh', 'tools/native_cxx_runtime.py', 'build/manifests/native-weston.json') }}-${{ github.run_id }}
       - name: Surface bounded public-source failure diagnostics
         if: failure()
         run: |
@@ -92,3 +130,5 @@ jobs:
             out/native-cxx/validation.json
             out/native-weston/validation.json
             out/native-weston/package-info.json
+            out/native-weston/build/build/cairo-*/buildroot-build/config.h
+            out/native-weston/build/build/cairo-*/buildroot-build/meson-logs/meson-log.txt

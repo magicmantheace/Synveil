@@ -27,6 +27,26 @@ def target_elf(readelf, path):
         raise ValueError("C++ runtime is not a native x86_64 ELF: " + path.name)
 
 
+def verify():
+    tools, sysroot = ffi.target_tools()
+    folder = ROOT / "out/native-cxx"
+    receipt = json.loads((folder / "validation.json").read_text())
+    if (receipt.get("schema") != "synveil.native-cxx/v1" or
+            receipt.get("target") != ffi.TARGET or
+            "cxx=1" not in (ffi.TOOLCHAIN / "SYNVEIL-TOOLCHAIN").read_text().splitlines()):
+        raise ValueError("native C++ identity mismatch")
+    for name in RUNTIMES:
+        path = sysroot / "usr/lib64" / name
+        if digest(path) != receipt.get("runtime_sha256", {}).get(name):
+            raise ValueError("cached native runtime changed")
+        target_elf(tools["readelf"], path)
+    binary = folder / "runtime-check"
+    if digest(binary) != receipt.get("linked_elf_sha256"):
+        raise ValueError("native C++ link proof changed")
+    target_elf(tools["readelf"], binary)
+    print("SYNVEIL_NATIVE_CXX_CACHE_IDENTITY_VERIFIED_NOT_EXECUTED")
+
+
 def stage():
     if os.geteuid() == 0:
         raise ValueError("refusing privileged native C++ runtime staging")
@@ -103,6 +123,8 @@ int main() {
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--stage", action="store_true", required=True)
-    parser.parse_args()
-    stage()
+    modes = parser.add_mutually_exclusive_group(required=True)
+    modes.add_argument("--stage", action="store_true")
+    modes.add_argument("--verify", action="store_true")
+    args = parser.parse_args()
+    verify() if args.verify else stage()

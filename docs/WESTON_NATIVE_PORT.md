@@ -263,3 +263,21 @@ The expensive `native-weston.yml` build is explicit and must pass before
 claiming that these native compositor components compile. Native guest
 packaging, compositor execution, RGB/input/authentication integration and
 installation remain unimplemented by this isolated build step.
+
+### Cairo integration blocker and focused rebuilds
+
+The first full component run `39998451409` successfully built native C/C++
+and linked the C++ thread/exception probe, then failed compiling Cairo 1.18.4
+because its configure result lacked the pthread mutex backend. The secondary
+missing-mutex macros do not identify the underlying configure compiler error.
+A post-configure guard now requires real pthread detection and surfaces the
+corresponding Meson compiler/linker diagnostics. Mutexes are not disabled and
+no failed feature test is forced to pass.
+
+The component workflow can retain/reuse the native compiler separately from
+later package failures. Restores recheck target runtime/ELF identities. A
+partial dependency build must match the pinned recipe commit, source locks,
+compiler receipt and marker; canonical local-source archives are reverified
+and freshly extracted before reuse. Cairo alone can be reconfigured after a
+failure. These CI checkpoints accelerate source builds; they are not release
+trust anchors, guest execution evidence or permission to import an OS rootfs.
