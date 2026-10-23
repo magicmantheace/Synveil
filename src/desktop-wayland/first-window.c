@@ -27,6 +27,7 @@ struct app {
     struct wl_shm *shm;
     struct wl_seat *seat;
     struct wl_pointer *pointer;
+    struct wl_keyboard *keyboard;
     struct xdg_wm_base *wm;
     struct wl_surface *surface;
     struct xdg_surface *xdg;
@@ -96,8 +97,46 @@ static const struct wl_pointer_listener pointer_handlers = {
     .enter = pointer_enter, .leave = pointer_leave, .motion = pointer_motion,
     .button = pointer_button, .axis = pointer_axis
 };
+static void keyboard_keymap(void *ctx, struct wl_keyboard *keyboard,
+                            uint32_t format, int fd, uint32_t size) {
+    (void)ctx; (void)keyboard; (void)format; (void)size;
+    // Only the layout-independent Escape control is used. Do not map or log
+    // keymap data; future text applications use source-built xkbcommon.
+    if (fd >= 0) close(fd);
+}
+static void keyboard_enter(void *ctx, struct wl_keyboard *keyboard, uint32_t serial,
+                           struct wl_surface *surface, struct wl_array *keys) {
+    (void)ctx; (void)keyboard; (void)serial; (void)surface; (void)keys;
+}
+static void keyboard_leave(void *ctx, struct wl_keyboard *keyboard, uint32_t serial,
+                           struct wl_surface *surface) {
+    (void)ctx; (void)keyboard; (void)serial; (void)surface;
+}
+static void keyboard_key(void *ctx, struct wl_keyboard *keyboard, uint32_t serial,
+                         uint32_t time, uint32_t key, uint32_t state) {
+    (void)keyboard; (void)serial; (void)time;
+    struct app *a = ctx;
+    if (a->interactive && key == KEY_ESC && state == WL_KEYBOARD_KEY_STATE_PRESSED)
+        a->closed = 1;
+}
+static void keyboard_modifiers(void *ctx, struct wl_keyboard *keyboard, uint32_t serial,
+                               uint32_t depressed, uint32_t latched, uint32_t locked,
+                               uint32_t group) {
+    (void)ctx; (void)keyboard; (void)serial; (void)depressed;
+    (void)latched; (void)locked; (void)group;
+}
+static const struct wl_keyboard_listener keyboard_handlers = {
+    .keymap = keyboard_keymap, .enter = keyboard_enter, .leave = keyboard_leave,
+    .key = keyboard_key, .modifiers = keyboard_modifiers
+};
 static void capabilities(void *ctx, struct wl_seat *seat, uint32_t caps) {
     struct app *a = ctx;
+    if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !a->keyboard) {
+        a->keyboard = wl_seat_get_keyboard(seat);
+        wl_keyboard_add_listener(a->keyboard, &keyboard_handlers, a);
+    } else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD) && a->keyboard) {
+        wl_keyboard_destroy(a->keyboard); a->keyboard = NULL;
+    }
     if ((caps & WL_SEAT_CAPABILITY_POINTER) && !a->pointer) {
         a->pointer = wl_seat_get_pointer(seat);
         wl_pointer_add_listener(a->pointer, &pointer_handlers, a);
@@ -216,6 +255,7 @@ static int render(struct app *a) {
 }
 
 static void cleanup(struct app *a) {
+    if (a->keyboard) wl_keyboard_destroy(a->keyboard);
     if (a->pointer) wl_pointer_destroy(a->pointer);
     if (a->seat) wl_seat_destroy(a->seat);
     if (a->top) xdg_toplevel_destroy(a->top);

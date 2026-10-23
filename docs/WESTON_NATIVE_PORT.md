@@ -291,6 +291,43 @@ objects with `#` (for example `xdg_surface#9`); the predicate hardcoded the
 older `@` spelling. The probe now normalizes numeric IDs on known object
 names before applying the same mandatory protocol/marker checks. Negative
 cases still reject missing configure, ack, attachment, commit or submission.
-This repairs the identified validation-format defect; exact-revision native
-acceptance must finish before the full runtime gate is called passed.
+Native acceptance run `40006634786` at `d9bdfd6` passed the repaired gate,
+including target-glibc execution and library-closure verification. Host
+headless run `40006634968`, original-window run `40006634839`, and bootstrap
+lint run `40006641749` also passed at that revision.
 The target glibc/loader and host-library-refusal requirements are unchanged.
+
+## Native compositor QEMU integration fixture (implemented; runtime pending)
+
+Once the full component build passes, `tools/native_weston_vm.py --build`
+uses the existing **Synveil** BusyBox/rootfs, pinned kernel and UEFI image
+builders in a separate `out/native-weston-vm` work tree. Only a sealed explicit
+allowlist of compositor libraries, executables, fonts, keymaps and device
+support assets may enter that native base. The package builder's rootfs,
+accounts, init and bootloader are not copied. Existing base-system file
+collisions, changed assets and escaping symlinks fail closed.
+
+A separate VM-only init requires QEMU DMI, one read-only virtual boot disk
+and no other persistent disk. It starts source-built udev/seatd, then Weston
+with software DRM rendering and two distinct UID 1000 applications: the
+original Synveil client and the established Weston terminal. Credentials
+are locked and no root serial/login shell is started. This disposable profile
+has **no owner authentication or persistence**; it does not replace the
+existing Argon2id/native framebuffer or production init paths and must not
+be published as an owner image.
+
+`tests/smoke-native-weston.py` must boot that image through OVMF, require two
+configured live application processes, capture actual nonblank RGB, locate
+the original client's known gradient plus a separately visible terminal,
+then use QMP mouse events to move and resize the actual client and require
+changed pixel geometry. A focused Escape key must close it cleanly while
+the independent terminal and compositor remain alive. Screenshots remain
+private temporary files and are removed; only a successful guest receipt
+may be retained. The original interactive client now handles Escape and
+keyboard capability loss without logging input or keymap contents.
+
+These paths are implemented but **not runtime proven** until the complete
+native image/guest workflow passes. Cairo's mutex detection currently blocks
+component compilation, so no new native desktop or input result is claimed.
+Safe installed persistence, authentication integration, bootable signed A/B
+updates/rollback and physical owner testing remain separate unfinished gates.

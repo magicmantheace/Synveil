@@ -20,6 +20,7 @@ import native_libffi as ffi
 import native_wayland as wayland
 import native_xdg_shell as xdg
 import native_pixman as pixman
+import native_weston_assets as assets
 
 OUT = ROOT / "out/native-weston"
 LOCK = ROOT / "build/manifests/native-weston.json"
@@ -275,10 +276,12 @@ def build(*, resume=False):
         libc_hashes[name] = expected
     package_info = subprocess.check_output(base + ["-s", "show-info"], env=env)
     (OUT / "package-info.json").write_bytes(package_info)
+    asset_hash = assets.seal(target, OUT / "runtime-assets.json")
     receipt = {"schema": "synveil.native-weston-stage/v1", "target": ffi.TARGET,
                "recipe_commit": commit, "weston_version": pin["weston"]["version"],
                "weston_source_sha256": WESTON_SHA256, "native_sources": native_sources,
                "executables_sha256": hashes, "native_glibc_sha256": libc_hashes,
+               "runtime_assets_sha256": asset_hash,
                "package_info_sha256": hashlib.sha256(package_info).hexdigest(),
                "native_boot_image_changed": False, "compositor_executed": False,
                "foreign_rootfs_imported": False}
