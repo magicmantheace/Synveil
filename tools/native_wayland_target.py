@@ -80,6 +80,9 @@ def machine_files(stage, cc, sysroot, ffi_pc_dir, scanner_pc_dir, ffi_stage):
     ]) + "\n")
     native.write_text("\n".join([
         "[binaries]", "pkg-config = 'pkg-config'",
+        # Restrict the build-machine scanner to its private pkg-config file.
+        # Cross-only sys_root must NEVER rewrite this host executable path.
+        "[properties]", "pkg_config_libdir = " + repr([str(scanner_pc_dir)]),
         "[built-in options]",
         "pkg_config_path = " + repr([str(scanner_pc_dir)])
     ]) + "\n")
@@ -104,6 +107,37 @@ def scanner_pc_override(folder, actual_scanner):
     return pc
 
 
+def isolated_pkgconfig_env(base):
+    """Meson derives separate build/host pkg-config roots from machine files.
+
+    Process-wide PKG_CONFIG_SYSROOT_DIR would rewrite the *host scanner*
+    path with the libffi target staging prefix, breaking or contaminating
+    the build-machine executable lookup.
+    """
+    env = dict(base)
+    for key in ("CFLAGS", "CXXFLAGS", "LDFLAGS", "CPPFLAGS", "CPATH",
+                "LIBRARY_PATH", "PKG_CONFIG_PATH", "PKG_CONFIG_LIBDIR",
+                "PKG_CONFIG_SYSROOT_DIR", "PKG_CONFIG_SYSTEM_INCLUDE_PATH",
+                "PKG_CONFIG_SYSTEM_LIBRARY_PATH"):
+        env.pop(key, None)
+    env["PKG_CONFIG_PATH"] = ""
+    return env
+
+
+def verify_private_scanner_lookup(scanner, scanner_pc_dir):
+    """Fail before a costly Meson configure if host scanner is misresolved."""
+    if not shutil.which("pkg-config"):
+        raise ValueError("pkg-config not available for host scanner preflight")
+    env = isolated_pkgconfig_env(os.environ)
+    env["PKG_CONFIG_LIBDIR"] = str(scanner_pc_dir)
+    output = subprocess.check_output(
+        ["pkg-config", "--variable=wayland_scanner", "wayland-scanner"],
+        env=env, text=True, timeout=10).strip()
+    if output != str(scanner) or not scanner.is_file() or scanner.is_symlink():
+        raise ValueError("private host scanner was rewritten or substituted")
+    return output
+
+
 def build_native_wayland(stage, wp, fp):
     tools, sysroot = target_toolchain()
     source = wayland.DEST / "src" / wayland.SRC_ROOT
@@ -123,18 +157,13 @@ def build_native_wayland(stage, wp, fp):
         scanner_receipt.get("source_sha512") != wp["sha512"]):
         raise ValueError("dependency source receipts not trustworthy")
     scanner_pc = scanner_pc_override(stage / "native-pc", scanner)
+    verify_private_scanner_lookup(scanner, scanner_pc.parent)
     cross, native = machine_files(stage, tools, sysroot,
                                   ffi_pc.parent, scanner_pc.parent, ffi_stage)
-    env = os.environ.copy()
-    for key in ("CFLAGS", "CXXFLAGS", "LDFLAGS", "CPPFLAGS", "CPATH",
-                "LIBRARY_PATH", "PKG_CONFIG_PATH", "PKG_CONFIG_LIBDIR",
-                "PKG_CONFIG_SYSROOT_DIR"):
-        env.pop(key, None)
-    # Meson uses the cross file for target pkg-config; only the source-built
-    # libffi .pc is visible, and no host libffi package may satisfy it.
-    env["PKG_CONFIG_SYSROOT_DIR"] = str(ffi_stage)
-    env["PKG_CONFIG_LIBDIR"] = str(ffi_pc.parent)
-    env["PKG_CONFIG_PATH"] = ""
+    # The cross machine file scopes the target sysroot and target libffi.
+    # The native machine file scopes the host scanner. Process-global
+    # PKG_CONFIG_SYSROOT_DIR would contaminate native scanner paths.
+    env = isolated_pkgconfig_env(os.environ)
     build = stage / "build"
     result = stage / "stage"
     subprocess.run(["meson", "setup", str(build), str(source),

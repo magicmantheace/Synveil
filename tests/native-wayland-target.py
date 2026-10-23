@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 """Cheap offline guards for future Wayland target library cross-stage."""
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -59,6 +60,37 @@ class WaylandTargetTests(unittest.TestCase):
             self.assertIn("needs_exe_wrapper = true", contents)
             self.assertNotIn("/usr/lib/x86_64-linux-gnu/pkgconfig", contents)
             self.assertIn("private-scanner-pc", native.read_text())
+
+    def test_build_environment_never_exposes_target_sysroot_to_host_scanner(self):
+        poisoned = {
+            "PKG_CONFIG_SYSROOT_DIR": "/target/ffi/stage",
+            "PKG_CONFIG_LIBDIR": "/target/ffi/pkgconfig",
+            "PKG_CONFIG_PATH": "/host/other",
+            "CFLAGS": "-I/host/headers",
+            "SYNVEIL_JOBS": "4",
+        }
+        safe = bridge.isolated_pkgconfig_env(poisoned)
+        self.assertNotIn("PKG_CONFIG_SYSROOT_DIR", safe)
+        self.assertNotIn("PKG_CONFIG_LIBDIR", safe)
+        self.assertNotIn("CFLAGS", safe)
+        self.assertEqual(safe["PKG_CONFIG_PATH"], "")
+        self.assertEqual(safe["SYNVEIL_JOBS"], "4")
+        poisoned["PKG_CONFIG_SYSROOT_DIR"] = "/hostile"
+        self.assertEqual(safe["PKG_CONFIG_PATH"], "")
+
+    def test_scanner_pkgconfig_variable_uses_exact_host_executable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            scanner = base / "wayland-scanner"
+            scanner.write_text("#!/bin/sh\nexit 0\n")
+            scanner.chmod(0o700)
+            pc = bridge.scanner_pc_override(base / "pc", scanner)
+            if bridge.shutil.which("pkg-config"):
+                with patch.dict(os.environ, {"PKG_CONFIG_SYSROOT_DIR": "/poison",
+                                             "PKG_CONFIG_LIBDIR": "/missing"}):
+                    self.assertEqual(
+                        bridge.verify_private_scanner_lookup(scanner, pc.parent),
+                        str(scanner))
 
     def test_ambiguously_named_libffi_pc_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
