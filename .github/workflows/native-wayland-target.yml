@@ -62,7 +62,19 @@ jobs:
             libelf-dev libssl-dev bc rsync autoconf automake libtool \
             qemu-system-x86 ovmf e2fsprogs meson ninja-build pkg-config \
             libexpat1-dev libffi-dev weston
+      - name: Reuse an already verified native compiler when available
+        id: native-sdk
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/toolchain/out
+            out/native-cxx
+          key: native-desktop-sdk-v1-${{ runner.os }}-${{ hashFiles('build/manifests/sources.json', 'build/scripts/toolchain.sh', 'build/scripts/toolchain-cxx.sh', 'tools/native_cxx_runtime.py') }}
+      - name: Verify restored native compiler provenance
+        if: steps.native-sdk.outputs.cache-hit == 'true'
+        run: python3 tools/native_cxx_runtime.py --verify
       - name: Build pinned Synveil target GCC/glibc
+        if: steps.native-sdk.outputs.cache-hit != 'true'
         run: |
           set -o pipefail
           mkdir -p out/logs

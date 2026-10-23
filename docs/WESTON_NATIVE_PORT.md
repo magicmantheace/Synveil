@@ -281,3 +281,16 @@ compiler receipt and marker; canonical local-source archives are reverified
 and freshly extracted before reuse. Cairo alone can be reconfigured after a
 failure. These CI checkpoints accelerate source builds; they are not release
 trust anchors, guest execution evidence or permission to import an OS rootfs.
+
+### Original target runtime gate diagnosis
+
+Diagnostic run `39995151249`, at `f2fe4a6`, recorded real target-client
+xdg configure/ack, shm attach, surface commit and its submission marker,
+then failed the host trace predicate. Its pinned Wayland 1.26 trace names
+objects with `#` (for example `xdg_surface#9`); the predicate hardcoded the
+older `@` spelling. The probe now normalizes numeric IDs on known object
+names before applying the same mandatory protocol/marker checks. Negative
+cases still reject missing configure, ack, attachment, commit or submission.
+This repairs the identified validation-format defect; exact-revision native
+acceptance must finish before the full runtime gate is called passed.
+The target glibc/loader and host-library-refusal requirements are unchanged.

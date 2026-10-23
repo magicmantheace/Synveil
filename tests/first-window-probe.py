@@ -22,6 +22,20 @@ class Tests(unittest.TestCase):
         for piece in mod.NEEDED:
             self.assertFalse(mod.valid_trace(s.replace(piece, "REMOVED")))
 
+    def test_wayland_126_numeric_hash_object_ids_preserve_all_requirements(self):
+        native = ("xdg_wm_base#6.get_xdg_surface(new id xdg_surface#9)\n"
+                  "xdg_surface#9.get_toplevel(new id xdg_toplevel#10)\n"
+                  "xdg_surface#9.configure(1)\nxdg_surface#9.ack_configure(1)\n"
+                  "wl_surface#8.attach(wl_buffer#7,0,0)\nwl_surface#8.commit()\n"
+                  "SYNVEIL_XDG_TOPLEVEL_SHM_SUBMITTED")
+        self.assertTrue(mod.valid_trace(native))
+        self.assertTrue(mod.valid_trace(native.replace("#", "@")))
+        for missing in ("get_xdg_surface", "get_toplevel", ".configure(",
+                        "ack_configure(", ".attach(", ".commit(",
+                        "SYNVEIL_XDG_TOPLEVEL_SHM_SUBMITTED"):
+            self.assertFalse(mod.valid_trace(native.replace(missing, "REMOVED")))
+        self.assertFalse(mod.valid_trace(native.replace("xdg_wm_base#6", "xdg_wm_base#invalid")))
+
     def test_resize_requires_changed_size_then_restored_buffer(self):
         base = "\n".join(mod.NEEDED)
         cycle = ("\nSYNVEIL_XDG_SHM_SIZE 400 240\n"

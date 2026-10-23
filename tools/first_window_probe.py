@@ -19,6 +19,10 @@ NEEDED = ("xdg_wm_base@", "get_xdg_surface", "get_toplevel",
 
 
 def valid_trace(s, *, exercise_resize=False):
+    # Wayland 1.26 prints object IDs with '#'; older runner libraries use '@'.
+    # Normalize only known protocol object names followed by numeric IDs.
+    s = re.sub(r"\b(xdg_wm_base|xdg_surface|xdg_toplevel|wl_surface|wl_buffer)#([0-9]+)\b",
+               r"\1@\2", s)
     if not all(needle in s for needle in NEEDED):
         return False
     if not exercise_resize:
@@ -184,7 +188,7 @@ def run(binary, timeout=25, *, loader=None, library_path=None, exercise_resize=F
                 raise RuntimeError("window failed bounded exit")
             output = (root / "window.log").read_text(errors="replace")
             if client.returncode != 0 or not valid_trace(output, exercise_resize=exercise_resize):
-                raise RuntimeError("actual xdg/shm window handshake missing: " + output[-1200:])
+                raise RuntimeError("actual xdg/shm window handshake missing (exit=" + str(client.returncode) + "): " + output[-1200:])
             if two_windows:
                 if sibling.pid == client.pid or sibling.poll() is not None:
                     raise RuntimeError("independent interactive window did not survive resize client")
