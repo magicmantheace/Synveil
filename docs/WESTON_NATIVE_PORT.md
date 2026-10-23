@@ -242,3 +242,24 @@ The host probe also accepts `--two-windows`: it first maps an independent
 the first process and its configured shm toplevel to remain alive throughout.
 Both clients and the private compositor are cleaned up on success or failure.
 This is a host-only protocol acceptance case, not guest or RGB proof.
+
+## Full compositor source build (experimental, not yet runtime validated)
+
+`bash build.sh toolchain-cxx` adds an explicit post-glibc compiler stage from
+Synveil's existing pinned GCC, plus native shared libstdc++/libgcc runtimes.
+Weston 15.0.1 requires a C++ compiler even for the software-rendered profile.
+The ordinary bootstrap C/glibc build remains unchanged.
+
+`python3 tools/native_weston.py --build` then compiles the complete software
+DRM/headless compositor dependency set using a pinned Buildroot **recipe
+executor**, the native Synveil toolchain and existing Wayland/protocols/
+Pixman/libffi source pins. It invokes package builds only, checks their native
+ELF identity and retains a provenance receipt. No generated system rootfs,
+init, credentials, kernel or image is imported. See
+[ADR 0016](adr/0016-native-desktop-dependency-build.md) for the rationale and
+strict boundary; this is not a switch to another operating system.
+
+The expensive `native-weston.yml` build is explicit and must pass before
+claiming that these native compositor components compile. Native guest
+packaging, compositor execution, RGB/input/authentication integration and
+installation remain unimplemented by this isolated build step.

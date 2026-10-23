@@ -1,0 +1,94 @@
+name: Source-built native Weston components
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_desktop:
+        type: boolean
+        default: false
+        required: true
+        description: Build native C++, source-built Weston and software DRM dependencies
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - build.sh
+      - build/scripts/toolchain-cxx.sh
+      - tools/native_cxx_runtime.py
+      - tools/native_weston.py
+      - tests/native-weston.py
+      - build/manifests/native-weston.json
+      - .github/workflows/native-weston.yml
+
+permissions:
+  contents: read
+
+jobs:
+  source-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate opt-in source and configuration boundaries
+        run: |
+          bash -n build.sh build/scripts/toolchain-cxx.sh
+          python3 -m py_compile tools/native_cxx_runtime.py tools/native_weston.py
+          python3 tools/native_weston.py --plan
+          python3 tests/native-weston.py
+
+  native-desktop-components:
+    needs: source-boundary
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_desktop) || contains(github.event.head_commit.message, '[build-native-weston]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SYNVEIL_SOURCE_TRANSPORT: git
+      SYNVEIL_JOBS: "4"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install source compiler and dependency-builder host prerequisites
+        timeout-minutes: 10
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y \
+            build-essential bison flex texinfo gawk python3 xz-utils bzip2 cpio zstd \
+            dosfstools mtools gdisk qemu-system-x86 ovmf e2fsprogs \
+            libgmp-dev libmpfr-dev libmpc-dev libisl-dev libelf-dev libssl-dev \
+            bc rsync autoconf automake libtool meson ninja-build pkg-config \
+            wget curl unzip file patch perl gperf cmake libncurses-dev
+      - name: Build unchanged pinned C and glibc foundation
+        run: |
+          set -o pipefail
+          mkdir -p out/logs
+          bash build.sh toolchain 2>&1 | tee out/logs/weston-toolchain.log
+      - name: Build native C++ and thread/exception runtime against existing glibc
+        run: |
+          set -o pipefail
+          bash build.sh toolchain-cxx 2>&1 | tee out/logs/weston-cxx.log
+      - name: Build Weston and its dependencies from pinned source recipes
+        run: |
+          set -o pipefail
+          python3 tools/native_weston.py --build 2>&1 | tee out/logs/weston-components.log
+      - name: Surface bounded public-source failure diagnostics
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          for path in sorted(Path("out/logs").glob("weston-*.log")):
+              lines = path.read_text(errors="replace").splitlines()
+              selected = [line for line in lines if re.search(r"error:|fatal|Error|ERROR|Traceback|ValueError", line)]
+              message = (path.name + ": " + "\n".join(selected[-8:] + lines[-8:]))[-4000:]
+              message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print("::error::" + message)
+          PY
+      - name: Retain provenance only; no executable or boot image publication
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-weston-component-provenance-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/native-cxx/validation.json
+            out/native-weston/validation.json
+            out/native-weston/package-info.json
