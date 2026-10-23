@@ -199,3 +199,26 @@ This does not run a Synveil kernel, graphics seat or native Weston
 compositor and does not test physical RGB scanout or installation.
 Only describe this stronger runtime milestone as passed if the
 target-built host-run CI step itself concludes successfully.
+
+## Original client window lifecycle (development)
+
+The same client now accepts `--interactive` to remain in its Wayland event
+loop until the compositor or its close control requests exit. Drag the dark
+client title strip to move; drag the cyan lower-right grip to resize; the red
+upper-right control closes the window. Those requests use the compositor's
+actual input serial and seat. A seat losing pointer capability drops its
+pointer object. Physical/guest pointer interaction remains unverified.
+
+Every acknowledged size configuration schedules a newly sized ARGB buffer.
+Busy buffers remain mapped until `wl_buffer.release`; at most three can be
+outstanding, with later configurations coalesced until a buffer returns.
+Invalid or oversized dimensions fail closed. All objects and mappings are
+released at exit. `--exercise-resize` asks the compositor to maximize and
+restore the real toplevel, repainting each configured geometry. The host
+acceptance workflow requires changed and restored buffer sizes plus the
+actual Wayland requests, not merely a client marker. Its exact-revision CI
+must pass before describing this new resize path as runtime verified.
+
+The default bounded first-window proof remains available. These client
+changes do not install Weston in the native image or establish a desktop,
+authenticated graphical session, QEMU scanout or physical compatibility.

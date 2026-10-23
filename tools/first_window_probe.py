@@ -3,6 +3,7 @@
 """Test original Synveil shm window against real headless Weston, not native boot."""
 import argparse
 import os
+import re
 from pathlib import Path
 import shutil
 import signal
@@ -17,8 +18,19 @@ NEEDED = ("xdg_wm_base@", "get_xdg_surface", "get_toplevel",
           "SYNVEIL_XDG_TOPLEVEL_SHM_SUBMITTED")
 
 
-def valid_trace(s):
-    return all(needle in s for needle in NEEDED)
+def valid_trace(s, *, exercise_resize=False):
+    if not all(needle in s for needle in NEEDED):
+        return False
+    if not exercise_resize:
+        return True
+    sizes = [(int(w), int(h)) for w, h in re.findall(
+        r"^SYNVEIL_XDG_SHM_SIZE ([0-9]+) ([0-9]+)$", s, re.MULTILINE)]
+    return (len(sizes) >= 3 and sizes[0] == (400, 240) and
+            any(size != sizes[0] for size in sizes[1:-1]) and
+            sizes[-1] == sizes[0] and
+            "SYNVEIL_XDG_RESIZE_CYCLE_COMPLETE" in s and
+            ".set_maximized(" in s and ".unset_maximized(" in s)
+
 
 
 def terminate(proc):
@@ -56,7 +68,7 @@ def target_command(binary, *, loader=None, library_path=None):
     return [str(loader), "--library-path", library_path, str(binary)]
 
 
-def run(binary, timeout=25, *, loader=None, library_path=None):
+def run(binary, timeout=25, *, loader=None, library_path=None, exercise_resize=False):
     if os.geteuid() == 0:
         raise ValueError("refusing root Wayland session")
     if not 8 <= timeout <= 60:
@@ -65,6 +77,8 @@ def run(binary, timeout=25, *, loader=None, library_path=None):
     if not weston or not binary.is_file() or binary.is_symlink():
         raise ValueError("missing verified Weston/client executable")
     argv = target_command(binary, loader=loader, library_path=library_path)
+    if exercise_resize:
+        argv.append("--exercise-resize")
     with tempfile.TemporaryDirectory(prefix="synveil-window-") as temp:
         root = Path(temp)
         run_dir = root / "run"
@@ -109,9 +123,11 @@ def run(binary, timeout=25, *, loader=None, library_path=None):
             if client.poll() is None:
                 raise RuntimeError("window failed bounded exit")
             output = (root / "window.log").read_text(errors="replace")
-            if client.returncode != 0 or not valid_trace(output):
+            if client.returncode != 0 or not valid_trace(output, exercise_resize=exercise_resize):
                 raise RuntimeError("actual xdg/shm window handshake missing: " + output[-1200:])
             print("SYNVEIL_HOST_WESTON_SHM_XDG_WINDOW_VERIFIED")
+            if exercise_resize:
+                print("SYNVEIL_HOST_WESTON_RESIZE_REPAINT_VERIFIED")
             print("native_synveil=false; headless=true")
         finally:
             terminate(client)
@@ -124,10 +140,12 @@ if __name__ == "__main__":
     parser.add_argument("--timeout", type=float, default=25)
     parser.add_argument("--target-loader", type=Path)
     parser.add_argument("--target-library-path")
+    parser.add_argument("--exercise-resize", action="store_true")
     args = parser.parse_args()
     try:
         run(args.binary.resolve(), args.timeout,
-            loader=args.target_loader, library_path=args.target_library_path)
+            loader=args.target_loader, library_path=args.target_library_path,
+            exercise_resize=args.exercise_resize)
     except (OSError, ValueError, RuntimeError) as error:
         # This isolated probe has no credentials or user data. Preserve its bounded
         # diagnostic in Actions annotations when raw job logs are inaccessible.

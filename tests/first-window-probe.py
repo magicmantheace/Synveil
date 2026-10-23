@@ -22,6 +22,20 @@ class Tests(unittest.TestCase):
         for piece in mod.NEEDED:
             self.assertFalse(mod.valid_trace(s.replace(piece, "REMOVED")))
 
+    def test_resize_requires_changed_size_then_restored_buffer(self):
+        base = "\n".join(mod.NEEDED)
+        cycle = ("\nSYNVEIL_XDG_SHM_SIZE 400 240\n"
+                 "SYNVEIL_XDG_SHM_SIZE 1024 736\n"
+                 "SYNVEIL_XDG_SHM_SIZE 400 240\n"
+                 "SYNVEIL_XDG_RESIZE_CYCLE_COMPLETE\n"
+                 ".set_maximized()\n.unset_maximized()")
+        self.assertTrue(mod.valid_trace(base + cycle, exercise_resize=True))
+        for bad in (cycle.replace("1024 736", "400 240"),
+                    cycle.replace("SYNVEIL_XDG_RESIZE_CYCLE_COMPLETE", ""),
+                    cycle.replace(".unset_maximized()", ""),
+                    cycle.replace("SYNVEIL_XDG_SHM_SIZE 400 240\n", "")):
+            self.assertFalse(mod.valid_trace(base + bad, exercise_resize=True))
+
     def test_glibc_loader_is_explicit_and_cannot_fallback(self):
         import tempfile
         with tempfile.TemporaryDirectory() as root:

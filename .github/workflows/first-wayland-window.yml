@@ -41,3 +41,5 @@ jobs:
         run: |
           test "$(id -u)" -ne 0
           python3 tools/first_window_probe.py out/synveil-first-window --timeout 25
+      - name: Exercise actual compositor maximize, restore and buffer redraw
+        run: python3 tools/first_window_probe.py out/synveil-first-window --timeout 25 --exercise-resize
