@@ -15,6 +15,10 @@ mount -t proc proc /proc || fail
 mount -t sysfs sysfs /sys || fail
 mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs /run || fail
 mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp || fail
+# The terminal needs real Unix98 PTYs; device nodes alone are insufficient.
+mkdir -p /dev/pts /dev/shm
+mount -t devpts -o nosuid,noexec,gid=5,mode=0620 devpts /dev/pts || fail
+mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /dev/shm || fail
 [ -f /etc/synveil/native-weston-vm-only ] || fail
 [ "$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null)" = QEMU ] || fail
 [ -d /sys/block/vda ] && [ "$(cat /sys/block/vda/ro)" = 1 ] || fail

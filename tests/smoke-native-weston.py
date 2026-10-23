@@ -17,10 +17,12 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import native_weston_vm as vm
-from qmp_input import _read_reply, emit_command, send_keys, verified_ppm_test_frame
+from qmp_input import (_read_reply, emit_command, send_keys, verified_ppm_test_frame,
+                       ALLOWED_TERMINAL_RETURN)
 
 READY = b'SYNVEIL_NATIVE_WESTON_VM_TWO_WINDOWS_READY'
 CLOSED = b'SYNVEIL_NATIVE_WESTON_VM_KEYBOARD_CLOSE_OK'
+TERMINAL = b'SYNVEIL_NATIVE_WESTON_VM_TERMINAL_INPUT_OK'
 FAILED = b'SYNVEIL_NATIVE_WESTON_VM_FAILED'
 
 
@@ -70,6 +72,23 @@ def terminal_pixels_visible(width, height, data, window):
             dark += max(r, g, b) < 30
             light += min(r, g, b) >= 180 and max(r, g, b) - min(r, g, b) <= 20
     return dark >= 3000 and light >= 50
+
+
+def terminal_point(width, height, data):
+    # Locate a visible terminal interior after the original client closes.
+    # A long dark run distinguishes its canvas from this fixture's blue
+    # background; avoid the shell panel and all window title bars.
+    for y in range(80, height - 20):
+        start = None
+        for x in range(width + 1):
+            dark = x < width and max(data[(y * width + x) * 3:(y * width + x) * 3 + 3]) < 20
+            if dark and start is None:
+                start = x
+            if not dark and start is not None:
+                if x - start >= 180:
+                    return start + 80, y
+                start = None
+    raise RuntimeError('independent terminal interior not visible')
 
 
 def qmp_command(endpoint, command):
@@ -201,10 +220,26 @@ def run(timeout=180):
             frame = screenshot(endpoint, folder, count)
             if original_window(*frame) is not None:
                 raise RuntimeError('closed native window remained visible')
+            width, height, data = frame
+            tx, ty = terminal_point(width, height, data)
+            pointer(endpoint, width, height, tx, ty, button=True)
+            pointer(endpoint, width, height, tx, ty, button=False)
+            send_keys(endpoint, ('e', 'x', 'i', 't', 'ret'), timeout=5,
+                      allowed=ALLOWED_TERMINAL_RETURN)
+            while time.monotonic() < deadline:
+                lines = {line.strip() for line in log.read_bytes().splitlines()}
+                if TERMINAL in lines:
+                    break
+                if FAILED in lines or process.poll() is not None:
+                    raise RuntimeError('terminal input or compositor survival failed')
+                time.sleep(.15)
+            else:
+                raise RuntimeError('independent terminal did not execute fixed exit command')
             result = {'schema': 'synveil.native-weston-guest/v1',
                       'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                       'two_visible_windows': True, 'native_rgb_scanout': True,
                       'pointer_move_resize': True, 'keyboard_close': True,
+                      'independent_terminal_keyboard_pty': True,
                       'authenticated': False, 'installed_persistence': False,
                       'physical_hardware_tested': False}
             (vm.OUT / 'guest-validation.json').write_text(json.dumps(result, indent=2) + '\n')

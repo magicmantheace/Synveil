@@ -141,6 +141,10 @@ def build():
             cwd=rootfs, stdout=archive, env=env)
     (OUT / 'synveil-initramfs.cpio.zst').unlink(missing_ok=True)
     run(['bash', str(ROOT / 'build.sh'), 'kernel'], cwd=ROOT, env=env)
+    kernel_config = (OUT / 'manifests/kernel.config').read_text().splitlines()
+    if not all('CONFIG_' + name + '=y' in kernel_config
+               for name in ('UNIX98_PTYS', 'DEVTMPFS', 'TMPFS')):
+        raise ValueError('native terminal requires kernel PTYs and device/tmp filesystems')
     run(['bash', str(ROOT / 'build.sh'), 'image'], cwd=ROOT, env=env)
     proof = {'schema': 'synveil.native-weston-vm-image/v1', 'target': ffi.TARGET,
              'image_sha256': hashlib.sha256((OUT / 'synveil-x86_64.img').read_bytes()).hexdigest(),

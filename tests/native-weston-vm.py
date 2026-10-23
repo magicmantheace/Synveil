@@ -68,7 +68,9 @@ class NativeVM(unittest.TestCase):
             image = frame(*geometry)
             self.assertEqual(smoke.original_window(*image), geometry)
             self.assertTrue(smoke.terminal_pixels_visible(*image, geometry))
-        width, height, data = frame()
+        image = frame()
+        self.assertEqual(smoke.terminal_point(*image), (100, 310))
+        width, height, data = image
         solid = bytes((11, 21, 36)) * width * height
         self.assertIsNone(smoke.original_window(width, height, solid))
         # A background with the native gradient's blue channel alone is not

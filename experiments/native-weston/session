@@ -53,5 +53,11 @@ wait "$window" || exit 1
 window=
 kill -0 "$server" && kill -0 "$terminal" || exit 1
 echo SYNVEIL_NATIVE_WESTON_VM_KEYBOARD_CLOSE_OK
+# A fixed host-injected exit command must traverse the independent terminal
+# and its PTY shell. Its clean exit must leave the compositor running.
+wait "$terminal" || exit 1
+terminal=
+kill -0 "$server" || exit 1
+echo SYNVEIL_NATIVE_WESTON_VM_TERMINAL_INPUT_OK
 wait "$server"
 exit 1

@@ -321,7 +321,10 @@ configured live application processes, capture actual nonblank RGB, locate
 the original client's known gradient plus a separately visible terminal,
 then use QMP mouse events to move and resize the actual client and require
 changed pixel geometry. A focused Escape key must close it cleanly while
-the independent terminal and compositor remain alive. Screenshots remain
+the independent terminal and compositor remain alive. The fixture mounts
+real devpts and requires Unix98 PTYs in its resolved kernel configuration.
+A fixed `exit` key sequence must then traverse the independent terminal and
+its shell, close that terminal cleanly, and leave Weston alive. Screenshots remain
 private temporary files and are removed; only a successful guest receipt
 may be retained. The original interactive client now handles Escape and
 keyboard capability loss without logging input or keymap contents.
