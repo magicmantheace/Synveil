@@ -170,3 +170,19 @@ seat and input, trusted native owner login, desktop taskbar, physical NVIDIA,
 installed system updateability, or first-install readiness. The next gate
 cross-links this exact source with the verified native Wayland/libffi
 archives, then needs a native compositor and visible QEMU window runtime.
+
+## Source-built target link of the original Synveil Wayland window
+
+The tool tools/native_first_window.py uses the actual C application from
+src/desktop-wayland/first-window.c, the source-verified xdg-shell
+generated header/code, native libwayland-client.a, native libffi.a
+and Synveil's pinned GCC/glibc sysroot to create a real target ELF.
+This source build reuses the already-validated host scanner via
+tools/native_xdg_shell.py --generate-existing-scanner, which must
+match the pinned Wayland binary and its provenance receipt.
+The cross-linked ELF and its SHA-256 receipt remain in isolated
+out/native-wayland-target, not the native image or host filesystem.
+The CI target build must pass before claiming this application
+is native-linkable. Linking is distinct from guest execution:
+Weston compositor integration, user session, visible windows,
+signed A/B updates, and owner hardware readiness remain pending.

@@ -13,6 +13,10 @@ on:
     paths:
       - tools/native_wayland_target.py
       - tests/native-wayland-target.py
+      - tools/native_first_window.py
+      - tests/native-first-window.py
+      - tools/native_xdg_shell.py
+      - src/desktop-wayland/first-window.c
       - build/manifests/native-wayland.json
       - build/manifests/native-libffi.json
       - .github/workflows/native-wayland-target.yml
@@ -30,7 +34,10 @@ jobs:
         run: |
           python3 -m py_compile tools/native_wayland_target.py tests/native-wayland-target.py
           python3 tests/native-wayland-target.py
+          python3 -m py_compile tools/native_first_window.py tests/native-first-window.py
+          python3 tests/native-first-window.py
           python3 tools/native_wayland_target.py --plan
+          python3 tools/native_first_window.py --plan
 
   native-target:
     needs: source-boundary
@@ -58,6 +65,10 @@ jobs:
           bash build.sh toolchain 2>&1 | tee out/logs/wayland-target-toolchain.log
       - name: Cross-stage pinned libffi, scanner and Wayland libraries
         run: python3 tools/native_wayland_target.py --build
+      - name: Generate pinned xdg-shell with the already verified source-built scanner
+        run: python3 tools/native_xdg_shell.py --generate-existing-scanner
+      - name: Cross-link original Synveil application against target Wayland and libffi
+        run: python3 tools/native_first_window.py --build
       - name: Verify independent client and server native target ELF links
         run: |
           python3 - <<'PY'
@@ -77,6 +88,23 @@ jobs:
           assert (stage / "stage/usr/lib64/libwayland-server.a").is_file()
           print("NATIVE_WAYLAND_TARGET_CLIENT_SERVER_LINK_VERIFIED")
           PY
+      - name: Require real Synveil application target ELF and pinned dependency hashes
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          out = Path("out/native-wayland-target")
+          proof = json.loads((out / "first-window-validation.json").read_text())
+          assert proof["result"] == "synveil-native-first-window-cross-linked"
+          assert proof["target"] == "x86_64-synveil-linux-gnu"
+          assert len(proof["native_first_window_sha256"]) == 64
+          assert len(proof["source_sha256"]) == 64
+          assert proof["xdg_shell_version"] == "1.49"
+          assert proof["native_compositor_running"] is False
+          assert proof["boot_image_changed"] is False
+          assert (out / "first-window-target").is_file()
+          print("SYNVEIL_ORIGINAL_WINDOW_LINKED_WITH_TARGET_WAYLAND")
+          PY
       - name: Retain dependency identities, not any executable or owner data
         if: always()
         uses: actions/upload-artifact@v4
@@ -84,4 +112,6 @@ jobs:
           name: wayland-native-target-metadata-${{ github.sha }}
           retention-days: 7
           if-no-files-found: ignore
-          path: out/native-wayland-target/validation.json
+          path: |
+            out/native-wayland-target/validation.json
+            out/native-wayland-target/first-window-validation.json

@@ -157,6 +157,7 @@ def main():
     opt = parser.add_mutually_exclusive_group(required=True)
     opt.add_argument("--check-lock", action="store_true")
     opt.add_argument("--generate", action="store_true")
+    opt.add_argument("--generate-existing-scanner", action="store_true")
     args = parser.parse_args()
     info = pin()
     if args.check_lock:
@@ -168,10 +169,16 @@ def main():
         raise ValueError("existing/symlinked xdg protocol stage")
     OUT.mkdir(parents=True, mode=0o700)
     xml = extract_archive(fetch_verified(info, OUT), OUT / "source")
-    if WAYLAND_OUT.exists() or WAYLAND_OUT.is_symlink():
-        raise ValueError("Wayland scanner staging already exists")
-    subprocess.run([sys.executable, str(ROOT / "tools/native_wayland.py"),
-                    "--build-scanner"], cwd=ROOT, check=True)
+    if args.generate_existing_scanner:
+        # Reuse the same already-verified target-build scanner: generate()
+        # verifies its receipt, version, binary checksum and fixed location.
+        if not WAYLAND_OUT.is_dir() or WAYLAND_OUT.is_symlink():
+            raise ValueError("expected private staged scanner is missing")
+    else:
+        if WAYLAND_OUT.exists() or WAYLAND_OUT.is_symlink():
+            raise ValueError("Wayland scanner staging already exists")
+        subprocess.run([sys.executable, str(ROOT / "tools/native_wayland.py"),
+                        "--build-scanner"], cwd=ROOT, check=True)
     hashes = generate(xml, OUT / "generated")
     proof = {"result": "xdg-shell-generated", "version": info["version"],
              "source_sha512": info["sha512"],
