@@ -125,5 +125,13 @@ if __name__ == "__main__":
     parser.add_argument("--target-loader", type=Path)
     parser.add_argument("--target-library-path")
     args = parser.parse_args()
-    run(args.binary.resolve(), args.timeout,
-        loader=args.target_loader, library_path=args.target_library_path)
+    try:
+        run(args.binary.resolve(), args.timeout,
+            loader=args.target_loader, library_path=args.target_library_path)
+    except (OSError, ValueError, RuntimeError) as error:
+        # This isolated probe has no credentials or user data. Preserve its bounded
+        # diagnostic in Actions annotations when raw job logs are inaccessible.
+        message = str(error)[-2000:].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            print("::error::" + message, flush=True)
+        raise

@@ -112,11 +112,16 @@ jobs:
       - name: Execute target-built Synveil app through pinned glibc under disposable headless Weston
         run: |
           set -Eeuo pipefail
+          trap 'echo "::error::Native runtime prerequisite failed at line $LINENO: $BASH_COMMAND"' ERR
+          uname -sr
           SYSROOT="$PWD/build/toolchain/out/x86_64-synveil-linux-gnu/sysroot"
           test -f "$SYSROOT/lib64/ld-linux-x86-64.so.2"
           test -d "$SYSROOT/usr/lib64"
           test -f out/native-wayland-target/first-window-validation.json
-          python3 tools/first_window_probe.py             out/native-wayland-target/first-window-target --timeout 30             --target-loader "$SYSROOT/lib64/ld-linux-x86-64.so.2"             --target-library-path "$SYSROOT/lib64:$SYSROOT/usr/lib64"
+          python3 tools/first_window_probe.py \
+            out/native-wayland-target/first-window-target --timeout 30 \
+            --target-loader "$SYSROOT/lib64/ld-linux-x86-64.so.2" \
+            --target-library-path "$SYSROOT/lib64:$SYSROOT/usr/lib64"
       - name: Retain dependency identities, not any executable or owner data
         if: always()
         uses: actions/upload-artifact@v4
