@@ -350,8 +350,18 @@ This preserves the working compiler cache rather than rebuilding GCC.
 The runtime and development link/archive files enter the native sysroot,
 and a real 128-bit compare/exchange/load program must link to the native
 `libatomic.so.1`. The retained receipt verifies its hashes and target ELF;
-link success is not an execution claim. A resumed dependency build refreshes
+link success is not an execution claim. The subsequent execution step requires
+the target glibc loader, disables its cache, rejects any dependency resolved
+outside native sysroot directories, and runs that compare/exchange program.
+Only success sets the atomic receipt’s execution/closure flags.
+A resumed dependency build refreshes
 its external-toolchain staging before reconfiguring Cairo. The real Cairo
 pthread check remains mandatory. Full component compilation and native
 UEFI guest execution must pass at the repair revision before this blocker
 is declared resolved.
+
+Initial repair run `40043936277` built the real shared/static atomic library,
+then failed GCC’s aggregate make target trying to copy into an absent sibling
+compiler build directory. The standalone stage now requests `libatomic.la`
+directly and uses its own checked sysroot staging; it does not create a fake
+compiler directory or suppress a compiler/library error.

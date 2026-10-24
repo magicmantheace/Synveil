@@ -99,7 +99,10 @@ jobs:
             out/native-cxx
           key: ${{ steps.native-sdk.outputs.cache-primary-key }}
       - name: Build pinned native atomic runtime and require a real atomic link
-        run: bash build/scripts/toolchain-atomic.sh
+        run: |
+          set -o pipefail
+          mkdir -p out/logs
+          bash build/scripts/toolchain-atomic.sh 2>&1 | tee out/logs/weston-atomic.log
       - name: Restore verified partial native dependency build
         uses: actions/cache/restore@v4
         with:

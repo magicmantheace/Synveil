@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import native_libffi as ffi
 from native_cxx_runtime import digest, target_elf
+from first_window_probe import target_command, clean_loader_environment, require_target_runtime
 
 OUT = ROOT / 'out/native-atomic'
 NAMES = ('libatomic.so', 'libatomic.so.1', 'libatomic.a')
@@ -31,6 +32,26 @@ def verify():
     if digest(OUT / 'atomic-check') != proof['linked_elf_sha256']:
         raise ValueError('native atomic link proof changed')
     return proof
+
+
+def execute():
+    proof = verify()
+    _, sysroot = ffi.target_tools()
+    library_path = ':'.join(str(sysroot / name) for name in ('usr/lib64', 'lib64'))
+    argv = target_command(OUT / 'atomic-check',
+                          loader=sysroot / 'lib64/ld-linux-x86-64.so.2',
+                          library_path=library_path)
+    env = clean_loader_environment(os.environ)
+    require_target_runtime(argv, library_path, env)
+    result = subprocess.run(argv, env=env, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            text=True, timeout=15)
+    if result.returncode:
+        raise RuntimeError('native atomic execution failed: ' + result.stdout[-1200:])
+    proof['runtime_executed'] = True
+    proof['target_glibc_closure_verified'] = True
+    (OUT / 'validation.json').write_text(json.dumps(proof, indent=2) + '\n')
+    print('SYNVEIL_NATIVE_ATOMIC_COMPARE_EXCHANGE_EXECUTED_TARGET_GLIBC')
 
 
 def stage(source):
@@ -84,10 +105,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stage', type=Path)
     parser.add_argument('--verify', action='store_true')
+    parser.add_argument('--execute', action='store_true')
     args = parser.parse_args()
-    if args.stage and not args.verify:
+    if sum(bool(x) for x in (args.stage, args.verify, args.execute)) != 1:
+        parser.error('choose exactly one of --stage, --verify or --execute')
+    if args.stage:
         stage(args.stage)
-    elif args.verify and not args.stage:
+    elif args.verify:
         verify()
     else:
-        parser.error('choose --stage or --verify')
+        execute()

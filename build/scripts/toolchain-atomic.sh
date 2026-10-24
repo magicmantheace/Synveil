@@ -19,6 +19,10 @@ mkdir -p "$ATOMIC_BUILD"
         --build="$(gcc -dumpmachine)" --host="$TARGET" \
         --prefix="$TOOLCHAIN_DIR/$TARGET" \
         --disable-multilib --enable-shared --enable-static
-    make -j"$JOBS"
+    # The aggregate GCC target also installs into a sibling compiler-build
+    # directory. This standalone stage needs the real library target only;
+    # our checked staging below installs its exact products into the sysroot.
+    make -j"$JOBS" libatomic.la
 )
 python3 "$ROOT_DIR/tools/native_atomic.py" --stage "$ATOMIC_BUILD/.libs"
+python3 "$ROOT_DIR/tools/native_atomic.py" --execute
