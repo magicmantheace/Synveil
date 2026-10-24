@@ -23,8 +23,8 @@ resume desktop, authentication, installation, updater or AI development.
 | Muse commit | Changes | Review disposition |
 |---|---|---|
 | `c0a45aa` | Supervisor marker mode and state-mount fixture umask | Suitable; transferred exactly after reproducing failures and verifying all three umasks locally. |
-| `943e211` | Audit unit/integration fixture directories set to 0700 | Suitable candidate; transferred exactly for independent Rust CI verification. Production code/security checks unchanged. |
-| `d3c7822` | `credential.rs` rustfmt | Suitable candidate; source review shows only layout and redundant semicolons on diverging `continue` statements. Pinned rustfmt/Clippy and credential/workspace tests required in CI. |
+| `943e211` | Audit unit/integration fixture directories set to 0700 | Accepted; transferred exactly and independently passed all Rust tests under all three umasks in CI. Production code/security checks unchanged. |
+| `d3c7822` | `credential.rs` rustfmt | Accepted; source review shows only layout and redundant semicolons on diverging `continue` statements. Pinned rustfmt, Clippy and credential/workspace tests passed in CI. |
 | `81440ea` | Muse baseline evidence and Weston document note | Evidence retained verbatim as `MUSE_BASELINE.md`; note adapted to explicitly attribute execution to Muse and fix the original-repository link. These are Muse-reported results, not new original-repository execution. |
 
 No code change was already present in the original branch. No candidate was
@@ -54,10 +54,24 @@ fixture now creates the exact 0644 marker demanded by the unchanged helper.
 Rust is not installed in this local environment. The focused
 `Muse synchronization verification` workflow checks pinned Rust 1.99.0
 formatting, Clippy, and the actual complete workspace/audit tests under all
-three umasks on an ordinary Ubuntu host with Unix sockets. CI results are
-pending at this initial review commit; candidate acceptance is contingent on
-those checks, and any failing transfer must be removed rather than expanded
-into independent feature work.
+three umasks on an ordinary Ubuntu host with Unix sockets. [CI run 40113543849](https://github.com/magicmantheace/Synveil/actions/runs/40113543849)
+**passed** at integration commit `43530b59a67cea77fc58a403af935256ef346f9a`.
+Job `120930035967` completed the following commands successfully:
+
+- `cargo fmt --all --check` with Rust 1.99.0.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings`.
+- For each umask 0007, 0022 and 0077: both Python suites (6 + 5 tests)
+  and `cargo test --workspace --all-targets --locked` (155 tests).
+- Rust results per umask: 4 synctl, 125 core library, 2 audit integration,
+  6 enrollment, 1 lifecycle, 4 protocol, 3 safety and 10 protocol-library
+  tests; 155 passed, 0 failed, 0 ignored. That is 465 Rust executions and
+  33 Python executions in CI, in addition to the 33 local Python executions.
+- `git diff --exit-code -- Cargo.lock` passed; no lockfile change.
+
+All transferred candidates are accepted by this review. The final follow-up
+commit updates only this verification record; the tested implementation is
+unchanged. Earlier local failures listed above are pre-transfer reproductions,
+not remaining regressions.
 
 Production audit permission enforcement remains unchanged, including the
 existing test `private_append_succeeds_but_unsafe_parent_refuses_write`.
@@ -66,8 +80,9 @@ Only its test-directory constructor and integration-test setup gain explicit
 lockfile, credential authority and native architecture are unchanged.
 
 No new Weston/native Wayland/QEMU validation was needed for fixture and
-formatting changes. Muse's 155 Rust tests and host graphics results in
-`MUSE_BASELINE.md` remain separately attributed until independently reproduced.
+formatting changes. Muse's historical results in `MUSE_BASELINE.md` remain separately attributed.
+The 155-test Rust suite was independently reproduced in original-repository CI
+as detailed above; Muse's host graphics results were not rerun here.
 No image build, physical boot, installed persistence or bootable A/B update
 claim follows from this review.
 
