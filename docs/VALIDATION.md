@@ -48,6 +48,109 @@ Multiple components operate together through the intended architecture.
 
 This is the strongest form of evidence for roadmap phase exit criteria.
 
+## First multiwindow desktop runtime evidence (experimental)
+
+The isolated Debian Trixie/XFCE live image passed an **actual UEFI/QEMU
+graphical runtime** at commit `c0242259f69a6ba4888421e9ce671644c67d9a5d`,
+in [Actions run 39541711454](https://github.com/magicmantheace/Synveil/actions/runs/39541711454).
+A fixed host keypress advanced the recognized Debian live selection menu;
+the guest loaded Linux and XFCE, the non-root session launched Thunar and
+XFCE Terminal, Xfwm4 performed real move/resize/maximize/minimize/restore
+operations, and QMP captured a nonblank 1280x800 framebuffer. The archived
+guest serial log contains the successful interaction marker; see the
+[exact-revision evidence record](validation/desktop-live-c024225/README.md).
+
+This evidence **does not** apply to the distinct source-built Synveil
+hardware-kernel profile. It does **not** validate first-user credential
+enrollment, interactive authenticated login, persistent home, physical
+NVIDIA graphics, removable-media installation, A/B update transactions or
+rollback. The same unchanged ISO subsequently passed **two independent OVMF/QEMU
+cold starts**, including the active XFCE panel and a third genuine Settings
+Manager window, at source revision `437020d26070d0e2a231ad79087b39026fcfb47c`
+([completed CI run 39593790664](https://github.com/magicmantheace/Synveil/actions/runs/39593790664),
+[exact-revision evidence](validation/desktop-live-437020d/README.md)).
+The later development revision `0579de0a237e823e60843e00e9e7521ff6d53dd4`
+completed a **four-boot** offline OVMF/QEMU run with the same XFCE desktop
+checks. Two boots had no writable disk; then a third wrote a fixed benign
+non-root home file to the separate 256 MiB `synvmhome` ext4 image, and a
+fourth independent QEMU process recovered the expected bytes and UID.
+The host required separate `HOME_WRITTEN` and `HOME_RECOVERED` serial
+markers plus the real graphical desktop and framebuffer proof in
+[completed Actions run 39597968232](https://github.com/magicmantheace/Synveil/actions/runs/39597968232).
+A separate non-guest [file-only ext4 build check](https://github.com/magicmantheace/Synveil/actions/runs/39598691537)
+confirmed the label and `/home`-only `persistence.conf`. See
+[the exact-revision evidence record](validation/desktop-home-0579de/README.md).
+
+This proves a **developer live-home file survives two independent VM boots**,
+not encrypted or authenticated storage, trustworthy owner login, installed
+system A/B boot, owner recovery, physical boot or signed updates. The
+normal Synveil install milestone remains incomplete.
+
+## Same-boot PAM logout and relock runtime evidence
+
+The subsequent disposable XFCE profile at exact SHA
+`ad7b2b76726b250b784594667ae7b805d515cc9e` passed
+[full QEMU run 39639758799](https://github.com/magicmantheace/Synveil/actions/runs/39639758799):
+wrong password denied, correct password opened a non-root XFCE session,
+user-owned `xfce4-session-logout --logout --fast` after actual Xfwm4
+multiwindow proof, LightDM greeter returned with the old session and
+panel absent, another wrong password was denied, and a second correct
+password opened a fresh non-root desktop. QMP retained **separate RGB
+captures** of the first authenticated session, the relocked greeter and
+second desktop. See [exact tested evidence](validation/desktop-pam-relock-ad7b2b7/README.md).
+
+This is *one VM boot with two distinct user sessions*, **not two
+independent machine reboots**. The credential was still a temporary
+CI-injected secret, not an owner-enrolled persistent password.
+Installed native Synveil account authority and owner recovery remain
+unverified.
+
+## First working password-authenticated *developer VM* graphical login
+
+An isolated Debian/XFCE image at exact SHA
+`00edc3db054111f95da18af4bb1e4e332074ff87` passed
+[Actions 39626829728](https://github.com/magicmantheace/Synveil/actions/runs/39626829728).
+QEMU generated a fresh random 128-bit test credential, supplied it
+only through a disposable virtual `fw_cfg` channel, and typed an
+independently random **wrong** password first. No user desktop
+started during that negative observation interval. A **correct**
+password typed through the private QMP keyboard then launched
+an actual non-root XFCE session and panel, with QMP screenshot.
+See [exact-revision evidence](validation/desktop-pam-00edc3d/README.md).
+
+This is **PAM/LightDM integration evidence in a guest**, not secure
+first-owner enrollment, persistence of authentication across
+cold boots, production secret handling, normal logout/relock,
+native Synveil broker integration, or an installed operating
+system. The first owner boot gate remains unchecked.
+
+## Experimental LightDM lock-gate validation (separate from login)
+
+The Debian/XFCE four-boot persistence proof remains isolated to the
+developer live account; it is **not an authenticated desktop**.
+A separately opt-in profile is configured with
+`SYNVEIL_DESKTOP_LOGIN_GATE=1`, Debian
+`live-config.noautologin`, and a mandatory LightDM prestart that locks
+the disposable `synveil` system account before exposing its greeter.
+The profile also disables LightDM guest and autologin shortcuts.
+
+A complete `desktop-login-gate.yml` guest proof must:
+
+1. Boot the distinct image through QEMU OVMF and the recognized live
+   boot menu, without a writable home or physical device.
+2. Observe a real LightDM + GTK greeter, the locked system account,
+   no `xfce4-session` or panel, and an allowlisted guest serial marker.
+3. Press exactly one Return without entering any password and fail if
+   a non-root desktop user session starts.
+4. Capture actual guest graphics; a black screen, firmware boot menu,
+   mere source assertion or service marker alone does not pass.
+
+This is **negative authentication**: it deliberately provisions no
+working user password. It cannot establish successful password
+verification, initial enrollment, logout, reboot relock, recovery or
+native Synveil session authority. Passing this gate is necessary but
+not sufficient to release a real signed-in desktop.
+
 ## Phase 1 validation contract
 
 Phase 1 is complete only when one committed Synveil revision demonstrates the following in one reproducible pipeline:

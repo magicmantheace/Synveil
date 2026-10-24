@@ -3,6 +3,103 @@
 The project owner prefers to wait for a basic desktop before their first
 hands-on test install. Automated QEMU validation continues during development.
 
+## Critical owner priority (2026-10-20)
+
+The new immediate milestone is **direct physical UEFI boot to a normal
+multiwindow desktop**, followed by a safe A/B installation and signed
+whole-system updates. This priority overrides the old sequencing below that
+placed other core/observer work before the desktop. The safety gates for
+authentication, independent recovery and Windows disk isolation remain.
+
+The existing framebuffer diagnostics and authenticated dashboard are
+**not** multiwindow desktops. An opt-in `SYNVEIL_BOOT_TARGET=hardware`
+kernel build profile now requests a local screen console, UEFI GOP/simpleDRM,
+USB HID/storage, NVMe and AHCI, without needing NVIDIA GPU acceleration.
+This adds no physical hardware proof, bootable desktop, user installer, or
+partitions. The default target is still `qemu`.
+
+The initial supported *artifact build* can be created without writing to
+any removable device. No automated writer or partition installer may touch
+the Windows drive. A dedicated external SSD is preferred when the owner
+authorizes an install. The A/B layout and boot-health/rollback transaction
+must be independently tested with disposable media before physical use.
+See [ADR 0013](adr/0013-first-boot-desktop-priority.md).
+
+**First hands-on test remains blocked** by production-safe first-user
+enrollment, a real window manager, reliable screen/input/network drivers,
+independent owner recovery, portable image delivery and physical validation.
+
+## Native authenticated Files browser (development)
+
+The native framebuffer **UID 1000 authenticated** session now contains a
+read-only Files tile for browsing the owner's private home and descending
+into bounded child directories. Its standalone C helper uses directory file
+descriptors, rejects symlink entries, refuses to navigate above the home
+root, limits displayed entries and enforces UID ownership of the home.
+The unauthenticated developer launcher retains its original five tiles;
+the Files view is not exposed before login. Host tests exercise directory
+navigation and symlink/path traversal refusals. A native-QEMU guest run at
+the exact code revision is still necessary to establish image integration.
+
+This is an **in-process framebuffer file list**, not an independent
+file-manager application, Weston compositor, true multiwindow desktop, or
+owner-ready installer. File mutation and opening arbitrary files are
+intentionally unsupported in this preliminary view.
+
+## Isolated multiwindow desktop experiment
+
+An explicitly **VM/developer-only** Debian Trixie/Xfce live-image profile
+now exists at `experiments/desktop-live/`. It uses the proven upstream
+Xfwm4 window manager, Xfce panel/launcher, graphical terminal, Thunar,
+settings and LightDM. This is an alternative *integration experiment* that
+does not replace the pinned native Synveil bootstrap or its security model.
+
+`bash tools/desktop_live.sh configure` creates a fresh live-build tree
+strictly in `out/desktop-live/` (without touching disks). A separate
+explicit root-privileged `bash tools/desktop_live.sh build` would assemble
+a local ISO, **not an owner-ready installer**. The ISO contains no installer
+and is not published automatically. The desktop experiment lacks
+authenticated onboarding and uses Debian live-config's disposable-user
+behavior. It must not be presented as the first physical user release.
+
+The existing native development and authenticated framebuffer preview stay
+in the repository. The Debian ISO and real Xfwm4 multiwindow boot now pass
+[one full UEFI QEMU run](validation/desktop-live-c024225/README.md) and
+[two consecutive *independent* cold boots with terminal, file manager,
+panel and Settings Manager](validation/desktop-live-437020d/README.md).
+The next, independent [four-guest persistence run](validation/desktop-home-0579de/README.md)
+also passed: a benign file saved under a non-root XFCE user's `/home` on
+a separate, fixed 256 MiB ext4 VM file survived a complete cold restart.
+This is *developer live-home retention only*, not trusted owner login or
+installed-rootfs persistence. First-user authentication,
+recovery, installed-system persistence and eventual native integration
+still need independent validation before owner testing. See
+[ADR 0014](adr/0014-isolated-desktop-proof.md).
+
+## Password sign-in progress — developer VM only
+
+The separate disposable PAM test ISO successfully reached a real
+LightDM greeter, rejected an incorrect freshly generated test
+password, accepted the correct one and opened a non-root XFCE session
+with a graphical panel in [QEMU run 39626829728](validation/desktop-pam-00edc3d/README.md).
+This is **not owner enrollment**: the test secret came from QEMU's
+unsafe-for-production virtual firmware channel. A real local
+password-creation flow, persistent trusted credentials, logout/relock,
+independent recovery and native integration remain blockers.
+
+## Tested logout and return to locked graphical sign-in
+
+In the isolated developer-only PAM image, a real non-root XFCE user
+logged out after the GUI window tests. The guest returned to LightDM,
+rejected a new wrong password, and opened a second non-root session
+after valid test credentials were entered. The completed
+[QEMU run 39639758799](validation/desktop-pam-relock-ad7b2b7/README.md)
+provides host and guest evidence. **No reboot or persistent owner
+credential was involved.** The next required owner milestone is
+interactive first-user enrollment with one audited credential authority,
+durable private storage and independent recovery; see
+[ADR 0015](adr/0015-first-owner-enrollment.md).
+
 ## Dependency order
 
 1. Finish deterministic core recovery and define its service lifecycle.
@@ -394,3 +491,16 @@ After first use, the state disk contains private credentials and user files;
 the archive tool deliberately refuses to distribute it. This is a VM-only
 preview with limited artifact retention; physical installation and owner
 password recovery remain open.
+
+## VM-only A/B signed update experiment
+
+The regular-file GPT prototype now has a separate, **VM/host-fixture-only**
+signed update transaction path. It verifies the mirrored GPT identities,
+checks a detached release signature and payload hash, writes only to the
+inactive system region, and retains the confirmed slot across simulated
+interrupted writes and candidate rollback. It does **not** set UEFI boot
+targets, verify owner/vendor signing keys, run actual guest boot-health
+checks, or install a bootable Synveil system. See [VM_AB_UPDATE.md](VM_AB_UPDATE.md).
+
+This must not be described as an approved physical installer or as passing
+the M4/M5 owner acceptance gates.

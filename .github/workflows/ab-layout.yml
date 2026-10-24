@@ -1,0 +1,35 @@
+name: VM-only A/B GPT layout safety
+
+on:
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - tools/ab_image_prototype.py
+      - tests/ab-image-prototype.py
+      - tools/ab_vm_update.py
+      - tests/ab-vm-update.py
+      - .github/workflows/ab-layout.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  file-only-layout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout committed sources
+        uses: actions/checkout@v6
+      - name: Validate non-destructive protective MBR and mirrored GPT
+        run: python3 tests/ab-image-prototype.py
+      - name: Check signed inactive-slot transactions on real GPT files
+        run: python3 tests/ab-vm-update.py
+      - name: Parse source-only syntax
+        run: python3 -m py_compile tools/ab_image_prototype.py tests/ab-image-prototype.py tools/ab_vm_update.py tests/ab-vm-update.py
+      - name: Confirm no physical disk access or installer permission
+        run: |
+          test ! -e out/install-prototype
+          ! grep -Eq '(/dev/sd[a-z]|/dev/nvme[0-9])' tools/ab_image_prototype.py
+          grep -F 'filesystems_created' tools/ab_image_prototype.py
+          grep -F '"bootable": False' tools/ab_image_prototype.py

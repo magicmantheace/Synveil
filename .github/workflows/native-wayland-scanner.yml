@@ -1,0 +1,57 @@
+name: Pinned Wayland host scanner prerequisite
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - build/manifests/native-wayland.json
+      - tools/native_wayland.py
+      - tests/native-wayland.py
+      - .github/workflows/native-wayland-scanner.yml
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-host-scanner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Offline source pin and extraction safety
+        run: |
+          python3 -m py_compile tools/native_wayland.py tests/native-wayland.py
+          python3 tests/native-wayland.py
+          python3 tools/native_wayland.py --check-lock
+      - name: Install isolated host scanner build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build libexpat1-dev libffi-dev
+      - name: Verify source and compile host Wayland protocol scanner
+        run: python3 tools/native_wayland.py --build-scanner
+      - name: Verify scanner stage is not an owner bootable image
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root = Path("out/native-wayland-scanner")
+          proof = json.loads((root / "validation.json").read_text())
+          assert proof["result"] == "wayland-host-scanner-staged"
+          assert proof["version"] == "1.26.0"
+          assert proof["target_libraries_built"] is False
+          assert proof["native_boot_image_changed"] is False
+          assert len(proof["scanner_sha256"]) == 64
+          assert set(proof["generated_protocol_sha256"]) == {"client", "server", "code"}
+          assert all(len(digest) == 64 for digest in proof["generated_protocol_sha256"].values())
+          assert (root / "stage/usr/bin/wayland-scanner").is_file()
+          print("PINNED_WAYLAND_HOST_SCANNER_OK")
+          PY
+      - name: Retain metadata only, never code binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayland-scanner-validation-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: out/native-wayland-scanner/validation.json

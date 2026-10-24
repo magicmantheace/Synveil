@@ -1,0 +1,84 @@
+name: Source-built native libffi for Wayland
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_cross:
+        description: Build isolated Synveil compiler and target libffi
+        required: true
+        type: boolean
+        default: false
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - build/manifests/native-libffi.json
+      - tools/native_libffi.py
+      - tests/native-libffi.py
+      - .github/workflows/native-libffi-cross.yml
+
+permissions:
+  contents: read
+
+jobs:
+  source-integrity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Offline checksum, traversal and compiler-boundary tests
+        run: |
+          python3 -m py_compile tools/native_libffi.py tests/native-libffi.py
+          python3 tests/native-libffi.py
+          python3 tools/native_libffi.py --check-lock
+      - name: Verify official libffi 3.5.2 source and safe extraction
+        run: python3 tools/native_libffi.py --verify-source
+
+  target-cross-build:
+    needs: source-integrity
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_cross) || contains(github.event.head_commit.message, '[build-native-libffi]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      SYNVEIL_JOBS: "4"
+      SYNVEIL_SOURCE_TRANSPORT: git
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install native compiler bootstrap dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex texinfo gawk \
+            python3 xz-utils bzip2 cpio zstd dosfstools mtools gdisk \
+            libgmp-dev libmpfr-dev libmpc-dev libisl-dev \
+            libelf-dev libssl-dev bc rsync autoconf automake libtool \
+            qemu-system-x86 ovmf e2fsprogs
+      - name: Rebuild pinned Synveil GCC and glibc
+        run: |
+          set -o pipefail
+          mkdir -p out/logs
+          bash build.sh toolchain 2>&1 | tee out/logs/native-libffi-toolchain.log
+      - name: Cross-compile libffi, stage library and link target ELF
+        run: python3 tools/native_libffi.py --build
+      - name: Require target evidence without native-image modifications
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          file = Path("out/native-libffi/validation.json")
+          record = json.loads(file.read_text())
+          assert record["result"] == "native-libffi-staged"
+          assert record["version"] == "3.5.2"
+          assert record["target"] == "x86_64-synveil-linux-gnu"
+          assert len(record["target_static_archive_sha256"]) == 64
+          assert record["native_boot_image_changed"] is False
+          assert record["compositor_integrated"] is False
+          assert Path("out/native-libffi/stage/usr/lib64/libffi.a").is_file()
+          print("SYNVEIL_TARGET_LIBFFI_LINKED")
+          PY
+      - name: Save hashes only; never distribute unintegrated binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-libffi-provenance-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: out/native-libffi/validation.json

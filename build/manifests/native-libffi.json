@@ -1,0 +1,11 @@
+{
+  "schema": "synveil.native-libffi/v1",
+  "purpose": "isolated native Wayland ABI dependency; not a boot image",
+  "target": "x86_64-synveil-linux-gnu",
+  "libffi": {
+    "version": "3.5.2",
+    "filename": "libffi-3.5.2.tar.gz",
+    "url": "https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz",
+    "sha256": "f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc"
+  }
+}

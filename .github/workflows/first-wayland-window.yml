@@ -1,0 +1,47 @@
+name: First original Synveil xdg-shell window
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - src/desktop-wayland/first-window.c
+      - tools/first_window_probe.py
+      - tests/first-window-probe.py
+      - .github/workflows/first-wayland-window.yml
+
+permissions:
+  contents: read
+
+jobs:
+  shm-window:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Offline window transaction tests
+        run: |
+          python3 -m py_compile tools/first_window_probe.py tests/first-window-probe.py
+          python3 tests/first-window-probe.py
+      - name: Install disposable Weston and Wayland compilation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y weston libwayland-dev meson ninja-build libexpat1-dev libffi-dev pkg-config gcc
+      - name: Generate source-pinned xdg-shell code
+        run: python3 tools/native_xdg_shell.py --generate
+      - name: Compile original Synveil xdg_toplevel application
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror \
+            -Iout/native-xdg-shell/generated \
+            src/desktop-wayland/first-window.c \
+            out/native-xdg-shell/generated/xdg-shell-code.c \
+            $(pkg-config --cflags --libs wayland-client) \
+            -o out/synveil-first-window
+      - name: Prove real Weston configure/ack/shm attachment and window commit
+        run: |
+          test "$(id -u)" -ne 0
+          python3 tools/first_window_probe.py out/synveil-first-window --timeout 25
+      - name: Exercise actual compositor maximize, restore and buffer redraw
+        run: python3 tools/first_window_probe.py out/synveil-first-window --timeout 25 --exercise-resize
+      - name: Keep an independent interactive window alive through a second window resize cycle
+        run: python3 tools/first_window_probe.py out/synveil-first-window --timeout 25 --exercise-resize --two-windows

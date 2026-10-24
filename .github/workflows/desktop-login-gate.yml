@@ -1,0 +1,118 @@
+name: Experimental locked XFCE greeter proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_image:
+        description: Build a separate VM-only locked-greeter ISO with NO enrolled user
+        required: true
+        type: boolean
+        default: false
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - experiments/desktop-live/login-gate-*
+      - tools/desktop_live.sh
+      - tests/desktop-live.py
+      - tests/smoke-desktop-live.py
+      - .github/workflows/desktop-login-gate.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-login-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  host-profile:
+    runs-on: ubuntu-24.04
+    container:
+      image: debian:trixie
+    timeout-minutes: 20
+    steps:
+      - name: Install configuration dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git bash python3 live-build
+
+      - uses: actions/checkout@v6
+
+      - name: Validate both default and locked profile without VM
+        run: |
+          python3 tests/desktop-live.py
+          bash -n tools/desktop_live.sh
+          sh -n experiments/desktop-live/login-gate-prestart.sh
+          sh -n experiments/desktop-live/login-gate-reporter.sh
+
+      - name: Require explicit locked-only boot and PAM-ready config
+        run: |
+          SYNVEIL_DESKTOP_LOGIN_GATE=1 bash tools/desktop_live.sh configure
+          test -f out/desktop-live/config/includes.chroot/etc/synveil/ci-login-gate
+          grep -F 'live-config.noautologin' out/desktop-live/config/binary
+          grep -F 'passwd -l synveil' out/desktop-live/config/includes.chroot/usr/local/libexec/synveil-login-gate-prestart
+          grep -F 'allow-guest=false' out/desktop-live/config/includes.chroot/etc/lightdm/lightdm.conf.d/90-synveil-ci-login-gate.conf
+
+      - name: Keep only untrusted profile metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: locked-greeter-config-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: out/desktop-live/config
+
+  # No test credential exists in the image; the only passing outcome is
+  # seeing LightDM with a locked live account and proving Enter can't
+  # start a regular graphical session. Never publish or flash the ISO.
+  qemu-locked-greeter:
+    needs: host-profile
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_image) || contains(github.event.head_commit.message, '[build-login]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: debian:trixie
+      options: --privileged
+    steps:
+      - name: Install Debian image and test tools
+        run: |
+          apt-get update
+          apt-get install -y \
+            ca-certificates git live-build debootstrap squashfs-tools \
+            xorriso isolinux syslinux-common grub-efi-amd64-bin \
+            mtools dosfstools qemu-system-x86 ovmf python3
+
+      - uses: actions/checkout@v6
+
+      - name: Configure opt-in VM-only locked LightDM profile
+        run: SYNVEIL_DESKTOP_LOGIN_GATE=1 bash tools/desktop_live.sh configure
+
+      - name: Build isolated ISO without any enrolled user credentials
+        run: |
+          bash tools/desktop_live.sh build
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          test -n "$iso"
+          python3 tools/inspect_desktop_iso.py --iso "$iso" > out/desktop-live/uefi-login-gate.json
+          grep -F '"uefi_boot_entry_verified": true' out/desktop-live/uefi-login-gate.json
+
+      - name: Show real greeter, reject Return-only login and ensure no XFCE session
+        run: |
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          python3 tests/smoke-desktop-live.py \
+            --iso "$iso" \
+            --locked-greeter \
+            --evidence "$PWD/out/desktop-live/login-gate-evidence" \
+            --timeout 240
+
+      - name: Upload greeter screen/log evidence, never the insecure ISO
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: locked-greeter-evidence-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/desktop-live/uefi-login-gate.json
+            out/desktop-live/login-gate-evidence/desktop.ppm
+            out/desktop-live/login-gate-evidence/serial.log
+            out/desktop-live/login-gate-evidence/qemu.stderr.log

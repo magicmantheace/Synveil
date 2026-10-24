@@ -52,6 +52,15 @@ def main() -> int:
                 "sha256": sha256(path),
             }
 
+    # Read the profile written by kernel.sh, not the environment of this
+    # separate manifest invocation. It is part of the build's provenance.
+    profile_path = OUT / "manifests/kernel-boot-target.txt"
+    if profile_path.is_symlink() or not profile_path.is_file():
+        raise ValueError("missing kernel boot target identity; run build.sh kernel")
+    boot_target = profile_path.read_text(encoding="ascii").strip()
+    if boot_target not in ("qemu", "hardware"):
+        raise ValueError("invalid kernel boot target identity")
+
     git_sha = run("git", "rev-parse", "HEAD")
     dirty = run("git", "status", "--porcelain")
     epoch = os.environ.get("SOURCE_DATE_EPOCH")
@@ -62,6 +71,7 @@ def main() -> int:
         "schema": "synveil.build/v1",
         "version": VERSION.read_text(encoding="utf-8").strip(),
         "target": os.environ.get("SYNVEIL_TARGET", "x86_64-synveil-linux-gnu"),
+        "boot_target": boot_target,
         "git": {
             "commit": git_sha,
             "dirty": bool(dirty) if dirty is not None else None,

@@ -1,0 +1,29 @@
+# Synveil experimental desktop integration, Debian trixie upstream packages.
+# Runtime window manager and panel (real simultaneous application windows).
+linux-image-amd64
+live-boot
+live-config
+systemd-sysv
+xserver-xorg
+xserver-xorg-video-fbdev
+xserver-xorg-video-nouveau
+lightdm
+lightdm-gtk-greeter
+xfce4
+xfce4-terminal
+thunar
+xfce4-settings
+xfce4-panel
+xfce4-session
+xfwm4
+dbus-x11
+gvfs-backends
+network-manager
+network-manager-gnome
+firmware-misc-nonfree
+
+# VM-only automated real window-management proof.
+wmctrl
+xdotool
+x11-utils
+procps

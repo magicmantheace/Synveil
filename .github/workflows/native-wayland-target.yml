@@ -1,0 +1,146 @@
+name: Target Wayland client/server native cross-stage
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_cross:
+        type: boolean
+        default: false
+        required: true
+        description: Cross-build pinned libffi plus native Wayland with Synveil compiler
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - tools/native_wayland_target.py
+      - tests/native-wayland-target.py
+      - tools/native_first_window.py
+      - tests/native-first-window.py
+      - tools/first_window_probe.py
+      - tests/first-window-probe.py
+      - tools/native_xdg_shell.py
+      - src/desktop-wayland/first-window.c
+      - build/manifests/native-wayland.json
+      - build/manifests/native-libffi.json
+      - .github/workflows/native-wayland-target.yml
+
+permissions:
+  contents: read
+
+jobs:
+  source-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Offline cross-recipe and target-only dependency checks
+        run: |
+          python3 -m py_compile tools/native_wayland_target.py tests/native-wayland-target.py
+          python3 tests/native-wayland-target.py
+          python3 -m py_compile tools/native_first_window.py tests/native-first-window.py
+          python3 tests/native-first-window.py
+          python3 -m py_compile tools/first_window_probe.py tests/first-window-probe.py
+          python3 tests/first-window-probe.py
+          python3 tools/native_wayland_target.py --plan
+          python3 tools/native_first_window.py --plan
+
+  native-target:
+    needs: source-boundary
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_cross) || contains(github.event.head_commit.message, '[build-native-wayland]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      SYNVEIL_SOURCE_TRANSPORT: git
+      SYNVEIL_JOBS: "4"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install source-built target compiler and Wayland prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex texinfo gawk \
+            python3 xz-utils bzip2 cpio zstd dosfstools mtools gdisk \
+            libgmp-dev libmpfr-dev libmpc-dev libisl-dev \
+            libelf-dev libssl-dev bc rsync autoconf automake libtool \
+            qemu-system-x86 ovmf e2fsprogs meson ninja-build pkg-config \
+            libexpat1-dev libffi-dev weston
+      - name: Reuse an already verified native compiler when available
+        id: native-sdk
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/toolchain/out
+            out/native-cxx
+          key: native-desktop-sdk-v1-${{ runner.os }}-${{ hashFiles('build/manifests/sources.json', 'build/scripts/toolchain.sh', 'build/scripts/toolchain-cxx.sh', 'tools/native_cxx_runtime.py') }}
+      - name: Verify restored native compiler provenance
+        if: steps.native-sdk.outputs.cache-hit == 'true'
+        run: python3 tools/native_cxx_runtime.py --verify
+      - name: Build pinned Synveil target GCC/glibc
+        if: steps.native-sdk.outputs.cache-hit != 'true'
+        run: |
+          set -o pipefail
+          mkdir -p out/logs
+          bash build.sh toolchain 2>&1 | tee out/logs/wayland-target-toolchain.log
+      - name: Cross-stage pinned libffi, scanner and Wayland libraries
+        run: python3 tools/native_wayland_target.py --build
+      - name: Generate pinned xdg-shell with the already verified source-built scanner
+        run: python3 tools/native_xdg_shell.py --generate-existing-scanner
+      - name: Cross-link original Synveil application against target Wayland and libffi
+        run: python3 tools/native_first_window.py --build
+      - name: Verify independent client and server native target ELF links
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          stage = Path("out/native-wayland-target")
+          data = json.loads((stage / "validation.json").read_text())
+          assert data["result"] == "native-wayland-client-server-staged"
+          assert data["target"] == "x86_64-synveil-linux-gnu"
+          assert len(data["server_archive_sha256"]) == 64
+          assert len(data["client_archive_sha256"]) == 64
+          assert set(data["linked_target_elf_sha256"]) == {"client", "server"}
+          assert all(len(h) == 64 for h in data["linked_target_elf_sha256"].values())
+          assert data["native_boot_image_changed"] is False
+          assert data["native_compositor_integrated"] is False
+          assert (stage / "stage/usr/lib64/libwayland-client.a").is_file()
+          assert (stage / "stage/usr/lib64/libwayland-server.a").is_file()
+          print("NATIVE_WAYLAND_TARGET_CLIENT_SERVER_LINK_VERIFIED")
+          PY
+      - name: Require real Synveil application target ELF and pinned dependency hashes
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          out = Path("out/native-wayland-target")
+          proof = json.loads((out / "first-window-validation.json").read_text())
+          assert proof["result"] == "synveil-native-first-window-cross-linked"
+          assert proof["target"] == "x86_64-synveil-linux-gnu"
+          assert len(proof["native_first_window_sha256"]) == 64
+          assert len(proof["source_sha256"]) == 64
+          assert proof["xdg_shell_version"] == "1.49"
+          assert proof["native_compositor_running"] is False
+          assert proof["boot_image_changed"] is False
+          assert (out / "first-window-target").is_file()
+          print("SYNVEIL_ORIGINAL_WINDOW_LINKED_WITH_TARGET_WAYLAND")
+          PY
+      - name: Execute target-built Synveil app through pinned glibc under disposable headless Weston
+        run: |
+          set -Eeuo pipefail
+          trap 'echo "::error::Native runtime prerequisite failed at line $LINENO: $BASH_COMMAND"' ERR
+          uname -sr
+          SYSROOT="$PWD/build/toolchain/out/x86_64-synveil-linux-gnu/sysroot"
+          test -f "$SYSROOT/lib64/ld-linux-x86-64.so.2"
+          test -d "$SYSROOT/usr/lib64"
+          test -f out/native-wayland-target/first-window-validation.json
+          python3 tools/first_window_probe.py \
+            out/native-wayland-target/first-window-target --timeout 30 \
+            --target-loader "$SYSROOT/lib64/ld-linux-x86-64.so.2" \
+            --target-library-path "$SYSROOT/lib64:$SYSROOT/usr/lib64"
+      - name: Retain dependency identities, not any executable or owner data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayland-native-target-metadata-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/native-wayland-target/validation.json
+            out/native-wayland-target/first-window-validation.json

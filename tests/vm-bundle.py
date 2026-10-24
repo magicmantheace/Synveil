@@ -90,6 +90,14 @@ class BundleTests(unittest.TestCase):
         )
         self.destination = self.root / "bundle"
 
+    def test_refuses_hardware_boot_profile(self):
+        manifest_path = self.out / "manifests/build.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["boot_target"] = "hardware"
+        manifest_path.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, "hardware boot target"):
+            verify_build(self.out, self.rootfs, REV)
+
     def test_creates_private_distinct_disks_and_checksums(self):
         with patch("state_disk.subprocess.run") as formatter:
             create_bundle(self.out, self.rootfs, self.destination, REV, 64)

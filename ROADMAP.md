@@ -1,5 +1,40 @@
 # Synveil Roadmap
 
+> **Owner directive (2026-10-20): Critical first-boot priority.** Deliver a
+> physical UEFI-bootable **real multiwindow desktop**, followed by separate
+> persistent A/B system slots, user data, recovery, signed whole-image updates,
+> health-checked rollback, and graphical update controls. This temporarily
+> supersedes the older phase ordering below; do not delete completed work.
+> See [ADR 0013](docs/adr/0013-first-boot-desktop-priority.md).
+>
+> - [ ] Physical UEFI USB boot on the HP Pavilion TG01, owner validated.
+> - [ ] Login plus real multiwindow compositor/panel/launcher/terminal/files/settings.
+> - [ ] Dedicated external SSD install with isolated A/B and persistent data.
+> - [ ] Signed inactive-slot update with interrupted-update and rollback tests.
+> - [ ] Owner-approved graphical update controls.
+>
+> **Current scope:** The source-built native Synveil kernel/EFI image and
+> separate opt-in hardware profile have passed *build* validation but are
+> not ready for physical owner boot. An **isolated Debian/XFCE integration ISO**
+> has now booted through UEFI in QEMU and passed real Xfwm4 multiwindow
+> application interaction at [c0242259f](docs/validation/desktop-live-c024225/README.md).
+> Two independent fresh UEFI boots with the panel, Settings Manager, Thunar
+> and Terminal also passed [at 437020d](docs/validation/desktop-live-437020d/README.md).
+> A separate test-only Debian/XFCE profile has also passed a real
+> **wrong-password denial then correct-password graphical login**
+> using an ephemeral QEMU test value (see
+> [00edc3d guest evidence](docs/validation/desktop-pam-00edc3d/README.md)).
+> The same disposable PAM profile subsequently passed
+> **normal logout → locked LightDM greeter → wrong-password denial →
+> second non-root XFCE login**, with three real RGB captures at
+> [ad7b2b7](docs/validation/desktop-pam-relock-ad7b2b7/README.md).
+> This does **not** establish durable credentials after a cold reboot,
+> secure user enrollment, recovery or a native installed desktop.
+> That is **not user-controlled enrollment or a persistent secure login**.
+> This is **not a native, authenticated or persistent installed desktop**.
+> No physical USB validation, trusted installer or signed updater exists.
+
+
 This roadmap is ordered by dependency. Phase numbers describe architectural maturity, not release versions.
 
 ## Resident intelligence direction
@@ -29,6 +64,12 @@ ready; full AI optimization and package management are not prerequisites.
   - Native QEMU recovery, restart exhaustion, absent-binary, protocol and observer
     checks passed at [810f66d](docs/validation/native-810f66d/README.md).
 - [ ] Provide persistent writable storage that survives reboot
+  - The isolated Debian/XFCE integration ISO retained a real unprivileged
+    `/home` test file across two completely separate QEMU boots using
+    one 256 MiB file-backed ext4 device, with guest marker and desktop
+    validation at [0579de0](docs/validation/desktop-home-0579de/README.md).
+    **Native installed-root persistence, owner login, encryption and
+    system A/B remain unproven; the user install gate stays open.**
   - QEMU /var state disk survived independent write/reboot/read in the
     [partial guest evidence](docs/validation/persistence-2e1e54c/README.md).
     The demo user's protected bind-mounted home and preferences survived
@@ -49,6 +90,10 @@ ready; full AI optimization and package management are not prerequisites.
     [d875da39](docs/validation/native-d875da39/README.md);
     network settings UI and real hardware remain open.
 - [ ] Select and build a minimal graphical session with terminal and launcher
+  - An *isolated Debian/XFCE prototype* now passes a real graphical multiwindow
+    QEMU UEFI guest run at [c0242259f](docs/validation/desktop-live-c024225/README.md).
+    This does not satisfy secure first-user login, native OS integration or
+    installation persistence; keep the user-facing milestone unchecked.
   - QEMU framebuffer menu/autostart and fixed UID 1000 terminal guest
     checks passed at [d875da39](docs/validation/native-d875da39/README.md).
     The bounded crash-restart supervisor and QMP-initiated demo-shell

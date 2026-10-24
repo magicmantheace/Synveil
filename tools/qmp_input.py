@@ -5,8 +5,11 @@
 This module is a *host-side test helper*, not a guest service or AI action.
 The QMP socket grants complete emulator control and must stay private.
 """
+import hashlib
 import json
 import re
+import os
+import stat
 from pathlib import Path
 import socket
 import time
@@ -105,6 +108,99 @@ def send_keys(socket_path: Path, keys: tuple[str, ...], *, timeout=5.0,
 
 
 
+def verified_ppm_test_frame(path: Path) -> bool:
+    """Reject a blank, oversized, malformed or truncated QMP P6 screenshot.
+
+    This proves there is scanout *in addition to* guest-side login/status
+    evidence; screen content is not itself an authentication decision.
+    """
+    try:
+        info = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or
+                info.st_size > 32 * 1024 * 1024):
+            return False
+        with path.open("rb") as stream:
+            header = stream.read(120)
+            match = re.match(
+                rb"\AP6[ \t\r\n]+([0-9]{1,5})[ \t\r\n]+"
+                rb"([0-9]{1,5})[ \t\r\n]+255[ \t\r\n]", header)
+            if match is None:
+                return False
+            width, height = (int(match.group(1)), int(match.group(2)))
+            if not (320 <= width <= 4096 and 200 <= height <= 2160):
+                return False
+            pixel_bytes = width * height * 3
+            if info.st_size != match.end() + pixel_bytes:
+                return False
+            stream.seek(match.end())
+            sample = stream.read(min(pixel_bytes, 1024 * 1024))
+            # A single solid RGB color (e.g. uniform blue) has several
+            # distinct byte values. Compare whole pixel triplets instead;
+            # require enough changed pixels to show actual UI content.
+            if len(sample) < 3 or not any(sample):
+                return False
+            base = sample[:3]
+            differences = 0
+            for i in range(3, len(sample) - 2, 3):
+                if sample[i:i + 3] != base:
+                    differences += 1
+                    if differences >= 64:
+                        return True
+            return False
+    except (OSError, ValueError):
+        return False
+
+
+def capture_test_scanout(socket_path: Path, output: Path, *, timeout=8.0,
+                         fingerprint=False):
+    """QMP screendump inside a private, automatically deleted host test file.
+
+    With fingerprint=True, return SHA256 of a *validated, nonblank* complete
+    RGB frame, or None. Otherwise retain the historical strict boolean API.
+    Neither screenshots nor their digests are printed, saved or archived.
+    QMP is test-only and is never used with a real owner's password.
+    """
+    socket_path = Path(socket_path)
+    output = Path(output)
+    if (not socket_path.is_absolute() or not output.is_absolute() or
+            output.parent.is_symlink() or not output.parent.is_dir() or
+            (output.parent.stat().st_mode & 0o077) != 0 or
+            output.exists() or output.is_symlink()):
+        raise ValueError("QMP framebuffer proof requires an unused private path")
+    if not (1 <= timeout <= 30) or type(fingerprint) is not bool:
+        raise ValueError("invalid QMP screenshot options")
+    # Reserve the name exclusively before QMP writes, then remove the empty
+    # regular file: QMP's screendump requires a pathname it may create.
+    fd = os.open(output, os.O_CREAT | os.O_EXCL | os.O_WRONLY |
+                 getattr(os, "O_NOFOLLOW", 0), 0o600)
+    os.close(fd)
+    output.unlink()
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.settimeout(timeout)
+            sock.connect(str(socket_path))
+            with sock.makefile("rb") as reader:
+                _read_reply(reader, greeting=True)
+                emit_command(sock, reader, {"execute": "qmp_capabilities"})
+                emit_command(sock, reader, {
+                    "execute": "screendump",
+                    "arguments": {"filename": str(output)}
+                })
+        if not verified_ppm_test_frame(output):
+            return None if fingerprint else False
+        if fingerprint:
+            # Read only the already size-bounded, structurally verified frame.
+            with output.open("rb") as frame:
+                return hashlib.file_digest(frame, "sha256").hexdigest()
+        return True
+    except (OSError, QMPError):
+        return None if fingerprint else False
+    finally:
+        # A native login image can show private user/account details;
+        # screenshots remain only in ephemeral private host temp storage.
+        output.unlink(missing_ok=True)
+
+
 def settings_toggle(socket_path: Path, *, timeout=5.0):
     """Use guest input to change two display settings."""
     return send_keys(socket_path, ("right", "right", "right", "right",
@@ -157,6 +253,15 @@ def open_user_terminal(socket_path: Path, *, timeout=5.0):
     """Navigate to the fixed non-root terminal tile inside an active desktop."""
     return send_keys(socket_path, ("right", "right", "right", "ret", "ret"),
                      timeout=timeout)
+
+
+def open_user_files(socket_path: Path, *, timeout=8.0):
+    """Open the sixth tile in the authenticated UID1000 home dashboard.
+
+    The test sends only five Right keys and Enter; no arbitrary paths,
+    file names, shell input, or privileged instructions cross this channel.
+    """
+    return send_keys(socket_path, ("right",) * 5 + ("ret",), timeout=timeout)
 
 
 def exit_user_terminal(socket_path: Path, *, timeout=5.0):

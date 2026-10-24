@@ -1,0 +1,116 @@
+name: Disposable PAM graphical login integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_image:
+        description: Build a disposable VM-only PAM login ISO, never an owner release
+        required: true
+        type: boolean
+        default: false
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - experiments/desktop-live/login-enroll-*
+      - tools/desktop_live.sh
+      - tests/desktop-live.py
+      - tests/smoke-desktop-live.py
+      - tools/qmp_input.py
+      - .github/workflows/desktop-pam-test.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-pam-test-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  host-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: debian:trixie
+    steps:
+      - name: Install isolated live profile prerequisites
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates bash git python3 live-build
+
+      - uses: actions/checkout@v6
+
+      - name: Run all host profile safety regression tests
+        run: |
+          python3 tests/desktop-live.py
+          python3 -m py_compile tests/smoke-desktop-live.py
+          bash -n tools/desktop_live.sh
+          sh -n experiments/desktop-live/login-enroll-prestart.sh
+          sh -n experiments/desktop-live/login-enroll-reporter.sh
+          sh -n experiments/desktop-live/login-enroll-session-logout.sh
+
+      - name: Verify an isolated no-autologin VM profile is configured
+        run: |
+          SYNVEIL_DESKTOP_LOGIN_GATE=2 bash tools/desktop_live.sh configure
+          test -f out/desktop-live/config/includes.chroot/etc/synveil/ci-login-enroll
+          test ! -e out/desktop-live/config/includes.chroot/etc/synveil/ci-login-gate
+          grep -F 'live-config.noautologin' out/desktop-live/config/binary
+          grep -F 'chpasswd' out/desktop-live/config/includes.chroot/usr/local/libexec/synveil-login-enroll-prestart
+          test ! -e out/desktop-live/*.iso
+
+  # An ephemeral host-generated 128-bit test secret enters QEMU via fw_cfg
+  # only after the opt-in guest image is built. No password exists in ISO,
+  # git, Actions configuration, logs, artifact, or an owner's host computer.
+  qemu-pam-test:
+    needs: host-policy
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_image) || contains(github.event.head_commit.message, '[build-pam]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: debian:trixie
+      options: --privileged
+    steps:
+      - name: Install isolated image and QEMU tools
+        run: |
+          apt-get update
+          apt-get install -y \
+            ca-certificates git live-build debootstrap squashfs-tools \
+            xorriso isolinux syslinux-common grub-efi-amd64-bin \
+            mtools dosfstools qemu-system-x86 ovmf python3
+
+      - uses: actions/checkout@v6
+
+      - name: Configure separate test-only graphical PAM profile
+        run: SYNVEIL_DESKTOP_LOGIN_GATE=2 bash tools/desktop_live.sh configure
+
+      - name: Build disposable ISO with no preset credentials
+        run: |
+          bash tools/desktop_live.sh build
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          test -n "$iso"
+          python3 tools/inspect_desktop_iso.py --iso "$iso" > out/desktop-live/test-pam-uefi.json
+          grep -F '"uefi_boot_entry_verified": true' out/desktop-live/test-pam-uefi.json
+
+      - name: Require real logout and LightDM re-lock after correct PAM login
+        run: |
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          python3 tests/smoke-desktop-live.py \
+            --iso "$iso" \
+            --pam-test \
+            --evidence "$PWD/out/desktop-live/test-pam-evidence" \
+            --timeout 330
+
+      - name: Preserve no-password diagnostic evidence, never distribute ISO
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-pam-login-evidence-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/desktop-live/test-pam-uefi.json
+            out/desktop-live/test-pam-evidence/serial.log
+            out/desktop-live/test-pam-evidence/qemu.stderr.log
+            out/desktop-live/test-pam-evidence/desktop.ppm
+            out/desktop-live/test-pam-evidence/first-authenticated-session.ppm
+            out/desktop-live/test-pam-evidence/relocked-greeter.ppm

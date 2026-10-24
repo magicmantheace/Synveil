@@ -113,6 +113,20 @@ A bootable-image change should eventually have an automated QEMU smoke test.
 
 Implementation existing in Git is not, by itself, validation. Roadmap items should only be checked complete when the evidence defined in `docs/VALIDATION.md` exists.
 
+## Owner priority override — 2026-10-20
+
+The first bootable **windowed desktop** on removable hardware and a safely
+updateable A/B installation are now the top priorities. This owner directive
+supersedes the older roadmap dependency ordering that prohibited desktop
+development before completing the observer/control loop. Defer new AI,
+monitoring and optimization work until the direct-boot desktop and safe
+updates meet their acceptance gates.
+
+The existing security boundaries remain binding: no unauthenticated
+production root shells, no destructive writes to Windows media, no invented
+hardware validation, no installer without explicit disk authorization and
+independent recovery. See ADR 0013 and `docs/FIRST_INSTALL.md`.
+
 ## Roadmap discipline
 
 Work from the earliest incomplete dependency on the roadmap unless the user directs otherwise.

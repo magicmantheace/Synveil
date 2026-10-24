@@ -1,0 +1,63 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+[ "$(id -u)" = 1000 ] && [ "$(id -g)" = 1000 ] || exit 1
+HOME=/home/synveil
+XDG_RUNTIME_DIR=/run/user/1000
+WAYLAND_DISPLAY=synveil-native-0
+LIBSEAT_BACKEND=seatd
+export HOME XDG_RUNTIME_DIR WAYLAND_DISPLAY LIBSEAT_BACKEND
+umask 077
+weston --backend=drm --renderer=pixman --shell=desktop-shell.so \
+    --socket="$WAYLAND_DISPLAY" --idle-time=0 \
+    --config=/etc/synveil/weston-vm.ini >"$HOME/weston.log" 2>&1 &
+server=$!
+terminal=
+window=
+cleanup() {
+    [ -z "$window" ] || kill "$window" 2>/dev/null
+    [ -z "$terminal" ] || kill "$terminal" 2>/dev/null
+    kill "$server" 2>/dev/null
+    wait 2>/dev/null
+}
+trap cleanup EXIT HUP INT TERM
+n=0
+while [ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; do
+    kill -0 "$server" 2>/dev/null || exit 1
+    n=$((n + 1)); [ "$n" -lt 150 ] || exit 1
+    sleep 0.1
+done
+WAYLAND_DEBUG=client weston-terminal >"$HOME/terminal.log" 2>&1 &
+terminal=$!
+n=0
+while ! grep -q '\.attach(' "$HOME/terminal.log"; do
+    kill -0 "$server" && kill -0 "$terminal" || exit 1
+    n=$((n + 1)); [ "$n" -lt 150 ] || exit 1
+    sleep 0.1
+done
+WAYLAND_DEBUG=client /usr/bin/synveil-first-window --interactive >"$HOME/window.log" 2>&1 &
+window=$!
+n=0
+while :; do
+    kill -0 "$server" && kill -0 "$terminal" && kill -0 "$window" || exit 1
+    if grep -q SYNVEIL_XDG_TOPLEVEL_SHM_SUBMITTED "$HOME/window.log" &&
+       grep -q get_toplevel "$HOME/terminal.log" &&
+       grep -q ack_configure "$HOME/terminal.log" &&
+       grep -q '\.attach(' "$HOME/terminal.log"; then break; fi
+    n=$((n + 1)); [ "$n" -lt 150 ] || exit 1
+    sleep 0.1
+done
+echo SYNVEIL_NATIVE_WESTON_VM_TWO_WINDOWS_READY
+# Escape in the original client must close it cleanly while the separate
+# terminal and compositor survive. The host also requires real RGB/input proof.
+wait "$window" || exit 1
+window=
+kill -0 "$server" && kill -0 "$terminal" || exit 1
+echo SYNVEIL_NATIVE_WESTON_VM_KEYBOARD_CLOSE_OK
+# A fixed host-injected exit command must traverse the independent terminal
+# and its PTY shell. Its clean exit must leave the compositor running.
+wait "$terminal" || exit 1
+terminal=
+kill -0 "$server" || exit 1
+echo SYNVEIL_NATIVE_WESTON_VM_TERMINAL_INPUT_OK
+wait "$server"
+exit 1

@@ -14,6 +14,7 @@
 static int held, forever, grabbed, grabs, releases, polls, reads, queries;
 static int race, query_fail, grab_fail, read_fail, partial, flood, poll_fail;
 static int quiet_fail, wrong_mode, quiet;
+static int graphics_fail, wrong_graphics, graphics;
 
 static int fixture_ioctl(int fd, unsigned long request, ...) {
     assert(fd == 7);
@@ -27,6 +28,13 @@ static int fixture_ioctl(int fd, unsigned long request, ...) {
     } else if (request == KDGKBMODE) {
         int *mode = va_arg(args, int *);
         *mode = wrong_mode ? K_UNICODE : K_OFF;
+    } else if (request == KDSETMODE) {
+        assert(va_arg(args, int) == KD_GRAPHICS);
+        if (graphics_fail) { errno = EPERM; result = -1; }
+        else graphics = 1;
+    } else if (request == KDGETMODE) {
+        int *mode = va_arg(args, int *);
+        *mode = wrong_graphics ? KD_TEXT : KD_GRAPHICS;
     } else if (request == EVIOCGRAB) {
         int acquire = va_arg(args, int);
         if (acquire) {
@@ -86,14 +94,19 @@ static void reset(void) {
     held = forever = grabbed = grabs = releases = polls = reads = queries = 0;
     race = query_fail = grab_fail = read_fail = partial = flood = poll_fail = 0;
     quiet_fail = wrong_mode = quiet = 0;
+    graphics_fail = wrong_graphics = graphics = 0;
 }
 
 int main(void) {
     reset();
-    assert(synveil_login_vt_quiet(7) == 0 && quiet);
-    quiet_fail = 1;
-    assert(synveil_login_vt_quiet(7) == -1 && errno == EPERM);
-    quiet_fail = 0; wrong_mode = 1;
+    assert(synveil_login_vt_quiet(7) == 0 && quiet && graphics);
+    reset(); quiet_fail = 1;
+    assert(synveil_login_vt_quiet(7) == -1 && errno == EPERM && !graphics);
+    reset(); wrong_mode = 1;
+    assert(synveil_login_vt_quiet(7) == -1 && errno == EIO && !graphics);
+    reset(); graphics_fail = 1;
+    assert(synveil_login_vt_quiet(7) == -1 && errno == EPERM && !graphics);
+    reset(); wrong_graphics = 1;
     assert(synveil_login_vt_quiet(7) == -1 && errno == EIO);
 
     reset();

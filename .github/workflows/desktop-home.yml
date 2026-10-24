@@ -1,0 +1,46 @@
+name: VM-only persistent home image validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - tools/create_desktop_home_image.py
+      - tests/desktop-home.py
+      - .github/workflows/desktop-home.yml
+
+permissions:
+  contents: read
+
+jobs:
+  ext4-home-file:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Check out exact development revision
+        uses: actions/checkout@v6
+
+      - name: Install file-only ext4 inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y e2fsprogs util-linux
+
+      - name: Run no-privilege refusal and marker tests
+        run: python3 tests/desktop-home.py
+
+      - name: Create only one private regular VM file
+        run: |
+          mkdir -p out/desktop-live
+          printf 'VM-only; no installer\n' > out/desktop-live/.synveil-desktop-live-prototype
+          python3 tools/create_desktop_home_image.py --create
+          test -f out/desktop-live/home-persistence.img
+          test ! -L out/desktop-live/home-persistence.img
+          test "$(stat -c '%s' out/desktop-live/home-persistence.img)" = 268435456
+          test "$(stat -c '%a' out/desktop-live/home-persistence.img)" = 600
+
+      - name: Read back actual ext4 label and home-only mount contract
+        run: |
+          test "$(blkid -p -s LABEL -o value out/desktop-live/home-persistence.img)" = synvmhome
+          debugfs -R 'cat /persistence.conf' out/desktop-live/home-persistence.img 2>/dev/null | grep -Fx '/home'
+          test ! -e out/desktop-live/persistence
+          echo 'REAL_FILE_ONLY_EXT4_HOME_IMAGE_PASS; NO GUEST OR OWNER AUTH VALIDATION'

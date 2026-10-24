@@ -74,6 +74,9 @@ class AuthenticatedBundleTests(unittest.TestCase):
             "result": "passed", "independent_qemu_boots": 2,
             "locked_serial": True, "first_user_enrollment": True,
             "persistent_authentication": True,
+            "wrong_password_denied_after_cold_reboot": True,
+            "graphical_scanout_after_cold_reboot": True,
+            "nonblank_rgb_after_login_both_boots": True,
         }))
 
     def create(self):
@@ -162,7 +165,13 @@ class AuthenticatedBundleTests(unittest.TestCase):
     def test_rejects_invalid_guest_proof_fields(self):
         path = self.fixture / "manifests/validation.json"
         for key, value in (("result", "failed"), ("independent_qemu_boots", 1),
-                           ("locked_serial", False), ("persistent_authentication", False)):
+                           ("locked_serial", False), ("persistent_authentication", False),
+                           ("wrong_password_denied_after_cold_reboot", False),
+                           ("wrong_password_denied_after_cold_reboot", None),
+                           ("graphical_scanout_after_cold_reboot", False),
+                           ("nonblank_rgb_after_login_both_boots", False),
+                           ("nonblank_rgb_after_login_both_boots", None),
+                           ("graphical_scanout_after_cold_reboot", None)):
             original = json.loads(path.read_text())
             original[key] = value
             path.write_text(json.dumps(original))

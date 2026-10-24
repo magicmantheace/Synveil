@@ -1,0 +1,162 @@
+name: Source-built native Weston components
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_desktop:
+        type: boolean
+        default: false
+        required: true
+        description: Build native C++, source-built Weston and software DRM dependencies
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - build.sh
+      - build/scripts/toolchain-cxx.sh
+      - build/scripts/toolchain-atomic.sh
+      - tools/native_atomic.py
+      - tools/native_cxx_runtime.py
+      - tools/native_weston.py
+      - tools/native_cairo_probe.py
+      - tools/native_weston_vm.py
+      - tools/native_weston_assets.py
+      - experiments/native-weston/**
+      - tests/native-weston-vm.py
+      - tests/smoke-native-weston.py
+      - src/desktop-wayland/first-window.c
+      - tests/native-weston.py
+      - tests/native-cairo-probe.py
+      - build/manifests/native-weston.json
+      - .github/workflows/native-weston.yml
+
+permissions:
+  contents: read
+
+jobs:
+  source-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate opt-in source and configuration boundaries
+        run: |
+          bash -n build.sh build/scripts/toolchain-cxx.sh build/scripts/toolchain-atomic.sh
+          python3 -m py_compile tools/native_cxx_runtime.py tools/native_atomic.py tools/native_weston.py
+          python3 tools/native_weston.py --plan
+          python3 tests/native-weston.py
+          python3 tests/native-cairo-probe.py
+          python3 tests/native-weston-vm.py
+          python3 -m py_compile tools/native_weston_assets.py tools/native_weston_vm.py tests/smoke-native-weston.py
+          sh -n experiments/native-weston/init experiments/native-weston/session
+
+  native-desktop-components:
+    needs: source-boundary
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_desktop) || contains(github.event.head_commit.message, '[build-native-weston]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      SYNVEIL_SOURCE_TRANSPORT: git
+      SYNVEIL_JOBS: "4"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install source compiler and dependency-builder host prerequisites
+        timeout-minutes: 10
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y \
+            build-essential bison flex texinfo gawk python3 xz-utils bzip2 cpio zstd \
+            dosfstools mtools gdisk qemu-system-x86 ovmf e2fsprogs \
+            libgmp-dev libmpfr-dev libmpc-dev libisl-dev libelf-dev libssl-dev \
+            bc rsync autoconf automake libtool meson ninja-build pkg-config \
+            wget curl unzip file patch perl gperf cmake libncurses-dev
+      - name: Restore source-built native compiler cache
+        id: native-sdk
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/toolchain/out
+            out/native-cxx
+          key: native-desktop-sdk-v1-${{ runner.os }}-${{ hashFiles('build/manifests/sources.json', 'build/scripts/toolchain.sh', 'build/scripts/toolchain-cxx.sh', 'tools/native_cxx_runtime.py') }}
+      - name: Build unchanged pinned C and glibc foundation
+        if: steps.native-sdk.outputs.cache-hit != 'true'
+        run: |
+          set -o pipefail
+          mkdir -p out/logs
+          bash build.sh toolchain 2>&1 | tee out/logs/weston-toolchain.log
+      - name: Build native C++ and thread/exception runtime against existing glibc
+        if: steps.native-sdk.outputs.cache-hit != 'true'
+        run: |
+          set -o pipefail
+          bash build.sh toolchain-cxx 2>&1 | tee out/logs/weston-cxx.log
+      - name: Verify native compiler cache identity and linked runtime bytes
+        run: python3 tools/native_cxx_runtime.py --verify
+      - name: Save compiler independently of later component failures
+        if: steps.native-sdk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/toolchain/out
+            out/native-cxx
+          key: ${{ steps.native-sdk.outputs.cache-primary-key }}
+      - name: Build pinned native atomic runtime and require a real atomic link
+        run: |
+          set -o pipefail
+          mkdir -p out/logs
+          bash build/scripts/toolchain-atomic.sh 2>&1 | tee out/logs/weston-atomic.log
+      - name: Restore verified partial native dependency build
+        uses: actions/cache/restore@v4
+        with:
+          path: out/native-weston
+          key: native-weston-packages-v1-${{ runner.os }}-${{ hashFiles('build/manifests/sources.json', 'build/scripts/toolchain.sh', 'build/scripts/toolchain-cxx.sh', 'tools/native_cxx_runtime.py', 'build/manifests/native-weston.json') }}-${{ github.run_id }}
+          restore-keys: |
+            native-weston-packages-v1-${{ runner.os }}-${{ hashFiles('build/manifests/sources.json', 'build/scripts/toolchain.sh', 'build/scripts/toolchain-cxx.sh', 'tools/native_cxx_runtime.py', 'build/manifests/native-weston.json') }}-
+      - name: Build Weston and its dependencies from pinned source recipes
+        id: weston-build
+        run: |
+          set -o pipefail
+          mkdir -p out/logs
+          python3 tools/native_weston.py --build --resume 2>&1 | tee out/logs/weston-components.log
+      - name: Preserve partial build for focused dependency repair
+        if: always() && hashFiles('out/native-weston/build-context.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: out/native-weston
+          key: native-weston-packages-v1-${{ runner.os }}-${{ hashFiles('build/manifests/sources.json', 'build/scripts/toolchain.sh', 'build/scripts/toolchain-cxx.sh', 'tools/native_cxx_runtime.py', 'build/manifests/native-weston.json') }}-${{ github.run_id }}
+      - name: Build separate native Synveil compositor VM image
+        run: |
+          set -o pipefail
+          python3 tools/native_weston_vm.py --build 2>&1 | tee out/logs/weston-vm-image.log
+      - name: Require real native UEFI guest RGB, two visible windows, mouse and keyboard
+        run: |
+          set -o pipefail
+          python3 tests/smoke-native-weston.py --timeout 240 2>&1 | tee out/logs/weston-vm-runtime.log
+      - name: Surface bounded public-source failure diagnostics
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          for path in sorted(Path("out/logs").glob("weston-*.log")):
+              lines = path.read_text(errors="replace").splitlines()
+              selected = [line for line in lines if re.search(r"error:|fatal|Error|ERROR|Traceback|ValueError", line)]
+              message = (path.name + ": " + "\n".join(selected[-8:] + lines[-8:]))[-4000:]
+              message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print("::error::" + message)
+          PY
+      - name: Retain provenance only; no executable or boot image publication
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-weston-component-provenance-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/native-cxx/validation.json
+            out/native-atomic/validation.json
+            out/native-weston/validation.json
+            out/native-weston/package-info.json
+            out/native-weston/runtime-assets.json
+            out/native-weston-vm/validation.json
+            out/native-weston-vm/guest-validation.json
+            out/native-weston/build/build/cairo-*/buildroot-build/config.h
+            out/native-weston/build/build/cairo-*/buildroot-build/meson-logs/meson-log.txt

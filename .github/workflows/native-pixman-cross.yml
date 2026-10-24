@@ -1,0 +1,83 @@
+name: Native Pixman source and cross-stage validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_cross:
+        type: boolean
+        default: false
+        required: true
+        description: Build pinned target toolchain and cross-stage Pixman
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - build/manifests/native-graphics.json
+      - tools/native_pixman.py
+      - tests/native-pixman.py
+      - .github/workflows/native-pixman-cross.yml
+
+permissions:
+  contents: read
+
+jobs:
+  source-provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check locked release and fail-closed host cases
+        run: |
+          python3 -m py_compile tools/native_pixman.py tests/native-pixman.py
+          python3 tests/native-pixman.py
+          python3 tools/native_pixman.py --check-lock
+      - name: Download release from official upstream and verify SHA512
+        run: python3 tools/native_pixman.py --verify-source
+
+  native-cross:
+    needs: source-provenance
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_cross) || contains(github.event.head_commit.message, '[build-native-pixman]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      SYNVEIL_JOBS: "4"
+      SYNVEIL_SOURCE_TRANSPORT: git
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install bootstrap toolchain and Meson build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential bison flex texinfo gawk python3 \
+            xz-utils bzip2 cpio zstd dosfstools mtools gdisk \
+            libgmp-dev libmpfr-dev libmpc-dev libisl-dev libelf-dev \
+            libssl-dev bc rsync meson ninja-build qemu-system-x86 ovmf e2fsprogs
+      - name: Build pinned Synveil cross compiler
+        run: |
+          set -o pipefail
+          mkdir -p out/logs
+          bash build.sh toolchain 2>&1 | tee out/logs/pixman-toolchain.log
+      - name: Cross-compile Pixman to isolated staging, without boot image edits
+        run: python3 tools/native_pixman.py --build
+      - name: Verify cross-build output identities
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          stage = Path("out/native-desktop")
+          record = json.loads((stage / "validation.json").read_text())
+          assert record["result"] == "native-pixman-staged"
+          assert record["target"] == "x86_64-synveil-linux-gnu"
+          assert len(record["library_sha256"]) == 64
+          assert record["compositor_integrated"] is False
+          assert record["boot_image_changed"] is False
+          assert (stage / "stage/usr/lib64/libpixman-1.a").is_file()
+          print("NATIVE_SYNSYSROOT_PIXMAN_STAGING_PASS")
+          PY
+      - name: Keep hashes only, never binaries or secrets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-pixman-build-proof-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: out/native-desktop/validation.json

@@ -23,6 +23,12 @@ int main(void) {
         synveil_enroll_mount_matches("/dev/vda", "/var", "ext4") ||
         synveil_enroll_mount_matches("/dev/vdb", "/tmp", "ext4") ||
         synveil_enroll_mount_matches(NULL, "/var", "ext4")) return 8;
+    if (!synveil_enroll_mount_options_writable("rw,nosuid,nodev,noatime") ||
+        synveil_enroll_mount_options_writable("ro,nosuid,nodev") ||
+        synveil_enroll_mount_options_writable("defaults") ||
+        synveil_enroll_mount_options_writable("xrw,nosuid") ||
+        synveil_enroll_mount_options_writable("rw,ro") ||
+        synveil_enroll_mount_options_writable(NULL)) return 9;
     // A direct host invocation is neither the installed authenticated image
     // nor the expected isolated state volume, even if running as root.
     if (synveil_enroll_can_start()) return 7;

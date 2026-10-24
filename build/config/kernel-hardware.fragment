@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: MPL-2.0
+# Opt-in developer bring-up for UEFI x86_64 physical hardware.
+# This is NOT an owner-ready desktop image or an installer.
+#
+# SimpleDRM uses firmware-provided GOP scanout. It is intentionally preferred
+# to an unsupported assumption that an NVIDIA RTX 3060 has working acceleration.
+CONFIG_DRM_SIMPLEDRM=y
+CONFIG_SYSFB=y
+CONFIG_SYSFB_SIMPLEFB=y
+
+# Built in: the bootstrap kernel has CONFIG_MODULES=n.
+# Real removable media and external SSDs use different storage controllers
+# from the existing QEMU virtio-only target.
+CONFIG_SCSI=y
+CONFIG_BLK_DEV_SD=y
+CONFIG_USB_STORAGE=y
+CONFIG_USB_UAS=y
+CONFIG_BLK_DEV_NVME=y
+CONFIG_ATA=y
+CONFIG_SATA_AHCI=y
+
+# Keep physical keyboard, pointer and fallback text console available.
+CONFIG_VT=y
+CONFIG_VT_CONSOLE=y
+CONFIG_FRAMEBUFFER_CONSOLE=y
+CONFIG_INPUT_EVDEV=y
+CONFIG_USB_XHCI_HCD=y
+CONFIG_USB_XHCI_PCI=y
+CONFIG_USB_HID=y

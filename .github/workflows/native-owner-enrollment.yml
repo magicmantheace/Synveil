@@ -1,0 +1,154 @@
+name: Native two-boot owner enrollment regression
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_native:
+        type: boolean
+        required: true
+        default: false
+        description: Build source-native QEMU image and run two-boot enrollment security proof
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - tests/smoke-graphical-onboard.py
+      - tests/graphical-onboard-fixture.py
+      - tools/qmp_input.py
+      - tests/qmp-input.py
+      - src/veil-core/src/credential.rs
+      - src/veil-display/enroll.c
+      - src/veil-display/login_keyboard.h
+      - src/veil-display/main.c
+      - src/veil-display/files.c
+      - src/veil-display/files.h
+      - tests/display-files.c
+      - tests/display-build.py
+      - build/scripts/rootfs.sh
+      - tests/display-keyboard-grab.c
+      - build/rootfs/mount-state
+      - .github/workflows/native-owner-enrollment.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-owner-enrollment-${{ github.ref }}
+  # A documentation push must never cancel a lengthy native build.
+  cancel-in-progress: false
+
+jobs:
+  host-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate native two-boot login denial sequence without QEMU
+        run: |
+          python3 tests/graphical-onboard-fixture.py
+          python3 tests/qmp-input.py
+          python3 -m py_compile tests/smoke-graphical-onboard.py
+          python3 tests/native-guest-fixture.py
+
+  native-uefi-two-boot:
+    needs: host-validation
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_native) || contains(github.event.head_commit.message, '[build-native-onboard]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      SYNVEIL_JOBS: "4"
+      SYNVEIL_SOURCE_TRANSPORT: git
+      SYNVEIL_QEMU_NETWORK: "0"
+      SYNVEIL_QEMU_TCG: "1"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install pinned-native build host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential bison flex texinfo gawk python3 \
+            xz-utils bzip2 cpio zstd dosfstools mtools gdisk e2fsprogs \
+            qemu-system-x86 ovmf libgmp-dev libmpfr-dev libmpc-dev \
+            libisl-dev libelf-dev libssl-dev bc rsync
+
+      - name: Verify host fixtures and pinned source manifests
+        run: |
+          python3 tests/graphical-onboard-fixture.py
+          python3 tests/native-guest-fixture.py
+          python3 tests/native-preflight.py
+          python3 tools/prepare_native_rust.py
+
+      - name: Build isolated native toolchain and core
+        run: |
+          set -o pipefail
+          mkdir -p out/logs
+          bash build.sh toolchain 2>&1 | tee out/logs/owner-toolchain.log
+          bash build.sh native 2>&1 | tee out/logs/owner-native.log
+
+      - name: Build disposable UEFI image with native graphical components
+        env:
+          SYNVEIL_NATIVE_ROOTFS: "1"
+          SYNVEIL_PERSISTENCE_ROOTFS: "1"
+          SYNVEIL_GRAPHICS_ROOTFS: "1"
+          SYNVEIL_DESKTOP_AUTOSTART: "1"
+          SYNVEIL_NETWORK_ROOTFS: "1"
+        run: |
+          set -o pipefail
+          bash build.sh rootfs 2>&1 | tee out/logs/owner-rootfs.log
+          bash build.sh kernel 2>&1 | tee out/logs/owner-kernel.log
+          bash build.sh image 2>&1 | tee out/logs/owner-image.log
+          bash build.sh manifest
+
+      - name: Prove graphical enrollment confirmation and wrong-password denial on independent reboot
+        run: |
+          set -o pipefail
+          bash build.sh guest-fixture --case graphical-onboard 2>&1 \
+            | tee out/logs/owner-graphical-onboard.log
+          test -f out/guest-fixtures/graphical-onboard/manifests/validation.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path(
+              "out/guest-fixtures/graphical-onboard/manifests/validation.json"
+          ).read_text())
+          assert receipt["case"] == "graphical-onboard"
+          assert receipt["result"] == "passed"
+          assert receipt["independent_qemu_boots"] == 2
+          assert receipt["first_user_enrollment"] is True
+          assert receipt["persistent_authentication"] is True
+          assert receipt["wrong_password_denied_after_cold_reboot"] is True
+          assert receipt["graphical_scanout_after_cold_reboot"] is True
+          assert receipt["nonblank_rgb_after_login_both_boots"] is True
+          assert receipt["locked_serial"] is True
+          first = Path("out/guest-fixtures/graphical-onboard/logs/onboard-first.log").read_text()
+          reboot = Path("out/guest-fixtures/graphical-onboard/logs/onboard-reboot.log").read_text()
+          assert "SYNVEIL_ENROLL_COMPLETED" in first
+          assert "SYNVEIL_GRAPHICAL_AUTH_DENIED" in reboot
+          assert "SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in reboot
+          assert "SYNVEIL_ENROLL_READY" not in reboot
+          frame_proof = "authenticated graphical session and RGB scanout verified"
+          # Native Files tile must visibly respond after authenticated input;
+          # a static framebuffer plus marker alone does not satisfy this.
+          files_proof = "interactive Files tile verified"
+          assert files_proof in first
+          assert files_proof in reboot
+          # The screenshot helper deletes private captures; the receipt
+          # records only whether a real QMP framebuffer validation passed.
+          private_screens = list(
+              Path("out/guest-fixtures/graphical-onboard").rglob("*.ppm")
+          )
+          assert not private_screens, "sensitive native test screenshots retained"
+          print("NATIVE_OWNER_ENROLL_TWO_BOOT_AND_WRONG_PASSWORD_PASS")
+          PY
+
+      - name: Retain redacted guest evidence, never enrolled state disk or boot image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-owner-enrollment-evidence-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/guest-fixtures/graphical-onboard/manifests/fixture.json
+            out/guest-fixtures/graphical-onboard/manifests/validation.json
+            out/guest-fixtures/graphical-onboard/logs/onboard-first.log
+            out/guest-fixtures/graphical-onboard/logs/onboard-reboot.log

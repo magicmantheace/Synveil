@@ -1,0 +1,191 @@
+name: Experimental XFCE live desktop configuration
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_image:
+        description: Build a disposable Debian-based ISO (never publish as an owner installer)
+        required: true
+        type: boolean
+        default: false
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - experiments/desktop-live/**
+      - tools/desktop_live.sh
+      - tests/desktop-live.py
+      - tests/desktop-home.py
+      - tools/create_desktop_home_image.py
+      - tests/smoke-desktop-live.py
+      - tools/qmp_input.py
+      - tools/inspect_desktop_iso.py
+      - tests/inspect-desktop-iso.py
+      - .github/workflows/desktop-live.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-live-${{ github.ref }}
+  # Never throw away the expensive full-image guest proof when docs change.
+  cancel-in-progress: false
+
+jobs:
+  preview-config:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    container:
+      image: debian:trixie
+    steps:
+      - name: Install configuration tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git live-build python3 bash coreutils
+
+      - name: Check out Synveil
+        uses: actions/checkout@v6
+
+      - name: Run no-network host safety tests
+        run: python3 tests/desktop-live.py
+
+      - name: Configure isolated Debian live XFCE image
+        run: |
+          bash tools/desktop_live.sh configure
+          test -f out/desktop-live/config/package-lists/synveil-desktop.list.chroot
+          test -f out/desktop-live/config/includes.chroot/etc/lightdm/lightdm.conf.d/50-synveil-preview.conf
+          grep -Fx 'xfwm4' out/desktop-live/config/package-lists/synveil-desktop.list.chroot
+          grep -F 'live-config.noroot' out/desktop-live/config/binary
+          test ! -e out/desktop-live/live-image-amd64.hybrid.iso
+
+      - name: Validate file-only home volume creation fixture
+        run: python3 tests/desktop-home.py
+
+      # Do not publish an autologin/unauthenticated preview as owner-ready.
+      - name: Retain non-image configuration log only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-live-config-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/desktop-live/config
+
+  # Developer CI image proof: never upload an unauthenticated live ISO.
+  # This build cannot satisfy owner login, persistent A/B or physical validation.
+  iso-build:
+    needs: preview-config
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_image) || contains(github.event.head_commit.message, '[build-live]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    # Debian 13 provides live-build with grub-efi and modern live profile
+    # options; Ubuntu 24.04's older live-build cannot parse this contract.
+    # This isolated CI-only job has no privileged repository secrets and
+    # never uploads the insecure development ISO.
+    container:
+      image: debian:trixie
+      options: --privileged
+    steps:
+      - name: Install live image tooling
+        run: |
+          apt-get update
+          apt-get install -y \
+            ca-certificates git live-build debootstrap \
+            squashfs-tools xorriso isolinux syslinux-common \
+            grub-efi-amd64-bin mtools dosfstools \
+            qemu-system-x86 ovmf python3 e2fsprogs util-linux
+
+      - name: Check out Synveil
+        uses: actions/checkout@v6
+
+      - name: Configure controlled desktop image
+        run: bash tools/desktop_live.sh configure
+
+      - name: Build desktop prototype image file, no release
+        run: |
+          bash tools/desktop_live.sh build
+          test -n "$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          cd out/desktop-live
+          sha256sum *.iso > desktop-prototype-sha256.txt
+          xorriso -indev "$(find . -maxdepth 1 -type f -name '*.iso' -print -quit)" -report_el_torito plain
+          cd ../..
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          python3 tools/inspect_desktop_iso.py --iso "$iso" > out/desktop-live/uefi-validation.json
+          cat out/desktop-live/uefi-validation.json
+          echo 'EXPERIMENTAL_ISO_BUILT_NO_AUTHENTICATED_OR_PHYSICAL_VALIDATION'
+
+      - name: Boot Debian EFI live image and prove real XFCE multiwindow controls in QEMU
+        run: |
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          test -n "$iso"
+          python3 tests/smoke-desktop-live.py \
+            --iso "$iso" \
+            --evidence "$PWD/out/desktop-live/guest-proof-evidence" \
+            --timeout 300
+
+      # This is a second *independent* cold boot of the same unmodified ISO,
+      # with fresh OVMF variables and zero writable guest disks. It exercises
+      # repeat startup reliability; it is NOT a persistence or reboot-update test.
+      - name: Boot the exact ISO again with fresh UEFI vars and confirm windows
+        run: |
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          test -n "$iso"
+          python3 tests/smoke-desktop-live.py \
+            --iso "$iso" \
+            --evidence "$PWD/out/desktop-live/guest-proof-evidence-second-boot" \
+            --timeout 300
+
+      # Disposable ext4 home image: newly created 256MiB regular file only.
+      # The same file is attached to two separate, fully isolated QEMU guests.
+      # Never writes or partitions the runner's physical devices.
+      - name: Create VM-only home filesystem without mounting or formatting disks
+        run: |
+          python3 tools/create_desktop_home_image.py --create
+          test -f out/desktop-live/home-persistence.img
+          test "$(stat -c '%s' out/desktop-live/home-persistence.img)" = 268435456
+          test "$(blkid -p -s LABEL -o value out/desktop-live/home-persistence.img)" = synvmhome
+
+      - name: Real guest write of a home file on the VM-only filesystem
+        run: |
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          python3 tests/smoke-desktop-live.py \
+            --iso "$iso" \
+            --home-disk "$PWD/out/desktop-live/home-persistence.img" \
+            --home-stage write \
+            --evidence "$PWD/out/desktop-live/guest-home-write" \
+            --timeout 300
+
+      - name: Separate QEMU UEFI boot reads the same persisted home file
+        run: |
+          iso="$(find out/desktop-live -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          python3 tests/smoke-desktop-live.py \
+            --iso "$iso" \
+            --home-disk "$PWD/out/desktop-live/home-persistence.img" \
+            --home-stage read \
+            --evidence "$PWD/out/desktop-live/guest-home-read" \
+            --timeout 300
+
+      - name: Preserve metadata and logs without distributing insecure ISO
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-iso-build-evidence-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/desktop-live/desktop-prototype-sha256.txt
+            out/desktop-live/uefi-validation.json
+            out/desktop-live/guest-proof-evidence/serial.log
+            out/desktop-live/guest-proof-evidence/qemu.stderr.log
+            out/desktop-live/guest-proof-evidence/desktop.ppm
+            out/desktop-live/guest-proof-evidence-second-boot/serial.log
+            out/desktop-live/guest-proof-evidence-second-boot/qemu.stderr.log
+            out/desktop-live/guest-proof-evidence-second-boot/desktop.ppm
+            out/desktop-live/guest-home-write/serial.log
+            out/desktop-live/guest-home-write/qemu.stderr.log
+            out/desktop-live/guest-home-write/desktop.ppm
+            out/desktop-live/guest-home-read/serial.log
+            out/desktop-live/guest-home-read/qemu.stderr.log
+            out/desktop-live/guest-home-read/desktop.ppm
+            out/desktop-live/config

@@ -1,0 +1,107 @@
+name: Experimental hardware UEFI image build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [development/first-boot-desktop]
+    paths:
+      - build/config/kernel*
+      - build/scripts/kernel.sh
+      - build/scripts/image.sh
+      - build/scripts/rootfs.sh
+      - build/rootfs/**
+      - build.sh
+      - tools/build_manifest.py
+      - tools/source_lock.py
+      - tests/kernel-seed.py
+      - tests/inspect-image.sh
+      - tests/lint-bootstrap.sh
+      - .github/workflows/hardware-profile.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hardware-profile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  file-only-uefi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      SYNVEIL_JOBS: "4"
+      SYNVEIL_SOURCE_TRANSPORT: git
+      SYNVEIL_GRAPHICS_ROOTFS: "1"
+      SYNVEIL_DESKTOP_AUTOSTART: "1"
+      SYNVEIL_NETWORK_ROOTFS: "1"
+
+    steps:
+      - name: Check out committed sources
+        uses: actions/checkout@v6
+
+      - name: Install pinned build host prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential bison flex texinfo gawk python3 xz-utils bzip2 cpio zstd \
+            dosfstools mtools gdisk e2fsprogs qemu-system-x86 ovmf \
+            libgmp-dev libmpfr-dev libmpc-dev libisl-dev libelf-dev libssl-dev bc rsync
+
+      - name: Validate host tests before source build
+        run: bash build.sh lint
+
+      - name: Build isolated target toolchain
+        run: |
+          mkdir -p out/logs
+          set -o pipefail
+          bash build.sh toolchain 2>&1 | tee out/logs/hardware-toolchain.log
+
+      - name: Build developer graphics initramfs (not an owner installer)
+        run: |
+          set -o pipefail
+          bash build.sh rootfs 2>&1 | tee out/logs/hardware-rootfs.log
+
+      - name: Build hardware kernel with tty0 and firmware framebuffer
+        env:
+          SYNVEIL_BOOT_TARGET: hardware
+        run: |
+          set -o pipefail
+          bash build.sh kernel 2>&1 | tee out/logs/hardware-kernel.log
+
+      - name: Verify file-only GPT/EFI image and exact boot profile
+        run: |
+          set -o pipefail
+          bash build.sh image 2>&1 | tee out/logs/hardware-image.log
+          bash build.sh manifest
+          bash tests/inspect-image.sh out/synveil-x86_64.img
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          record = json.loads(Path("out/manifests/build.json").read_text())
+          assert record["schema"] == "synveil.build/v1"
+          assert record["boot_target"] == "hardware"
+          assert record["git"]["commit"] == "${{ github.sha }}"
+          assert record["git"]["dirty"] is False
+          for config in ("CONFIG_DRM_SIMPLEDRM=y", "CONFIG_SYSFB_SIMPLEFB=y",
+                         "CONFIG_USB_STORAGE=y", "CONFIG_BLK_DEV_NVME=y",
+                         "CONFIG_SATA_AHCI=y"):
+              assert config in Path("out/manifests/kernel.config").read_text()
+          print("HARDWARE_KERNEL_BUILD_VALIDATED_IN_CI")
+          print("NOT_PHYSICAL_BOOT_OR_DESKTOP_VALIDATION")
+          PY
+          sha256sum out/synveil-x86_64.img > out/manifests/hardware-image.sha256
+
+      # Intentionally do not publish the runnable image as an owner download.
+      # Its rootfs is an unauthenticated developer preview, not a finished
+      # windowed desktop and not suitable for installing beside Windows.
+      - name: Retain source-build proof (metadata only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardware-kernel-evidence-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            out/logs/
+            out/manifests/

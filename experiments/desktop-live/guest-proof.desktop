@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Synveil VM Desktop Proof
+Comment=Test-only XFCE multiwindow validation in a disposable QEMU guest
+Exec=/usr/local/bin/synveil-guest-proof-session
+OnlyShowIn=XFCE;
+Terminal=false
+X-GNOME-Autostart-enabled=true

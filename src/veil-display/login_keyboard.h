@@ -13,11 +13,20 @@
 // The login VT has no console consumer. Suppress typed characters while
 // waiting ungrabbed for old console modifiers to receive their key-up events.
 // K_OFF still lets Linux process modifier releases, unlike EVIOCGRAB.
+// VT2 must also own graphical scanout: a keyboard-quiet *text* VT can still
+// obscure the framebuffer greeter after a fresh boot or VT handoff.
 static inline int synveil_login_vt_quiet(int fd) {
-    int mode = -1;
+    int keyboard_mode = -1;
+    int display_mode = -1;
     if (ioctl(fd, KDSKBMODE, K_OFF) < 0 ||
-        ioctl(fd, KDGKBMODE, &mode) < 0) return -1;
-    if (mode != K_OFF) {
+        ioctl(fd, KDGKBMODE, &keyboard_mode) < 0) return -1;
+    if (keyboard_mode != K_OFF) {
+        errno = EIO;
+        return -1;
+    }
+    if (ioctl(fd, KDSETMODE, KD_GRAPHICS) < 0 ||
+        ioctl(fd, KDGETMODE, &display_mode) < 0) return -1;
+    if (display_mode != KD_GRAPHICS) {
         errno = EIO;
         return -1;
     }

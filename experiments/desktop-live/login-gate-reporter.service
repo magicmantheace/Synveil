@@ -1,0 +1,14 @@
+[Unit]
+Description=Synveil disposable QEMU LightDM locked-greeter observer
+After=lightdm.service
+ConditionPathExists=/etc/synveil/ci-login-gate
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/synveil-login-gate-reporter
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=graphical.target

@@ -14,12 +14,39 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from qmp_input import QMPError, type_test_secret  # noqa: E402
+from qmp_input import QMPError, type_test_secret, capture_test_scanout, open_user_files  # noqa: E402
 
 BOOT = {b"SYNVEIL_BOOT_OK", b"SYNVEIL_CORE_READY", b"SYNVEIL_STATE_READY",
         b"SYNVEIL_SEAT_READY", b"SYNVEIL_SERIAL_RECOVERY_LOCKED"}
 DENIED = {b"SYNVEIL_SERIAL_RECOVERY_DEVELOPER",
           b"SYNVEIL_LOGIN_INPUT_UNAVAILABLE"}
+
+
+def wait_for_visible_scanout(qmp: Path, private_dir: Path, stem: str,
+                             *, seconds: float = 6.0, fingerprint=False):
+    """Require actual validated RGB scanout, with bounded video-refresh slack.
+
+    A serial READY marker cannot pass this check. Each QMP screenshot is
+    examined once and destroyed immediately, even if malformed or blank.
+    No screenshot is taken while an input sequence is being typed.
+    """
+    deadline = time.monotonic() + seconds
+    for attempt in range(16):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        filename = private_dir / f"{stem}-{attempt}.ppm"
+        proof = capture_test_scanout(
+            qmp, filename, timeout=min(2.0, max(1.0, remaining)),
+            fingerprint=fingerprint,
+        )
+        if proof:
+            return proof
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        time.sleep(min(0.25, remaining))
+    return False
 
 
 def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
@@ -79,11 +106,38 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                         else:
                             if b"SYNVEIL_LOGIN_READY" not in seen:
                                 continue
+                        # After cold reboot, deny a deliberately wrong
+                        # credential *before* accepting the persisted owner
+                        # verifier. First-boot enrollment has its separate
+                        # mismatched-confirmation challenge below.
+                        # The rebooted graphical login must actually draw to
+                        # the QEMU framebuffer, not merely echo a serial
+                        # status marker. Capture *before* typing passwords;
+                        # the image is checked and immediately discarded.
+                        if not fresh:
+                            if not wait_for_visible_scanout(
+                                qmp, Path(temp), "native-reboot-login"
+                            ):
+                                evidence.write(b"[synveil] native graphical scanout missing on reboot after bounded refresh\n")
+                                return False
                         try:
-                            type_test_secret(qmp, secret, timeout=18)
+                            type_test_secret(qmp, secret if fresh else incorrect,
+                                             timeout=18)
                         except (QMPError, OSError, ValueError):
                             return False
-                        phase = "first-password" if fresh else "logging-in"
+                        phase = "first-password" if fresh else "reboot-wrong-password"
+                    if phase == "reboot-wrong-password":
+                        # A session opening for the wrong credential must
+                        # fail immediately, never be mistaken for success.
+                        if b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
+                            return False
+                        if b"SYNVEIL_GRAPHICAL_AUTH_DENIED" in seen:
+                            seen.discard(b"SYNVEIL_GRAPHICAL_AUTH_DENIED")
+                            try:
+                                type_test_secret(qmp, secret, timeout=18)
+                            except (QMPError, OSError, ValueError):
+                                return False
+                            phase = "logging-in"
                     if phase == "first-password" and b"SYNVEIL_ENROLL_CONFIRM_READY" in seen:
                         seen.discard(b"SYNVEIL_ENROLL_CONFIRM_READY")
                         try:
@@ -114,8 +168,48 @@ def guest_boot(out: Path, secret: str, *, fresh: bool, timeout: float) -> bool:
                         except (QMPError, OSError, ValueError):
                             return False
                         phase = "logging-in"
+                    if phase == "logging-in" and b"SYNVEIL_GRAPHICAL_AUTH_DENIED" in seen:
+                        # No second fallthrough: the correct saved password
+                        # must authenticate on the independent cold boot.
+                        return False
                     if phase == "logging-in" and b"SYNVEIL_GRAPHICAL_AUTH_ACTIVE" in seen:
-                        evidence.write(b"[synveil] authenticated graphical session reached\n")
+                        # A serial marker alone could be emitted while the
+                        # seat is still on the login VT. Require independent
+                        # RGB QMP scanout after the guest reports success.
+                        # Never capture while any credential is being typed.
+                        time.sleep(0.6)
+                        frame_name = ("native-first-authenticated" if fresh
+                                      else "native-reboot-authenticated")
+                        baseline = wait_for_visible_scanout(
+                            qmp, Path(temp), frame_name, fingerprint=True
+                        )
+                        if not baseline:
+                            evidence.write(b"[synveil] no visible graphical session after login\n")
+                            return False
+                        # A framebuffer dashboard is not considered interactive
+                        # merely because a generic nonblank image was captured.
+                        # The test sends only fixed keys to the *authenticated*
+                        # UID1000 Files tile and requires a different real RGB
+                        # framebuffer. No private filenames are logged.
+                        try:
+                            open_user_files(qmp, timeout=12)
+                        except (QMPError, OSError, ValueError):
+                            evidence.write(b"[synveil] native Files navigation input failed\n")
+                            return False
+                        changed = False
+                        for attempt in range(12):
+                            proof = capture_test_scanout(
+                                qmp, Path(temp) / f"native-files-{attempt}.ppm",
+                                timeout=2, fingerprint=True
+                            )
+                            if proof and proof != baseline:
+                                changed = True
+                                break
+                            time.sleep(0.2)
+                        if not changed:
+                            evidence.write(b"[synveil] native Files view did not alter graphical scanout\n")
+                            return False
+                        evidence.write(b"[synveil] authenticated graphical session, RGB scanout and interactive Files tile verified\n")
                         return True
                 evidence.write(("[synveil] incomplete: " + phase + "\n").encode())
                 return False

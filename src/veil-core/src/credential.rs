@@ -62,18 +62,42 @@ pub fn verify_root_credential(username: &str, password: &[u8]) -> bool {
         .is_some_and(|phc| verify_phc(username, password, &phc))
 }
 
-// The existing developer QEMU initramfs is ephemeral. Neither enrollment nor
-// login can use files under /var unless a separate ext4 state volume is
-// mounted. This remains a developer-only workflow pending secure recovery.
+// This existing pre-install QEMU image has one *specific* virtual state
+// device, configured by build/rootfs/mount-state. A generic ext4 mount over
+// /var is NOT an authority to read/write an owner's password verifier:
+// e.g. a rebound home or an unexpected writable volume must fail closed.
+// The device policy will need a separate reviewed update for real installed
+// hardware with stable PARTUUIDs, never an automatic fallback.
+const VM_STATE_DEVICE: &str = "/dev/vdb";
+
+fn pinned_vm_state_mount(mounts: &str) -> bool {
+    let mut matching = 0u8;
+    for line in mounts.lines() {
+        let mut fields = line.split_whitespace();
+        let Some(device) = fields.next() else { continue };
+        let Some(target) = fields.next() else { continue };
+        if target != "/var" {
+            continue;
+        }
+        // A duplicate or contradictory mount table is ambiguous. Never
+        // take the first matching ext4 line and ignore later /var entries.
+        matching = match matching.checked_add(1) {
+            Some(value) => value,
+            None => return false,
+        };
+        let fs_type = fields.next();
+        let mount_flags = fields.next().unwrap_or("");
+        let writable = mount_flags.split(',').any(|flag| flag == "rw");
+        if device != VM_STATE_DEVICE || fs_type != Some("ext4") || !writable {
+            return false;
+        }
+    }
+    matching == 1
+}
+
 fn has_persistent_state() -> bool {
-    fs::read_to_string("/proc/mounts").is_ok_and(|mounts| {
-        mounts.lines().any(|line| {
-            let mut fields = line.split_whitespace();
-            fields.next().is_some()
-                && fields.next() == Some("/var")
-                && fields.next() == Some("ext4")
-        })
-    })
+    fs::read_to_string("/proc/mounts")
+        .is_ok_and(|mounts| pinned_vm_state_mount(&mounts))
 }
 
 /// One-time developer-VM enrollment; read password from an already protected
@@ -212,6 +236,29 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static IDS: AtomicU64 = AtomicU64::new(1);
+
+    #[test]
+    fn only_unique_writable_pinned_vm_state_mount_is_credential_authority() {
+        let expected = "/dev/vda / ext4 rw,relatime 0 0\n/dev/vdb /var ext4 rw,nosuid,nodev,noatime 0 0\n";
+        assert!(pinned_vm_state_mount(expected));
+        for wrong in [
+            "",
+            "/dev/vdb /var ext4 ro,nosuid,nodev 0 0\n",
+            "/dev/vda /var ext4 rw,nosuid,nodev 0 0\n",
+            "tmpfs /var tmpfs rw 0 0\n",
+            "/dev/vdb /var xfs rw 0 0\n",
+            "/dev/vdb /var ext4 defaults 0 0\n",
+            "/dev/vdb /var ext4\n",
+            "/dev/vdb /var ext4 rw 0 0\n/dev/vdb /var ext4 rw 0 0\n",
+            "/dev/vdb /var ext4 rw 0 0\n/dev/vda /var ext4 ro 0 0\n",
+            "/dev/vdb /var\\040backup ext4 rw 0 0\n",
+        ] {
+            assert!(!pinned_vm_state_mount(wrong), "unsafe mount accepted: {wrong}");
+        }
+        assert!(pinned_vm_state_mount(
+            "/dev/vdb /var ext4 rw,nosuid,nodev 0 0\n/dev/vdc /home ext4 rw 0 0\n"
+        ));
+    }
 
     fn fixture_phc() -> String {
         let salt = SaltString::encode_b64(b"0123456789ABCDEF").unwrap();

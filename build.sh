@@ -16,6 +16,7 @@ Usage:
   bash build.sh native
   bash build.sh fetch
   bash build.sh toolchain
+  bash build.sh toolchain-cxx
   bash build.sh rootfs
   bash build.sh kernel
   bash build.sh image
@@ -39,7 +40,7 @@ EOF
 
 command="${1:-help}"
 case "$command" in
-    all|native|fetch|toolchain|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|recovery-smoke|guest-fixture|state-disk|persistence-smoke|audit-crash-smoke|ui-preferences-smoke|vm-bundle|auth-vm-bundle|clean|distclean)
+    all|native|fetch|toolchain|toolchain-cxx|rootfs|kernel|image|manifest|qemu|smoke|native-smoke|recovery-smoke|guest-fixture|state-disk|persistence-smoke|audit-crash-smoke|ui-preferences-smoke|vm-bundle|auth-vm-bundle|clean|distclean)
         exec 9>"$ROOT_DIR/.synveil-build.lock"
         flock -n 9 || {
             printf '[synveil] another build command owns this checkout; wait for it to finish\n' >&2
@@ -74,6 +75,9 @@ case "$command" in
     toolchain)
         bash "$ROOT_DIR/build/scripts/doctor.sh"
         bash "$ROOT_DIR/build/scripts/toolchain.sh"
+        ;;
+    toolchain-cxx)
+        bash "$ROOT_DIR/build/scripts/toolchain-cxx.sh"
         ;;
     rootfs)
         bash "$ROOT_DIR/build/scripts/rootfs.sh"

@@ -1,0 +1,50 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# Disposable, offline QEMU compositor fixture. Never installed as production init.
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH
+umask 077
+mkdir -p /dev /proc /sys /run /tmp
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || [ -c /dev/console ] || exit 1
+exec </dev/console >/dev/console 2>&1
+fail() {
+    echo SYNVEIL_NATIVE_WESTON_VM_FAILED
+    while :; do sleep 3600; done
+}
+mount -t proc proc /proc || fail
+mount -t sysfs sysfs /sys || fail
+mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs /run || fail
+mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp || fail
+# The terminal needs real Unix98 PTYs; device nodes alone are insufficient.
+mkdir -p /dev/pts /dev/shm
+mount -t devpts -o nosuid,noexec,gid=5,mode=0620 devpts /dev/pts || fail
+mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /dev/shm || fail
+[ -f /etc/synveil/native-weston-vm-only ] || fail
+[ "$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null)" = QEMU ] || fail
+[ -d /sys/block/vda ] && [ "$(cat /sys/block/vda/ro)" = 1 ] || fail
+for disk in /sys/block/*; do
+    case "$disk" in /sys/block/vda|/sys/block/ram*|/sys/block/loop*) ;; *) fail ;; esac
+done
+mkdir -p /run/user/1000 /home/synveil /var/cache/fontconfig
+chown 1000:1000 /run/user/1000 /home/synveil /var/cache/fontconfig || fail
+chmod 0700 /run/user/1000 /home/synveil
+hostname synveil-vm
+for daemon in /lib/udev/udevd /usr/lib/udev/udevd; do
+    [ -x "$daemon" ] && "$daemon" --daemon && break
+done
+udevadm trigger --action=add || fail
+udevadm settle --timeout=15 || fail
+# This VM has one disposable graphical identity and no owner credentials.
+# No login/root shell or persistent writable disk is exposed by the fixture.
+seatd -g seat >/run/seatd.log 2>&1 &
+seat_pid=$!
+n=0
+while [ ! -S /run/seatd.sock ]; do
+    kill -0 "$seat_pid" 2>/dev/null || { cat /run/seatd.log; fail; }
+    n=$((n + 1)); [ "$n" -lt 100 ] || fail
+    sleep 0.1
+done
+su -s /bin/sh synveil -c /usr/libexec/synveil/native-weston-vm-session
+cat /home/synveil/weston.log 2>/dev/null
+cat /run/seatd.log 2>/dev/null
+fail
