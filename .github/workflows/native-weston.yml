@@ -13,6 +13,8 @@ on:
     paths:
       - build.sh
       - build/scripts/toolchain-cxx.sh
+      - build/scripts/toolchain-atomic.sh
+      - tools/native_atomic.py
       - tools/native_cxx_runtime.py
       - tools/native_weston.py
       - tools/native_cairo_probe.py
@@ -38,8 +40,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Validate opt-in source and configuration boundaries
         run: |
-          bash -n build.sh build/scripts/toolchain-cxx.sh
-          python3 -m py_compile tools/native_cxx_runtime.py tools/native_weston.py
+          bash -n build.sh build/scripts/toolchain-cxx.sh build/scripts/toolchain-atomic.sh
+          python3 -m py_compile tools/native_cxx_runtime.py tools/native_atomic.py tools/native_weston.py
           python3 tools/native_weston.py --plan
           python3 tests/native-weston.py
           python3 tests/native-cairo-probe.py
@@ -96,6 +98,8 @@ jobs:
             build/toolchain/out
             out/native-cxx
           key: ${{ steps.native-sdk.outputs.cache-primary-key }}
+      - name: Build pinned native atomic runtime and require a real atomic link
+        run: bash build/scripts/toolchain-atomic.sh
       - name: Restore verified partial native dependency build
         uses: actions/cache/restore@v4
         with:
@@ -145,6 +149,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             out/native-cxx/validation.json
+            out/native-atomic/validation.json
             out/native-weston/validation.json
             out/native-weston/package-info.json
             out/native-weston/runtime-assets.json

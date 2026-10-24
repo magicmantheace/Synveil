@@ -21,6 +21,7 @@ import native_wayland as wayland
 import native_xdg_shell as xdg
 import native_pixman as pixman
 import native_weston_assets as assets
+import native_atomic as atomic
 
 OUT = ROOT / "out/native-weston"
 LOCK = ROOT / "build/manifests/native-weston.json"
@@ -166,6 +167,7 @@ def pristine_overrides(*, cached=False):
 
 def build(*, resume=False):
     pin = source_pin()
+    atomic_proof = atomic.verify()
     if os.geteuid() == 0:
         raise ValueError("refusing privileged desktop dependency build")
     tools, sysroot = ffi.target_tools()
@@ -234,6 +236,10 @@ def build(*, resume=False):
     run(base + ["BR2_DEFCONFIG=" + str(config), "defconfig"], env=env)
     check_configuration((build_dir / ".config").read_text(), ffi.TOOLCHAIN)
     # Deliberately invoke packages only, never `all`, `target-finalize`, or images.
+    if resume and (build_dir / "host/bin" / (ffi.TARGET + "-gcc")).exists():
+        # Refresh the private dependency sysroot with the newly source-built
+        # libatomic. Cached external-toolchain stamps predate this runtime.
+        run(base + ["toolchain-external-custom-reinstall"], env=env)
     if resume:
         # A previous failure may have left Cairo configured without pthreads.
         # Reconfigure only that dependency; retain the proven compiler and
@@ -282,6 +288,7 @@ def build(*, resume=False):
                "weston_source_sha256": WESTON_SHA256, "native_sources": native_sources,
                "executables_sha256": hashes, "native_glibc_sha256": libc_hashes,
                "runtime_assets_sha256": asset_hash,
+               "native_atomic": atomic_proof,
                "package_info_sha256": hashlib.sha256(package_info).hexdigest(),
                "native_boot_image_changed": False, "compositor_executed": False,
                "foreign_rootfs_imported": False}

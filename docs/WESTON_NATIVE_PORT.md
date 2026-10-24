@@ -334,3 +334,24 @@ native image/guest workflow passes. Cairo's mutex detection currently blocks
 component compilation, so no new native desktop or input result is claimed.
 Safe installed persistence, authentication integration, bootable signed A/B
 updates/rollback and physical owner testing remain separate unfinished gates.
+
+### Cairo link failure identified: missing native libatomic
+
+Run `40006311649` at `aaaf9fa` completed its compiler/C++ stages, then the
+retained Meson pthread probes failed with `ld: cannot find -latomic` for
+all three thread flag choices. The package recipes assume GCC supplies
+libatomic; the optional native C++ stage intentionally disabled that runtime.
+The failed mutex detection was a link dependency failure, not evidence that
+Synveil glibc lacks pthreads.
+
+`build/scripts/toolchain-atomic.sh` now builds **only** libatomic from the
+same pinned GCC source with the existing verified native compiler/glibc.
+This preserves the working compiler cache rather than rebuilding GCC.
+The runtime and development link/archive files enter the native sysroot,
+and a real 128-bit compare/exchange/load program must link to the native
+`libatomic.so.1`. The retained receipt verifies its hashes and target ELF;
+link success is not an execution claim. A resumed dependency build refreshes
+its external-toolchain staging before reconfiguring Cairo. The real Cairo
+pthread check remains mandatory. Full component compilation and native
+UEFI guest execution must pass at the repair revision before this blocker
+is declared resolved.
