@@ -47,3 +47,18 @@ jobs:
             )
           done
           git diff --exit-code -- Cargo.lock
+      - name: Run existing host fixtures without claiming QEMU validation
+        run: |
+          python3 - <<'PYTEST'
+          import subprocess
+          import sys
+          sys.path.insert(0, 'tools')
+          from offline_checks import HOST
+          for name, *command in HOST:
+              if name.startswith('qemu-'):
+                  print('NOT RUN: ' + name + ' requires a matching native image', flush=True)
+                  continue
+              print('RUN HOST FIXTURE: ' + name, flush=True)
+              subprocess.run(command, check=True, timeout=180)
+          print('Available host fixtures passed; no QEMU guest was tested.', flush=True)
+          PYTEST
