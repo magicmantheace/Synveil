@@ -1,0 +1,49 @@
+name: Muse synchronization verification
+
+on:
+  push:
+    branches: [development/muse-verified-sync-2026-10-24]
+  pull_request:
+    branches: [development/first-boot-desktop]
+    paths:
+      - tests/desktop-supervisor.py
+      - tests/state-mount-safety.py
+      - src/veil-core/src/audit.rs
+      - src/veil-core/tests/audit.rs
+      - src/veil-core/src/credential.rs
+      - .github/workflows/muse-sync-verification.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: muse-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-transfers:
+    if: github.event_name == 'push' || github.head_ref == 'development/muse-verified-sync-2026-10-24'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install the existing pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --no-self-update
+          rustup override set 1.99.0
+      - name: Verify formatting and Clippy
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Verify transferred fixtures and workspace under all three umasks
+        run: |
+          for mask in 0007 0022 0077; do
+            (
+              umask "$mask"
+              echo "Verifying transferred fixtures and Rust tests under umask $mask"
+              python3 tests/desktop-supervisor.py
+              python3 tests/state-mount-safety.py
+              cargo test --workspace --all-targets --locked
+            )
+          done
+          git diff --exit-code -- Cargo.lock

@@ -34,6 +34,15 @@ native UEFI/QEMU session with terminal, file manager and settings.
 Separate signed A/B installation and physical owner tests follow.
 See docs/adr/0013-first-boot-desktop-priority.md. Do not mark M1 complete.
 
+**Muse-reported host rerun (2026-10-24, shiny-dollop at d3c7822):**
+Muse reports a passing Weston 13.0.0 headless protocol probe and original-window
+host probes in basic, resize and two-window modes, using regenerated pinned
+xdg-shell code. See the attributed [Muse baseline record](validation/muse-sync-2026-10-24/MUSE_BASELINE.md)
+and the separate [original-repository synchronization review](validation/muse-sync-2026-10-24/README.md).
+These results were executed in Muse's environment, not independently reproduced
+in the original repository by this synchronization. They provide no native
+image, QEMU guest or physical desktop evidence.
+
 ## Source-built rendering prerequisite: Pixman
 
 The separate Pixman-only prototype uses an upstream release pinned in

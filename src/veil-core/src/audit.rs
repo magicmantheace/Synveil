@@ -340,6 +340,12 @@ mod tests {
             SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&path).unwrap();
+        // The journal writer correctly refuses a group/world-writable parent
+        // directory. Pin the private mode the fixture intends instead of
+        // inheriting the ambient umask (0777 & ~umask), which under a umask
+        // such as 0007 yields 0770 and fails every append for environmental
+        // reasons only.
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
         path
     }
 

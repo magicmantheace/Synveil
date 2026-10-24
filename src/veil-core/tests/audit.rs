@@ -36,6 +36,11 @@ fn exercise_core_journal(incomplete: bool) {
         std::process::id()
     ));
     std::fs::create_dir(&directory).unwrap();
+    // The core correctly degrades its persistent audit sink when the
+    // journal parent is group/world-writable. Pin the private mode the
+    // fixture intends instead of inheriting the ambient umask (0777 &
+    // ~umask), which under a umask such as 0007 yields 0770.
+    std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o700)).unwrap();
     let socket = directory.join("core.sock");
     let journal = directory.join("core-audit.jsonl");
     if incomplete {

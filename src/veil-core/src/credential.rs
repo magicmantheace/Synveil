@@ -74,8 +74,12 @@ fn pinned_vm_state_mount(mounts: &str) -> bool {
     let mut matching = 0u8;
     for line in mounts.lines() {
         let mut fields = line.split_whitespace();
-        let Some(device) = fields.next() else { continue };
-        let Some(target) = fields.next() else { continue };
+        let Some(device) = fields.next() else {
+            continue;
+        };
+        let Some(target) = fields.next() else {
+            continue;
+        };
         if target != "/var" {
             continue;
         }
@@ -96,8 +100,7 @@ fn pinned_vm_state_mount(mounts: &str) -> bool {
 }
 
 fn has_persistent_state() -> bool {
-    fs::read_to_string("/proc/mounts")
-        .is_ok_and(|mounts| pinned_vm_state_mount(&mounts))
+    fs::read_to_string("/proc/mounts").is_ok_and(|mounts| pinned_vm_state_mount(&mounts))
 }
 
 /// One-time developer-VM enrollment; read password from an already protected
@@ -239,7 +242,8 @@ mod tests {
 
     #[test]
     fn only_unique_writable_pinned_vm_state_mount_is_credential_authority() {
-        let expected = "/dev/vda / ext4 rw,relatime 0 0\n/dev/vdb /var ext4 rw,nosuid,nodev,noatime 0 0\n";
+        let expected =
+            "/dev/vda / ext4 rw,relatime 0 0\n/dev/vdb /var ext4 rw,nosuid,nodev,noatime 0 0\n";
         assert!(pinned_vm_state_mount(expected));
         for wrong in [
             "",
@@ -253,7 +257,10 @@ mod tests {
             "/dev/vdb /var ext4 rw 0 0\n/dev/vda /var ext4 ro 0 0\n",
             "/dev/vdb /var\\040backup ext4 rw 0 0\n",
         ] {
-            assert!(!pinned_vm_state_mount(wrong), "unsafe mount accepted: {wrong}");
+            assert!(
+                !pinned_vm_state_mount(wrong),
+                "unsafe mount accepted: {wrong}"
+            );
         }
         assert!(pinned_vm_state_mount(
             "/dev/vdb /var ext4 rw,nosuid,nodev 0 0\n/dev/vdc /home ext4 rw 0 0\n"
