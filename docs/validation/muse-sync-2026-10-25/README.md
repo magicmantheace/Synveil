@@ -24,14 +24,15 @@ firmware changes, automatic merging or roadmap resumption is authorized here.
 | `bbf1e6b`, `2342c45`, `ddaf4a2` | Normalize disposable Weston rootfs directory/file modes, preserve symlinks and private shadow mode, pin fixture config/account modes. |
 | `5d93747`, `1ccbbb0` | Traversable runtime parent directories, private user leaves, and the actual `/sbin/udevd` daemon path. |
 | `0c5069b` | Explicit `-nodefaults` QEMU devices, preserving existing disk/graphics/input selection. |
-| `28888da` | Keep current client dimensions when compositor configuration leaves them unspecified. |
+| `28888da` | **Deferred after failed independent acceptance.** Restoring a maximized window retains 1024×736 instead of returning to 400×240. Original client retained; no competing fix implemented. |
 | `f48771c` | Pin test-only authentication/recovery marker modes to 0644. |
 | `e17b9e7` | Attributed QEMU/toolchain validation report and corrected earlier host-tier evidence framing. |
 
 All changed implementation files matched the preceding Muse snapshot before
 application. They were transferred selectively, with no source conflicts or
-new production implementation. No source change was rejected at code review;
-independent runtime acceptance remains subject to the tests below.
+new production implementation. The client resize candidate was subsequently
+excluded after independent host acceptance failed; the remaining runtime
+acceptance stays subject to the tests below.
 
 The copied evidence is verbatim at
 [QEMU desktop/authentication report](../qemu-desktop-auth-f48771c/README.md)
@@ -60,8 +61,23 @@ workflow now runs the existing complete host tier, including both fake-QEMU
 host checks fixed by Muse, along with pinned Rust fmt/Clippy and three-umask
 Rust/fixture checks. No test is replaced by a weaker marker-only substitute.
 
-At this commit, CI execution is **pending**. Exact run IDs/results will be
-recorded in PR #40. The full native build may take significantly longer than
+Candidate run [40222757133](https://github.com/magicmantheace/Synveil/actions/runs/40222757133)
+(job `121257683817`) compiled and opened the original Wayland window, but
+**failed maximize/restore acceptance**. The client exited 0 and received the
+actual unmaximize `configure(0, 0)` event; its final size remained 1024×736
+instead of the required original 400×240. The existing predicate was not
+weakened. The follow-up integration commit restores the original client and
+defers Muse `28888da` until Muse provides a revision covering both persistent
+interactive resize and maximize/restore. No such implementation is created by
+this worker.
+
+The full native candidate run
+[40222757132](https://github.com/magicmantheace/Synveil/actions/runs/40222757132)
+is **pending** at candidate commit `4466b64a74106e3d09dee2d3ec157a5f7495eb58`;
+it includes the excluded resize candidate and is not acceptance evidence for
+the follow-up revision. The integration branch could not access the separate
+native compiler cache, so the workflow is rebuilding the pinned compiler.
+Further exact run IDs/results are recorded in PR #40. The full native build may take significantly longer than
 host checks. No new native boot or independent authentication cold-reboot pass
 is claimed until its corresponding actual scenario succeeds. In particular,
 the enabled Weston guest test is not an authenticated onboarding guest test.
