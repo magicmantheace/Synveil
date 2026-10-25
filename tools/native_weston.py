@@ -246,7 +246,7 @@ def build(*, resume=False):
         # unrelated packages. This is build caching, not runtime evidence.
         if list((build_dir / "build").glob("cairo-*/.stamp_configured")):
             run(base + ["cairo-reconfigure"], env=env)
-    run(base + ["-j4", "weston", "dejavu"], env=env)
+    run(base + ["-j4", "weston", "dejavu", "util-linux", "xkeyboard-config"], env=env)
     target = build_dir / "target"
     required = ("usr/bin/weston", "usr/bin/weston-terminal", "usr/bin/weston-simple-shm",
                 "usr/libexec/weston-desktop-shell")
@@ -270,7 +270,7 @@ def build(*, resume=False):
             raise ValueError("non-native compositor module: " + path.name)
         hashes[str(path.relative_to(target))] = hashlib.sha256(path.read_bytes()).hexdigest()
     libc_hashes = {}
-    for name, original in (("libc.so.6", sysroot / "usr/lib64/libc.so.6"),
+    for name, original in (("libc.so.6", sysroot / "lib64/libc.so.6"),
                            ("ld-linux-x86-64.so.2", sysroot / "lib64/ld-linux-x86-64.so.2")):
         expected = hashlib.sha256(original.read_bytes()).hexdigest()
         candidates = list(target.rglob(name))

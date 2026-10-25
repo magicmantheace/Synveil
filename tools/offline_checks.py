@@ -103,6 +103,13 @@ GUEST_WITH_FRESH_STATE = frozenset((
     "qemu-seat-crash", "qemu-persistence", "qemu-ui-preferences",
 ))
 
+# Only the GUEST entries boot the built native image, so only they are
+# subject to the image-provenance gate in main(). Membership in this set —
+# not a "qemu-" name prefix — decides that: the HOST list also contains
+# qemu-lock and qemu-options, which are host fixtures driving fake
+# launchers/emulators and must run at every level, image or not.
+GUEST_CHECK_NAMES = frozenset(entry[0] for entry in GUEST)
+
 
 def checks(level):
     if level not in ("quick", "host", "guest"):
@@ -254,7 +261,7 @@ def main():
     for i, entry in enumerate(steps, start=1):
         name, *command = entry
         logfile = output / f"{i:02d}-{name}.log"
-        if name.startswith("qemu-") and not guest_matched:
+        if name in GUEST_CHECK_NAMES and not guest_matched:
             status, code, elapsed = "blocked", None, 0
             logfile.write_text(
                 "BLOCKED: QEMU image or clean build manifest does not match this Git commit\n"

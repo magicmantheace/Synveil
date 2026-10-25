@@ -180,8 +180,14 @@ static void configure_top(void *ctx, struct xdg_toplevel *top, int32_t w,
     wl_array_for_each(state, states)
         if (*state == XDG_TOPLEVEL_STATE_MAXIMIZED) a->maximized = 1;
     if (w < 0 || h < 0 || w > MAX_W || h > MAX_H) { a->failed = 1; return; }
-    a->pending_w = w ? w : W;
-    a->pending_h = h ? h : H;
+    /* A zero dimension means the compositor leaves the size to the
+     * client. Weston sends exactly that when an interactive resize
+     * grab ends (desktop-shell resize_grab_button set_size(0, 0)), so
+     * zero must keep the CURRENT size, not snap back to the initial
+     * one; the initial constants only apply before the first real
+     * size exists. */
+    a->pending_w = w ? w : (a->width ? a->width : W);
+    a->pending_h = h ? h : (a->height ? a->height : H);
 }
 static void close_top(void *ctx, struct xdg_toplevel *top) {
     (void)top; ((struct app *)ctx)->closed = 1;

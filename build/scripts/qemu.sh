@@ -42,6 +42,12 @@ if [[ "$DISPLAY_BACKEND" != none || "$VIDEO" == 1 ]]; then
     QEMU_MACHINE=q35,i8042=off,vmport=off
 fi
 QEMU_ARGS=(
+    # No implicit devices: QEMU's defaults add an IDE CD-ROM (guest
+    # /sys/block/sr0) that no Synveil guest configuration declares,
+    # and the native-weston fixture's storage gate rightly rejects
+    # undeclared block devices. The device set is exactly the one
+    # enumerated by this script.
+    -nodefaults
     -machine "$QEMU_MACHINE"
     -m "${SYNVEIL_QEMU_MEMORY:-512M}"
     -smp "${SYNVEIL_QEMU_CPUS:-2}"

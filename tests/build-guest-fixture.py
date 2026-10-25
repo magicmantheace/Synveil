@@ -42,6 +42,10 @@ def main():
         marker = tree / "etc/synveil/auth-desktop"
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.touch(exist_ok=False)
+        # The guest's marker policy requires mode 0644 exactly; a strict
+        # host umask (e.g. 0007) would otherwise create it as 0660 and the
+        # fixture would be rejected as unsafe in the guest.
+        marker.chmod(0o644)
         debug = tree / "etc/synveil/developer-serial-recovery"
         if debug.exists() or debug.is_symlink():
             raise ValueError("unexpected developer recovery marker")
@@ -49,6 +53,7 @@ def main():
         # debug override. A locked-preview fixture must never receive it.
         if args.case == "graphical-login":
             debug.touch(exist_ok=False)
+            debug.chmod(0o644)
         if args.case == "recovery-status":
             # Deliberately remove the protected services from the guest.
             for name in ("usr/sbin/veil-core", "usr/sbin/veil-seat",

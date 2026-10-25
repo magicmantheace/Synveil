@@ -147,6 +147,7 @@ with open(os.environ["SYNVEIL_TEST_DISK"], "w") as disk:
         self.assertIn("-net", args)
         self.assertIn("none", args)
         self.assertEqual(args[args.index("-machine") + 1], "q35")
+        self.assertEqual(args.count("-nodefaults"), 1)
         self.assertNotIn("virtio-vga", args)
         self.assertNotIn("virtio-net-pci,netdev=synveil_net", args)
 

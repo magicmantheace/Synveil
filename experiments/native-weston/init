@@ -26,10 +26,15 @@ for disk in /sys/block/*; do
     case "$disk" in /sys/block/vda|/sys/block/ram*|/sys/block/loop*) ;; *) fail ;; esac
 done
 mkdir -p /run/user/1000 /home/synveil /var/cache/fontconfig
+# This init runs with umask 077, so the intermediate directories the
+# leaf creation pulled in (/run/user, /home, /var/cache) are mode 0700
+# root-owned and the session user cannot even traverse them. Give the
+# intermediates the conventional system mode; the leaves stay 0700.
+chmod 0755 /run/user /home /var/cache || fail
 chown 1000:1000 /run/user/1000 /home/synveil /var/cache/fontconfig || fail
 chmod 0700 /run/user/1000 /home/synveil
 hostname synveil-vm
-for daemon in /lib/udev/udevd /usr/lib/udev/udevd; do
+for daemon in /sbin/udevd /lib/udev/udevd /usr/lib/udev/udevd; do
     [ -x "$daemon" ] && "$daemon" --daemon && break
 done
 udevadm trigger --action=add || fail

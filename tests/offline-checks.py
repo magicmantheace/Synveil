@@ -43,6 +43,29 @@ class OfflineValidationTests(unittest.TestCase):
             self.assertNotIn("gh", step)
             self.assertNotIn("curl", step)
 
+    def test_provenance_gate_covers_only_real_guest_checks(self):
+        # Regression: the image-provenance gate previously matched the
+        # "qemu-" name prefix, which also caught the host fixtures
+        # qemu-lock and qemu-options. Those drive fake launchers and a
+        # fake emulator, need no built image, and were blocked at the
+        # quick/host levels even though guest_matched is always False
+        # there — failing both levels despite every runnable check
+        # passing. The gate must cover exactly the GUEST entries.
+        self.assertEqual(checker.GUEST_CHECK_NAMES,
+                         {entry[0] for entry in checker.GUEST})
+        self.assertTrue(checker.GUEST_CHECK_NAMES)
+        for level in ("quick", "host"):
+            names = [step[0] for step in checker.checks(level)]
+            # The host fixtures stay in the plan (so they run) and are
+            # not gated on a guest image.
+            self.assertIn("qemu-lock", names)
+            self.assertIn("qemu-options", names)
+        self.assertNotIn("qemu-lock", checker.GUEST_CHECK_NAMES)
+        self.assertNotIn("qemu-options", checker.GUEST_CHECK_NAMES)
+        guest_names = [step[0] for step in checker.checks("guest")]
+        for name in checker.GUEST_CHECK_NAMES:
+            self.assertIn(name, guest_names)
+
     def test_guest_state_does_not_inherit_operator_disk(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
