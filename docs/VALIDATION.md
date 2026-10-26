@@ -230,7 +230,7 @@ restart, checks that a different desktop process is running and that
 Host fixtures ensure an echoed command does not count as recovery evidence.
 
 Two recovery-smoke guest cases now require the serial shell and healthy
-`synctl status` when the explicitly opt-in `/dev/vdb` disk is absent
+`synctl status` when the explicitly opt-in state disk is absent
 or a temporary attached block image contains no valid ext4 filesystem.
 They never identify, open or format a physical disk. These cases require
 their own native-image guest validation.

@@ -50,7 +50,8 @@ class StateMountSafetyTests(unittest.TestCase):
         self.env = {**os.environ, "PATH": str(fakebin) + ":" + os.environ["PATH"],
                     "SYNVEIL_TEST_CALLS": str(self.calls)}
         source = MOUNT_STATE.read_text()
-        source = source.replace("state=/dev/vdb", f"state={self.disk}")
+        source = source.replace("state=$(wait_for_state_device) || state=''",
+                                f"state={self.disk}")
         source = source.replace('[ ! -b "$state" ]', '[ ! -f "$state" ]')
         source = source.replace('0:0', f'{os.getuid()}:{os.getgid()}')
         source = source.replace('/var/lib/synveil/home/synveil', '__PERSIST_HOME__')

@@ -1,15 +1,19 @@
 # Physical UEFI boot bring-up (developer-only)
 
-**Status (2026-10-20): Not ready for owner hardware testing.**
+**Status (2026-10-25): Not ready for owner hardware testing.**
 
 Target: HP Pavilion TG01, Intel i5-10400F, RTX 3060 12 GB, 32 GB RAM,
 USB HID keyboard/mouse, UEFI firmware and Windows 11 on the internal disk.
 
-The current Synveil GPT/EFI image is **not** a safe standalone owner install.
-It contains a source-built kernel and embedded initramfs, not an installed
-multiwindow desktop. The existing QEMU developer profile includes a recovery
-shell and unprivileged but unauthenticated demo interface; the authenticated
-QEMU preview is also not yet a complete, recoverable physical installer.
+A single **joined image** now exists that boots (in QEMU) through
+graphical enrollment and login into a multiwindow Weston desktop,
+with state on a GPT state partition the image itself provides, and a
+hardware-profile build of that same image has been produced
+([validation record](validation/joined-124abbc/README.md)). None of
+this has been booted on physical hardware: the EFI binaries are
+unsigned, no removable-media preparation method has been reviewed,
+and HP firmware behavior is unverified. The image is **not** yet a
+safe standalone owner install.
 
 ## Exact separation of targets
 
@@ -74,7 +78,20 @@ a claim of boot success on the physical machine.
       tested in a disposable QEMU UEFI graphical session.
 - [ ] Real multiwindow desktop with graphical login and owner enrollment;
       keyboard, pointer, launcher, terminal, file manager and settings.
-- [ ] Non-root session; no unauthenticated serial or local root-shell bypass.
+      **QEMU-proven subset (2026-10-25, joined image @ 124abbc):**
+      graphical enrollment + login (wrong password denied after cold
+      reboot), multiwindow Weston desktop, keyboard and pointer incl.
+      window move/resize, weston-terminal, session-end relock, state
+      persisted on the image-provided partition — see
+      [validation record](validation/joined-124abbc/README.md).
+      Still missing: launcher, file manager and settings applications;
+      any physical-hardware boot.
+- [x] Non-root session; no unauthenticated serial or local root-shell bypass.
+      Proven for the joined image in QEMU (2026-10-25): the desktop
+      session runs as UID 1000 behind the seat lease, the production
+      profile carries no developer-serial-recovery marker, and the
+      serial console stays locked through enroll/login/relock.
+      Physical-hardware confirmation remains outstanding.
 - [ ] Independent console/recovery path when the desktop/seat fails.
 - [ ] Signed or otherwise owner-verified release/image provenance, with
       clear test-media identification and checksums.

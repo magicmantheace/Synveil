@@ -34,7 +34,7 @@ struct app {
     struct xdg_toplevel *top;
     struct buffer *buffers;
     unsigned buffer_count;
-    int width, height, pending_w, pending_h;
+    int width, height, pending_w, pending_h, floating_w, floating_h;
     int pointer_x, pointer_y;
     int configured, closed, failed, redraw, interactive, exercise;
     int maximized, exercise_stage;
@@ -180,8 +180,21 @@ static void configure_top(void *ctx, struct xdg_toplevel *top, int32_t w,
     wl_array_for_each(state, states)
         if (*state == XDG_TOPLEVEL_STATE_MAXIMIZED) a->maximized = 1;
     if (w < 0 || h < 0 || w > MAX_W || h > MAX_H) { a->failed = 1; return; }
-    a->pending_w = w ? w : W;
-    a->pending_h = h ? h : H;
+    /* A zero dimension means the compositor leaves the size to the
+     * client. Weston sends exactly that when an interactive resize
+     * grab ends (desktop-shell resize_grab_button set_size(0, 0)) and
+     * when a maximized window is restored. Both cases want the last
+     * FLOATING (non-maximized) size: after a resize that is the size
+     * the user just dragged to, and after a maximize it is the
+     * pre-maximize size. Keeping the current size instead would
+     * leave a restored window at its maximized dimensions; snapping
+     * to the initial constants would revert every resize. Before any
+     * floating size exists, fall back to the current size, then the
+     * initial constants. */
+    a->pending_w = w ? w : (!a->maximized && a->floating_w ? a->floating_w :
+                            (a->width ? a->width : W));
+    a->pending_h = h ? h : (!a->maximized && a->floating_h ? a->floating_h :
+                            (a->height ? a->height : H));
 }
 static void close_top(void *ctx, struct xdg_toplevel *top) {
     (void)top; ((struct app *)ctx)->closed = 1;
@@ -194,6 +207,10 @@ static void configure_surface(void *ctx, struct xdg_surface *xdg, uint32_t seria
     xdg_surface_ack_configure(xdg, serial);
     if (a->failed) return;
     a->width = a->pending_w; a->height = a->pending_h;
+    /* The floating size is the last size actually committed while not
+     * maximized (including a client-chosen size after a (0,0) initial
+     * configure); configure_top's zero handling restores exactly it. */
+    if (!a->maximized) { a->floating_w = a->width; a->floating_h = a->height; }
     a->redraw = 1;
     if (render(a) < 0) a->failed = 1;
 }

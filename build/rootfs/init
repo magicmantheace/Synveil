@@ -34,6 +34,10 @@ boot_failure_recovery() {
 
 mkdir -p /dev /proc /sys /run /tmp
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+# Graphical terminal clients (weston-terminal) need a pty slave; without
+# devpts the slave path does not exist and the terminal dies at startup.
+mkdir -p /dev/pts
+mount -t devpts -o nosuid,noexec,mode=0620 devpts /dev/pts 2>/dev/null || true
 
 exec </dev/console >/dev/console 2>&1
 

@@ -104,6 +104,10 @@ static int is_authenticated_mode(int argc, char **argv) {
     return argc == 2 && strcmp(argv[1], "--authenticated-terminal") == 0;
 }
 
+static int is_weston_mode(int argc, char **argv) {
+    return argc == 2 && strcmp(argv[1], "--authenticated-weston") == 0;
+}
+
 static int is_root_debug_mode(int argc, char **argv) {
     return argc == 3 &&
            strcmp(argv[1], "--developer-terminal") == 0 &&
@@ -163,6 +167,7 @@ static void restore_session_tty_mode(struct termios *mode) {
 static int self_test(void) {
     char *demo[] = {"synveil-vt", "--demo-terminal", NULL};
     char *authenticated[] = {"synveil-vt", "--authenticated-terminal", NULL};
+    char *weston[] = {"synveil-vt", "--authenticated-weston", NULL};
     char *unconfirmed[] = {"synveil-vt", "--developer-terminal", NULL};
     char *confirmed[] = {"synveil-vt", "--developer-terminal",
                          "--i-understand-root-shell", NULL};
@@ -180,6 +185,7 @@ static int self_test(void) {
     }
     if (!safe_pointer_keys(pointer_keys, sizeof(pointer_keys))) return 1;
     if (!is_demo_mode(2, demo) || !is_authenticated_mode(2, authenticated) ||
+        !is_weston_mode(2, weston) || is_weston_mode(2, authenticated) ||
         is_authenticated_mode(2, demo) || is_root_debug_mode(2, unconfirmed) ||
         !is_root_debug_mode(3, confirmed) || is_root_debug_mode(2, demo)) {
         return 1;
@@ -353,6 +359,127 @@ static int launch_terminal(bool demo, bool authenticated) {
     _exit(127);
 }
 
+#define WESTON_PREPARE "/usr/libexec/synveil/weston-seat-prepare"
+#define WESTON_CLEANUP "/usr/libexec/synveil/weston-seat-cleanup"
+#define WESTON_SESSION "/usr/libexec/synveil/weston-session"
+
+// Run one fixed root helper and wait for it. No shell, no client input:
+// used only for the Weston session's seat preparation and cleanup.
+static int run_fixed_helper(const char *path) {
+    pid_t child = fork();
+    if (child < 0) return -1;
+    if (child == 0) {
+        execl(path, path, (char *)NULL);
+        _exit(127);
+    }
+    int status = 0;
+    while (waitpid(child, &status, 0) < 0) {
+        if (errno == EINTR) continue;
+        return -1;
+    }
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0 ? 0 : -1;
+}
+
+// The per-user runtime directory Weston and libseat require. /run is
+// root-owned, so the launcher creates it with the same care as the state
+// directories: an existing symlink or foreign-owned path refuses the
+// session instead of being followed.
+static int prepare_user_runtime(void) {
+    struct stat info;
+    if (mkdir("/run/user", 0755) < 0 && errno != EEXIST) return -1;
+    if (lstat("/run/user", &info) != 0 || !S_ISDIR(info.st_mode) ||
+        info.st_uid != 0 || (info.st_mode & 0022) != 0) return -1;
+    if (mkdir("/run/user/1000", 0700) < 0 && errno != EEXIST) return -1;
+    if (lstat("/run/user/1000", &info) != 0 || !S_ISDIR(info.st_mode) ||
+        (info.st_uid != 0 && info.st_uid != DEMO_UID)) return -1;
+    if (chown("/run/user/1000", DEMO_UID, DEMO_GID) < 0) return -1;
+    if (chmod("/run/user/1000", 0700) < 0) return -1;
+    return 0;
+}
+
+// The authenticated Weston session keeps the seat lease architecture of
+// the framebuffer terminal: this root launcher prepares the seat
+// daemons, runs one fixed UID 1000 session script on tty1, and waits for
+// it; when the script exits, the seat drops the lease and the graphical
+// login locks again. Unlike the framebuffer session, no framebuffer or
+// pointer descriptor is delegated: Weston reaches DRM and input through
+// seatd, so devices never cross the boundary as raw descriptors.
+static int launch_weston_session(void) {
+    if (geteuid() != 0) {
+        fputs("[synveil-vt] VM terminal launcher requires root\n", stderr);
+        return 1;
+    }
+    if (!has_graphical_vt()) {
+        fputs("[synveil-vt] framebuffer/VT unavailable; use serial recovery\n", stderr);
+        return 1;
+    }
+    int controller = open("/dev/tty0", O_RDWR | O_CLOEXEC | O_NOCTTY);
+    if (controller < 0) {
+        perror("[synveil-vt] open tty0");
+        return 1;
+    }
+    int activated = activate_terminal_vt(controller, 1u);
+    close(controller);
+    if (activated != 0) {
+        perror("[synveil-vt] activate tty1");
+        return 1;
+    }
+    if (prepare_user_runtime() != 0) {
+        fputs("[synveil-vt] user runtime directory unavailable\n", stderr);
+        return 1;
+    }
+    if (run_fixed_helper(WESTON_PREPARE) != 0) {
+        fputs("[synveil-vt] weston seat preparation failed\n", stderr);
+        return 1;
+    }
+    pid_t launcher_pid = getpid();
+    pid_t child = fork();
+    if (child < 0) {
+        perror("[synveil-vt] fork");
+        (void)run_fixed_helper(WESTON_CLEANUP);
+        return 1;
+    }
+    if (child != 0) {
+        int status = 0;
+        int wait_failed = 0;
+        while (waitpid(child, &status, 0) < 0) {
+            if (errno == EINTR) continue;
+            wait_failed = 1;
+            break;
+        }
+        (void)run_fixed_helper(WESTON_CLEANUP);
+        if (wait_failed) return 1;
+        return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+    }
+
+    if (setsid() < 0) _exit(1);
+    int terminal = open("/dev/tty1", O_RDWR | O_NOCTTY);
+    if (terminal < 0 || ioctl(terminal, TIOCSCTTY, 0) < 0 ||
+        dup2(terminal, STDIN_FILENO) < 0 ||
+        dup2(terminal, STDOUT_FILENO) < 0 ||
+        dup2(terminal, STDERR_FILENO) < 0) {
+        _exit(1);
+    }
+    if (terminal > STDERR_FILENO) close(terminal);
+    struct termios mode;
+    if (tcgetattr(STDIN_FILENO, &mode) < 0) _exit(1);
+    restore_session_tty_mode(&mode);
+    // Drop raw-mode keystrokes queued by a crashed previous session.
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &mode) < 0) _exit(1);
+    const char *banner =
+        "\033[2J\033[H"
+        "Synveil Weston session (AUTHENTICATED UID 1000)\r\n"
+        "VM evaluation only. Closing the desktop windows logs out.\r\n\r\n";
+    size_t length = strlen(banner);
+    if (write(STDOUT_FILENO, banner, length) != (ssize_t)length) _exit(1);
+    configure_demo_user();
+    // setuid clears Linux PDEATHSIG; rearm it only after UID/GID drop.
+    // The helper exiting or being killed must terminate this session.
+    if (synveil_parent_death_guard(launcher_pid) != 0) _exit(1);
+    execl(WESTON_SESSION, "weston-session", (char *)NULL);
+    _exit(127);
+}
+
 int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "--self-test") == 0) return self_test();
     if (argc == 2 && strcmp(argv[1], "--probe") == 0) {
@@ -365,8 +492,10 @@ int main(int argc, char **argv) {
     }
     if (is_demo_mode(argc, argv)) return launch_terminal(true, false);
     if (is_authenticated_mode(argc, argv)) return launch_terminal(true, true);
+    if (is_weston_mode(argc, argv)) return launch_weston_session();
     if (is_root_debug_mode(argc, argv)) return launch_terminal(false, false);
     fputs("usage: synveil-vt --probe | --self-test | --demo-terminal | "
-          "--authenticated-terminal | --developer-terminal --i-understand-root-shell\n", stderr);
+          "--authenticated-terminal | --authenticated-weston | "
+          "--developer-terminal --i-understand-root-shell\n", stderr);
     return 2;
 }

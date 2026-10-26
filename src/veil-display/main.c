@@ -985,6 +985,28 @@ static int auth_restore_login_vt(void) {
     return result;
 }
 
+// The kernel refuses to switch away from a VT_AUTO console that is in
+// KD_GRAPHICS (set_console() in the VT layer): the login VT's graphics
+// mode, which protects the greeter's scanout while it waits for input,
+// would otherwise turn the authenticated session's VT_ACTIVATE into a
+// permanent no-op and the session could never start. The login flow
+// owns this VT's mode, so it drops the VT to KD_TEXT for the handoff;
+// auth_restore_login_vt() re-applies K_OFF + KD_GRAPHICS when the
+// session ends. Fail closed: if the mode cannot be dropped, the caller
+// does not attempt a session.
+static int auth_handoff_login_vt(void) {
+    int login_tty = open("/dev/tty2", O_RDWR | O_CLOEXEC | O_NOCTTY |
+                         O_NOFOLLOW | O_NONBLOCK);
+    if (login_tty < 0) return -1;
+    int result = -1;
+    int display_mode = -1;
+    if (ioctl(login_tty, KDSETMODE, KD_TEXT) == 0 &&
+        ioctl(login_tty, KDGETMODE, &display_mode) == 0 &&
+        display_mode == KD_TEXT) result = 0;
+    close(login_tty);
+    return result;
+}
+
 static int auth_open_private_keyboard(void) {
     int keyboard = open_keyboard_policy(1);
     if (keyboard < 0) return -1;
@@ -1369,7 +1391,14 @@ static int run_auth_login(const struct surface *screen) {
             // Drop EVIOCGRAB before switching to the authenticated shell.
             close(keyboard);
             keyboard = -1;
-            state.denied = !auth_attempt(&state);
+            // Release the login VT's graphics mode so the kernel permits
+            // the session's switch to tty1; it is restored on relock.
+            if (auth_handoff_login_vt() != 0) {
+                auth_clear(&state);
+                state.denied = 1;
+            } else {
+                state.denied = !auth_attempt(&state);
+            }
             // Authentication can return "denied" even if the seat accepted
             // the password but the response was interrupted. In that race
             // tty1 may have activated. Always restore tty2 before exposing

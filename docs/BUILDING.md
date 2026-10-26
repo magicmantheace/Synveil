@@ -321,9 +321,12 @@ bash build.sh state-disk --size-mib 256
 SYNVEIL_QEMU_STATE_DISK="$PWD/out/synveil-state.ext4" bash build.sh qemu
 ```
 
-The new ext4 volume is attached as a second virtio block disk and mounted at
-`/var` through `/dev/vdb` only in explicitly opted-in rootfs images. The
-guest never formats a disk. The creator uses exclusive file creation and
+The new GPT-partitioned volume is attached as a second virtio block disk and
+its partition 1 is mounted at `/var` only in explicitly opted-in rootfs
+images. Guests resolve the state device by the partition's fixed GPT
+identity (ADR 0017), never by a device name, so the same policy covers the
+state partition inside the install image. The guest never formats or
+partitions a disk. The creator uses exclusive file creation and
 **refuses to overwrite an existing image**. Retain the state image between
 QEMU sessions to retain data. `bash build.sh clean` removes the generated
 `out/` directory including this experimental state image; copy it elsewhere

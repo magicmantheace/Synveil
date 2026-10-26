@@ -33,6 +33,13 @@ STATE_DISK="${SYNVEIL_QEMU_STATE_DISK:-}"
 if [[ -n "$STATE_DISK" ]]; then
     [[ -f "$STATE_DISK" && ! -L "$STATE_DISK" ]] || die "state disk must be a regular file: $STATE_DISK"
 fi
+# The boot image is firmware and stays read-only. The single exception is
+# an explicit test opt-in for the joined image, whose state partition
+# lives inside the boot image itself (ADR 0017) and must persist.
+IMAGE_WRITABLE="${SYNVEIL_QEMU_IMAGE_WRITABLE:-0}"
+[[ "$IMAGE_WRITABLE" == 0 || "$IMAGE_WRITABLE" == 1 ]] || die "SYNVEIL_QEMU_IMAGE_WRITABLE must be 0 or 1"
+IMAGE_READONLY=on
+[[ "$IMAGE_WRITABLE" == 1 ]] && IMAGE_READONLY=off
 
 QEMU_MACHINE=q35
 if [[ "$DISPLAY_BACKEND" != none || "$VIDEO" == 1 ]]; then
@@ -55,7 +62,7 @@ QEMU_ARGS=(
     -serial stdio
     -monitor none
     -no-reboot
-    -drive "if=none,id=synveil_disk,file=$IMAGE,format=raw,readonly=on"
+    -drive "if=none,id=synveil_disk,file=$IMAGE,format=raw,readonly=$IMAGE_READONLY"
     -device "virtio-blk-pci,drive=synveil_disk,bootindex=1"
 )
 
@@ -80,11 +87,18 @@ else
 fi
 
 # State is a second, separately writable disk; EFI remains read-only.
+# SYNVEIL_QEMU_STATE_USB=1 attaches it over usb-storage instead of
+# virtio-blk: the physical install target is a USB SSD, whose
+# enumeration timing the state mount must tolerate (ADR 0019).
 if [[ -n "$STATE_DISK" ]]; then
     QEMU_ARGS+=(
         -drive "if=none,id=synveil_state,file=$STATE_DISK,format=raw,readonly=off"
-        -device "virtio-blk-pci,drive=synveil_state"
     )
+    if [[ "${SYNVEIL_QEMU_STATE_USB:-0}" == 1 ]]; then
+        QEMU_ARGS+=(-device "usb-storage,drive=synveil_state")
+    else
+        QEMU_ARGS+=(-device "virtio-blk-pci,drive=synveil_state")
+    fi
 fi
 
 if [[ -r /dev/kvm && "${SYNVEIL_QEMU_TCG:-0}" != 1 ]]; then

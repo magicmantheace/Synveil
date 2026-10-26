@@ -25,9 +25,30 @@ authorizes an install. The A/B layout and boot-health/rollback transaction
 must be independently tested with disposable media before physical use.
 See [ADR 0013](adr/0013-first-boot-desktop-priority.md).
 
-**First hands-on test remains blocked** by production-safe first-user
-enrollment, a real window manager, reliable screen/input/network drivers,
-independent owner recovery, portable image delivery and physical validation.
+**First hands-on test remains blocked** by independent owner
+recovery, portable image delivery (a reviewed removable-media
+preparation method), hardware driver breadth, and physical
+validation. Production-safe first-user enrollment and a real window
+manager — previously on this list — are now implemented and proven
+in QEMU in the joined image described below; that proof is
+QEMU-only and does not itself authorize a physical install.
+
+## Joined authenticated Weston image (2026-10-25)
+
+A single image (`tools/native_joined.py`) now joins what used to be
+separate artifacts: graphical first-user enrollment on VT2, graphical
+login (wrong password denied, including after a cold reboot), and a
+multiwindow Weston desktop on tty1 behind the authenticated seat, in
+the same boot and the same image. Its state lives on a GPT partition
+the image itself provides (PARTUUID
+`7c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053`, PARTNAME `Synveil State`;
+ADR 0017), resolved by partition identity rather than a device name,
+with a bounded wait for late-enumerating USB media (ADR 0019) —
+proven with the state disk attached as USB storage, the owner's
+intended install arrangement. A hardware-profile build
+(`--boot-target hardware`) of the same image exists as a build
+artifact. Full evidence:
+[validation record](validation/joined-124abbc/README.md).
 
 ## Native authenticated Files browser (development)
 

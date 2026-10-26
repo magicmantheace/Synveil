@@ -1,0 +1,105 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# The one authenticated Weston session. Started only by
+# synveil-vt --authenticated-weston after veil-seat verified the owner
+# credential; runs as the fixed UID/GID 1000 session identity. Closing
+# both initial windows ends the session: this script exits, the seat
+# lease drops, and the graphical login locks again. The compositor
+# itself never locks (locking=false in weston.ini) because the seat
+# lease, not an in-desktop screensaver, is the lock boundary.
+PATH=/bin:/usr/bin
+export PATH
+export HOME=/home/synveil
+export XDG_RUNTIME_DIR=/run/user/1000
+export WAYLAND_DISPLAY=synveil-0
+export LIBSEAT_BACKEND=seatd
+
+if [ "$(id -u)" != 1000 ] || [ "$(id -g)" != 1000 ]; then
+    echo "weston-session: refused unexpected session identity"
+    exit 1
+fi
+if [ ! -d "$XDG_RUNTIME_DIR" ]; then
+    echo "weston-session: runtime directory missing"
+    exit 1
+fi
+cd "$HOME" || exit 1
+
+SESSION_LOG="$HOME/weston-session.log"
+mark() {
+    echo "$1"
+    echo "$1" >> "$SESSION_LOG"
+}
+
+rm -f "$HOME/weston.log" "$HOME/terminal.log" "$HOME/window.log"
+weston --backend=drm-backend.so --renderer=pixman \
+    --shell=desktop-shell.so --socket="$WAYLAND_DISPLAY" --idle-time=0 \
+    --config=/etc/synveil/weston.ini --log="$HOME/weston.log" &
+WESTON_PID=$!
+
+attempts=0
+while [ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; do
+    if ! kill -0 "$WESTON_PID" 2>/dev/null; then
+        echo "weston-session: compositor exited before creating its socket"
+        exit 1
+    fi
+    attempts=$((attempts + 1))
+    if [ "$attempts" -gt 300 ]; then
+        echo "weston-session: compositor socket timed out"
+        kill "$WESTON_PID" 2>/dev/null
+        exit 1
+    fi
+    sleep 0.1
+done
+
+weston-terminal >>"$HOME/terminal.log" 2>&1 &
+TERMINAL_PID=$!
+synveil-first-window --interactive >>"$HOME/window.log" 2>&1 &
+WINDOW_PID=$!
+
+attempts=0
+while ! grep -q SYNVEIL_XDG_TOPLEVEL_SHM_SUBMITTED "$HOME/window.log" 2>/dev/null; do
+    if ! kill -0 "$WINDOW_PID" 2>/dev/null || ! kill -0 "$WESTON_PID" 2>/dev/null; then
+        echo "weston-session: first window failed to attach"
+        kill "$TERMINAL_PID" "$WESTON_PID" 2>/dev/null
+        exit 1
+    fi
+    attempts=$((attempts + 1))
+    if [ "$attempts" -gt 300 ]; then
+        echo "weston-session: first window attach timed out"
+        kill "$TERMINAL_PID" "$WINDOW_PID" "$WESTON_PID" 2>/dev/null
+        exit 1
+    fi
+    sleep 0.1
+done
+sleep 1
+if ! kill -0 "$TERMINAL_PID" 2>/dev/null || ! kill -0 "$WESTON_PID" 2>/dev/null; then
+    echo "weston-session: terminal or compositor died during startup"
+    kill "$WINDOW_PID" "$WESTON_PID" 2>/dev/null
+    exit 1
+fi
+mark SYNVEIL_WESTON_SESSION_TWO_WINDOWS_READY
+
+# The first window closes on Escape (real keyboard input through the
+# compositor). Its exit is the keyboard proof; the terminal must still
+# be usable afterwards.
+wait "$WINDOW_PID"
+if ! kill -0 "$TERMINAL_PID" 2>/dev/null || ! kill -0 "$WESTON_PID" 2>/dev/null; then
+    echo "weston-session: desktop did not survive the window close"
+    kill "$WESTON_PID" 2>/dev/null
+    exit 1
+fi
+mark SYNVEIL_WESTON_SESSION_KEYBOARD_CLOSE_OK
+
+# The terminal exits when its shell receives "exit" (real keyboard
+# input). With both initial windows closed the session is over.
+wait "$TERMINAL_PID"
+if ! kill -0 "$WESTON_PID" 2>/dev/null; then
+    echo "weston-session: compositor died before the terminal closed"
+    exit 1
+fi
+mark SYNVEIL_WESTON_SESSION_TERMINAL_INPUT_OK
+
+kill "$WESTON_PID" 2>/dev/null
+wait "$WESTON_PID" 2>/dev/null
+mark SYNVEIL_WESTON_SESSION_LOGOUT
+exit 0
