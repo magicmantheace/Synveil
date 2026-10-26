@@ -77,20 +77,28 @@ jobs:
           rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --no-self-update
           sudo apt-get update
           sudo apt-get install -y gdisk gawk dosfstools mtools e2fsprogs weston libwayland-dev meson ninja-build libexpat1-dev libffi-dev pkg-config gcc
-      - name: Verify candidate Rust formatting, Clippy and workspace tests
+      - name: Verify candidate Rust formatting
         working-directory: muse-candidate/projects/synveil
         run: |
           rustup override set 1.99.0
           cargo fmt --all --check
-          cargo clippy --workspace --all-targets --locked -- -D warnings
-          cargo test --workspace --all-targets --locked
+      - name: Verify candidate Clippy independently of formatting
+        if: ${{ !cancelled() }}
+        working-directory: muse-candidate/projects/synveil
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Verify candidate workspace tests independently of formatting
+        if: ${{ !cancelled() }}
+        working-directory: muse-candidate/projects/synveil
+        run: cargo test --workspace --all-targets --locked
       - name: Verify candidate host transaction and release interoperability tests
+        if: ${{ !cancelled() }}
         working-directory: muse-candidate/projects/synveil
         run: |
           python3 tests/ab-update.py
           python3 tests/ab-release-crosscheck.py
           python3 -m py_compile tests/smoke-native-ab.py tests/smoke-native-ab-gui.py tools/native_ab.py
       - name: Compile candidate graphical updater against source-pinned protocol
+        if: ${{ !cancelled() }}
         working-directory: muse-candidate/projects/synveil
         run: |
           python3 tools/native_xdg_shell.py --generate
@@ -99,6 +107,7 @@ jobs:
             out/native-xdg-shell/generated/xdg-shell-code.c \
             $(pkg-config --cflags --libs wayland-client) -o out/synveil-update-gui
       - name: Run candidate complete existing host tier
+        if: ${{ !cancelled() }}
         working-directory: muse-candidate/projects/synveil
         run: bash build.sh offline-check --level host --timeout 180
       - name: Retain candidate host receipts only

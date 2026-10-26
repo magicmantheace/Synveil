@@ -30,7 +30,13 @@ Added a separate CI job that checks out exactly the Muse SHA read-only and
 runs pinned Rust formatting/Clippy/workspace tests, both host A/B suites,
 source-pinned protocol GUI compilation and the complete host tier. It does
 not import unverified guest code into the original source tree. Exact-revision
-CI results are pending at initial commit; see PR #40 checks.
+CI results were pending at initial commit. The first candidate job failed
+`cargo fmt --all --check` at b49ed0d in `src/veil-core/src/bin/veil-ab.rs`
+and `src/veil-core/src/ab.rs`:
+https://github.com/magicmantheace/Synveil/actions/runs/40321649081/job/121567802539
+Clippy, tests and GUI compile did not run in that first job because formatting
+failed first. Follow-up CI separates checks and runs independent checks even
+after failures without suppressing their failure status; see PR #40 checks.
 
 Local cargo/rustc, Weston, QEMU, source-built SDK and proof disk/generation
 images are absent. Actual candidate QEMU/GUI boots are BLOCKED here, not
