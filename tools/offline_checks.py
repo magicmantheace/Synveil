@@ -47,6 +47,7 @@ HOST = (
     ("qmp-input", "python3", "tests/qmp-input.py"),
     ("qemu-options", "python3", "tests/qemu-options.py"),
     ("write-test-media", "python3", "tests/write-test-media.py"),
+    ("ab-update", "python3", "tests/ab-update.py"),
 )
 RUST = (
     ("rustfmt", "cargo", "fmt", "--all", "--check"),
