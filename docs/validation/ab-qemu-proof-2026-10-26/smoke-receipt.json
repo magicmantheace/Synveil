@@ -1,0 +1,127 @@
+{
+  "schema": "synveil.ab-qemu-proof/v1",
+  "source_commit": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+  "build_receipt_commit": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+  "disk_sha256": "19ca7a06bef9dc3284025c60305f755efb6a4898617e6a7499685b5c46b1c647",
+  "generations": {
+    "1": {
+      "uki_sha256": "86c2b7ec7dfa54eeb7cf742ebe0577acf41e4268047c3de6f9e7b9fdeac759b6",
+      "bytes": 61170688
+    },
+    "2": {
+      "uki_sha256": "3eb862f94d37cb219d34380d3ca6c62c4b0238428d90bf4c257fc93b7cb6d165",
+      "bytes": 61162496
+    },
+    "3": {
+      "uki_sha256": "b9b5d34738e9719bd86f5629466bc19246ac6d48cf0733699fc33dcdb8d5660d",
+      "bytes": 60503040
+    }
+  },
+  "publisher": {
+    "key_id": "synveil-dev-2026-01",
+    "development": true,
+    "public_key_hex": "a1f859688346513d819c5e807aa39f8457bd235b9999a3e286b2f089f363f285"
+  },
+  "scenarios": {
+    "S0-provision-enroll": {
+      "pass": true,
+      "home_mounted": true,
+      "setting_changed": false,
+      "pref_text": null,
+      "credential_recorded": true,
+      "known_file": "synveil-ab-proof-file\n"
+    },
+    "S1-stage-v2": {
+      "pass": true
+    },
+    "S2-trial-v2-confirmed": {
+      "pass": true,
+      "confirmed": {
+        "bytes": 61162496,
+        "generation_id": "synveil-gen-v2",
+        "min_reader_state_format": 1,
+        "sha256": "3eb862f94d37cb219d34380d3ca6c62c4b0238428d90bf4c257fc93b7cb6d165",
+        "slot": "B",
+        "state_format": 1,
+        "version": 2
+      },
+      "survival": {
+        "credential_same": true,
+        "pref_same": true,
+        "known_file_same": true
+      }
+    },
+    "S3-owner-rollback-v1": {
+      "pass": true,
+      "confirmed": {
+        "bytes": 61170688,
+        "generation_id": "synveil-gen-v1",
+        "min_reader_state_format": 1,
+        "sha256": "86c2b7ec7dfa54eeb7cf742ebe0577acf41e4268047c3de6f9e7b9fdeac759b6",
+        "slot": "A",
+        "state_format": 1,
+        "version": 1
+      },
+      "survival": {
+        "credential_same": true,
+        "pref_same": true,
+        "known_file_same": true
+      }
+    },
+    "S4-failing-candidate-fallback": {
+      "pass": true,
+      "confirmed": {
+        "bytes": 61170688,
+        "generation_id": "synveil-gen-v1",
+        "min_reader_state_format": 1,
+        "sha256": "86c2b7ec7dfa54eeb7cf742ebe0577acf41e4268047c3de6f9e7b9fdeac759b6",
+        "slot": "A",
+        "state_format": 1,
+        "version": 1
+      },
+      "trial_after_fallback": null,
+      "survival": {
+        "credential_same": true,
+        "known_file_same": true
+      }
+    },
+    "S5-invalid-signature-refused": {
+      "pass": true,
+      "trial": null,
+      "confirmed": {
+        "bytes": 61170688,
+        "generation_id": "synveil-gen-v1",
+        "min_reader_state_format": 1,
+        "sha256": "86c2b7ec7dfa54eeb7cf742ebe0577acf41e4268047c3de6f9e7b9fdeac759b6",
+        "slot": "A",
+        "state_format": 1,
+        "version": 1
+      }
+    },
+    "S6-interrupted-stage": {
+      "pass": true,
+      "trial": null,
+      "confirmed": {
+        "bytes": 61170688,
+        "generation_id": "synveil-gen-v1",
+        "min_reader_state_format": 1,
+        "sha256": "86c2b7ec7dfa54eeb7cf742ebe0577acf41e4268047c3de6f9e7b9fdeac759b6",
+        "slot": "A",
+        "state_format": 1,
+        "version": 1
+      }
+    },
+    "S6b-stage-after-interrupt": {
+      "pass": true,
+      "trial": null
+    },
+    "S7-corrupt-slots-fail-closed": {
+      "pass": true
+    }
+  },
+  "gate_violations": [],
+  "bootable_update_rollback_demonstrated": true,
+  "https_browsing_in_synveil": false,
+  "persistent_downloads_in_synveil": false,
+  "physical_hardware_tested": false
+}

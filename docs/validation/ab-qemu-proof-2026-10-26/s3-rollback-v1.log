@@ -1,0 +1,283 @@
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #55 SMP PREEMPT_DYNAMIC Mon Oct 26 18:42:11 UTC 2026
+[    0.000000] Command line: 
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.107734] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.862258] audit: type=2000 audit(1793041040.621:1): state=initialized audit_enabled=0 res=1
+[    0.888985] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.889343] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.889479] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    1.108824] SCSI subsystem initialized
+[    1.748834] VFS: Disk quotas dquot_6.6.0
+[    1.944307] Initialise system trusted keyrings
+[    2.002256] NFS: Registering the id_resolver key type
+[    2.007084] Key type id_resolver registered
+[    2.007779] Key type id_legacy registered
+[    2.162020] Key type asymmetric registered
+[    2.162278] Asymmetric key parser 'x509' registered
+[    2.533976] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.772086] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.860227] Key type dns_resolver registered
+[    2.951545] Loading compiled-in X.509 certificates
+[    3.010556] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    3.034878] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    3.036785] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    5.472582] Warning: unable to open an initial console.
+[    5.472887] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_CHAIN_LOAD slot=B version=2 generation_id=synveil-gen-v2
+[   11.623791] kexec_core: Starting new kernel
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #56 SMP PREEMPT_DYNAMIC Mon Oct 26 18:43:52 UTC 2026
+[    0.000000] Command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.116418] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.219678] Spurious LAPIC timer interrupt on cpu 0
+[    0.028437] calibrate_delay_direct() dropping min bogoMips estimate 3 = 1417972
+[    0.820951] audit: type=2000 audit(1793041055.577:1): state=initialized audit_enabled=0 res=1
+[    0.837982] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.838196] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.838642] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    1.041473] SCSI subsystem initialized
+[    1.567384] VFS: Disk quotas dquot_6.6.0
+[    1.724174] Initialise system trusted keyrings
+[    1.737591] NFS: Registering the id_resolver key type
+[    1.739612] Key type id_resolver registered
+[    1.740576] Key type id_legacy registered
+[    1.905469] Key type asymmetric registered
+[    1.905469] Asymmetric key parser 'x509' registered
+[    2.204109] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.389616] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.453532] Key type dns_resolver registered
+[    2.580659] Loading compiled-in X.509 certificates
+[    2.661911] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    2.682180] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    2.683353] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    4.999976] Warning: unable to open an initial console.
+[    5.000253] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_CONFIRMED_BOOT slot=B version=2
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":126,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041063650,"version":"0.1.0-dev"}
+synctl: No such file or directory (os error 2)
+{"component":"veil-core","event":"supervisor_child_started","fields":{"attempt":0,"pid":131},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":126,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041063759,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":131,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041063790,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"socket_ready","fields":{"protocol":"synveil.core/v1","socket":"/run/synveil/veil-core.sock"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":131,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041063808,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"request","fields":{"id":"synctl-132","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":131,"schema":"synveil.audit/v1","sequence":3,"unix_time_ms":1793041063853,"version":"0.1.0-dev"}
+{
+  "schema": "synveil.core/v1",
+  "id": "synctl-132",
+  "ok": true,
+  "result": {
+    "git_revision": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+    "persistent_audit": {
+      "configured": true,
+      "failed_writes": 2,
+      "state": "healthy"
+    },
+    "protocol": "synveil.core/v1",
+    "service": "veil-core",
+    "state": "ready",
+    "version": "0.1.0-dev"
+  }
+}
+SYNVEIL_CORE_READY
+[synveil-update] starting A/B update agent
+
+SYNVEIL_SEAT_READY
+SYNVEIL_AB_AGENT_READY
+SYNVEIL_DISPLAY_READY
+SYNVEIL_AB_HEALTH outcome=no-trial
+SYNVEIL_INPUT_READY
+SYNVEIL_VT_READY
+
+Synveil bootstrap
+Linux: 6.18.55-synveil
+Machine: x86_64
+SYNVEIL_BOOT_OK
+
+SYNVEIL_SERIAL_RECOVERY_LOCKED
+
+SYNVEIL_LOGIN_READY
+[   12.508095] random: crng init done
+
+SYNVEIL_GRAPHICAL_AUTH_ACTIVE
+[   17.167014] udevd[155]: specified group 'tty' unknown
+[   17.168730] udevd[155]: specified group 'dialout' unknown
+[   17.169123] udevd[155]: specified group 'kmem' unknown
+[   17.169399] udevd[155]: specified group 'input' unknown
+[   17.169739] udevd[155]: specified group 'video' unknown
+[   17.170266] udevd[155]: specified group 'sgx' unknown
+[   17.170822] udevd[155]: specified group 'audio' unknown
+[   17.171788] udevd[155]: specified group 'lp' unknown
+[   17.172262] udevd[155]: specified group 'disk' unknown
+SYNVEIL_SEATD_READY
+SYNVEIL_AB_ROLLBACK result=trial slot=A version=1
+[   34.835172] reboot: Restarting system
+[   34.835507] reboot: machine restart
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #55 SMP PREEMPT_DYNAMIC Mon Oct 26 18:42:11 UTC 2026
+[    0.000000] Command line: 
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.110633] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.843184] audit: type=2000 audit(1793041100.613:1): state=initialized audit_enabled=0 res=1
+[    0.873216] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.873474] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.873526] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    1.135960] SCSI subsystem initialized
+[    1.640276] VFS: Disk quotas dquot_6.6.0
+[    1.895644] Initialise system trusted keyrings
+[    1.922492] NFS: Registering the id_resolver key type
+[    1.923409] Key type id_resolver registered
+[    1.923649] Key type id_legacy registered
+[    2.106845] Key type asymmetric registered
+[    2.108186] Asymmetric key parser 'x509' registered
+[    2.395761] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.688535] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.834239] Key type dns_resolver registered
+[    3.018530] Loading compiled-in X.509 certificates
+[    3.209427] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    3.236129] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    3.237540] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    6.405990] Warning: unable to open an initial console.
+[    6.407758] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_TRIAL_BOOT slot=A version=1 attempts_left=2
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":128,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041109947,"version":"0.1.0-dev"}
+synctl: No such file or directory (os error 2)
+{"component":"veil-core","event":"supervisor_child_started","fields":{"attempt":0,"pid":133},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":128,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041110029,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041110061,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"socket_ready","fields":{"protocol":"synveil.core/v1","socket":"/run/synveil/veil-core.sock"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041110086,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"request","fields":{"id":"synctl-134","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":3,"unix_time_ms":1793041110134,"version":"0.1.0-dev"}
+{
+  "schema": "synveil.core/v1",
+  "id": "synctl-134",
+  "ok": true,
+  "result": {
+    "git_revision": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+    "persistent_audit": {
+      "configured": true,
+      "failed_writes": 2,
+      "state": "healthy"
+    },
+    "protocol": "synveil.core/v1",
+    "service": "veil-core",
+    "state": "ready",
+    "version": "0.1.0-dev"
+  }
+}
+SYNVEIL_CORE_READY
+[synveil-update] starting A/B update agent
+
+SYNVEIL_SEAT_READY
+SYNVEIL_AB_AGENT_READY
+SYNVEIL_DISPLAY_READY
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":4,"unix_time_ms":1793041110677,"version":"0.1.0-dev"}
+SYNVEIL_INPUT_READY
+SYNVEIL_VT_READY
+
+Synveil bootstrap
+Linux: 6.18.55-synveil
+Machine: x86_64
+SYNVEIL_BOOT_OK
+
+SYNVEIL_SERIAL_RECOVERY_LOCKED
+
+SYNVEIL_LOGIN_READY
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":5,"unix_time_ms":1793041112741,"version":"0.1.0-dev"}
+[   13.969370] random: crng init done
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":6,"unix_time_ms":1793041114827,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":7,"unix_time_ms":1793041116928,"version":"0.1.0-dev"}
+
+SYNVEIL_GRAPHICAL_AUTH_ACTIVE
+[   18.912897] udevd[157]: specified group 'tty' unknown
+[   18.914814] udevd[157]: specified group 'dialout' unknown
+[   18.915515] udevd[157]: specified group 'kmem' unknown
+[   18.915983] udevd[157]: specified group 'input' unknown
+[   18.916595] udevd[157]: specified group 'video' unknown
+[   18.917096] udevd[157]: specified group 'sgx' unknown
+[   18.917889] udevd[157]: specified group 'audio' unknown
+[   18.919864] udevd[157]: specified group 'lp' unknown
+[   18.920716] udevd[157]: specified group 'disk' unknown
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":8,"unix_time_ms":1793041118986,"version":"0.1.0-dev"}
+SYNVEIL_SEATD_READY
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":9,"unix_time_ms":1793041121070,"version":"0.1.0-dev"}
+SYNVEIL_AB_HEALTH_PASSED slot=A version=1 awaiting=owner-confirm
+SYNVEIL_AB_HEALTH outcome=awaiting-confirm
+SYNVEIL_AB_CONFIRMED slot=A version=1

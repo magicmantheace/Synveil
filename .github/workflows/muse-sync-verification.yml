@@ -32,7 +32,7 @@ jobs:
           rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --no-self-update
           rustup override set 1.99.0
       - name: Install regular-file storage validation tools
-        run: sudo apt-get update && sudo apt-get install -y gdisk gawk dosfstools mtools e2fsprogs
+        run: sudo apt-get update && sudo apt-get install -y gdisk gawk dosfstools mtools e2fsprogs libwayland-dev libfreetype-dev libexpat1-dev libffi-dev meson ninja-build pkg-config gcc
       - name: Verify transferred GPT discovery and real image files
         run: python3 tests/muse-storage-transfer.py
       - name: Verify transferred writer and USB/VGA harness
@@ -41,11 +41,13 @@ jobs:
           python3 -m py_compile tests/smoke-native-joined-hardware.py
           python3 tests/write-test-media.py
           python3 tests/qemu-options.py
-      - name: Verify formatting and Clippy
-        run: |
-          cargo fmt --all --check
-          cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Verify Rust formatting
+        run: cargo fmt --all --check
+      - name: Verify Clippy independently of formatting
+        if: ${{ !cancelled() }}
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Verify transferred fixtures and workspace under all three umasks
+        if: ${{ !cancelled() }}
         run: |
           for mask in 0007 0022 0077; do
             (
@@ -57,64 +59,21 @@ jobs:
             )
           done
           git diff --exit-code -- Cargo.lock
-      - name: Run complete existing host tier including QEMU command fixtures
-        run: bash build.sh offline-check --level host --timeout 180
-
-  muse-candidate-host:
-    name: Review pinned Muse candidate without importing guest code
-    if: github.event_name == 'push'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          repository: magicmantheace/shiny-dollop
-          ref: b49ed0dd3a5be70854a63e546cd35d6a579b0340
-          path: muse-candidate
-          persist-credentials: false
-      - name: Install existing pinned toolchain and GUI build prerequisites
-        run: |
-          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --no-self-update
-          sudo apt-get update
-          sudo apt-get install -y gdisk gawk dosfstools mtools e2fsprogs weston libwayland-dev meson ninja-build libexpat1-dev libffi-dev pkg-config gcc
-      - name: Verify candidate Rust formatting
-        working-directory: muse-candidate/projects/synveil
-        run: |
-          rustup override set 1.99.0
-          cargo fmt --all --check
-      - name: Verify candidate Clippy independently of formatting
+      - name: Verify updater evidence gates and release-output safety
         if: ${{ !cancelled() }}
-        working-directory: muse-candidate/projects/synveil
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - name: Verify candidate workspace tests independently of formatting
-        if: ${{ !cancelled() }}
-        working-directory: muse-candidate/projects/synveil
-        run: cargo test --workspace --all-targets --locked
-      - name: Verify candidate host transaction and release interoperability tests
-        if: ${{ !cancelled() }}
-        working-directory: muse-candidate/projects/synveil
         run: |
           python3 tests/ab-update.py
           python3 tests/ab-release-crosscheck.py
-          python3 -m py_compile tests/smoke-native-ab.py tests/smoke-native-ab-gui.py tools/native_ab.py
-      - name: Compile candidate graphical updater against source-pinned protocol
+          python3 tests/smoke-gates.py
+      - name: Compile transferred update GUI against source-pinned protocol
         if: ${{ !cancelled() }}
-        working-directory: muse-candidate/projects/synveil
         run: |
           python3 tools/native_xdg_shell.py --generate
           gcc -std=c11 -Wall -Wextra -Werror -Iout/native-xdg-shell/generated \
             src/desktop-wayland/update-window.c \
             out/native-xdg-shell/generated/xdg-shell-code.c \
-            $(pkg-config --cflags --libs wayland-client) -o out/synveil-update-gui
-      - name: Run candidate complete existing host tier
+            $(pkg-config --cflags --libs wayland-client freetype2) -lpthread -lm \
+            -o out/synveil-update-gui
+      - name: Run complete existing host tier including QEMU command fixtures
         if: ${{ !cancelled() }}
-        working-directory: muse-candidate/projects/synveil
         run: bash build.sh offline-check --level host --timeout 180
-      - name: Retain candidate host receipts only
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: muse-candidate-host-b49ed0d
-          if-no-files-found: ignore
-          retention-days: 7
-          path: muse-candidate/projects/synveil/out/local-validation/*/results.json

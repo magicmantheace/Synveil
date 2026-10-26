@@ -1,0 +1,105 @@
+{
+  "schema": "synveil.ab-gui-qemu-proof/v1",
+  "source_commit": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+  "build_receipt_commit": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+  "disk_sha256": "19ca7a06bef9dc3284025c60305f755efb6a4898617e6a7499685b5c46b1c647",
+  "generations": {
+    "1": {
+      "uki_sha256": "86c2b7ec7dfa54eeb7cf742ebe0577acf41e4268047c3de6f9e7b9fdeac759b6",
+      "bytes": 61170688
+    },
+    "2": {
+      "uki_sha256": "3eb862f94d37cb219d34380d3ca6c62c4b0238428d90bf4c257fc93b7cb6d165",
+      "bytes": 61162496
+    },
+    "3": {
+      "uki_sha256": "b9b5d34738e9719bd86f5629466bc19246ac6d48cf0733699fc33dcdb8d5660d",
+      "bytes": 60503040
+    }
+  },
+  "publisher": {
+    "key_id": "synveil-dev-2026-01",
+    "development": true,
+    "public_key_hex": "a1f859688346513d819c5e807aa39f8457bd235b9999a3e286b2f089f363f285"
+  },
+  "scenarios": {
+    "G0-provision-enroll-gui-present": {
+      "pass": true,
+      "gui_driven": true,
+      "gui_window_seen": true,
+      "gui_banner_normal": true,
+      "gui_log_ready": true,
+      "gui_log_status": true,
+      "credential_recorded": true,
+      "known_file": "synveil-ab-proof-file\n"
+    },
+    "G1-gui-stage-trial-confirm": {
+      "pass": true,
+      "gui_driven": true,
+      "confirmed": {
+        "bytes": 61162496,
+        "generation_id": "synveil-gen-v2",
+        "min_reader_state_format": 1,
+        "sha256": "3eb862f94d37cb219d34380d3ca6c62c4b0238428d90bf4c257fc93b7cb6d165",
+        "slot": "B",
+        "state_format": 1,
+        "version": 2
+      },
+      "gui_clicks": {
+        "stage": true,
+        "reboot": true,
+        "confirm": true
+      },
+      "gui_actions_ok": {
+        "stage": true,
+        "reboot": true,
+        "confirm": true
+      },
+      "survival": {
+        "credential_same": true,
+        "known_file_same": true
+      }
+    },
+    "G2-gui-rollback-confirm": {
+      "pass": true,
+      "gui_driven": true,
+      "confirmed": {
+        "bytes": 61170688,
+        "generation_id": "synveil-gen-v1",
+        "min_reader_state_format": 1,
+        "sha256": "86c2b7ec7dfa54eeb7cf742ebe0577acf41e4268047c3de6f9e7b9fdeac759b6",
+        "slot": "A",
+        "state_format": 1,
+        "version": 1
+      },
+      "survival": {
+        "credential_same": true,
+        "known_file_same": true
+      }
+    },
+    "G3-gui-badsig-refused": {
+      "pass": true,
+      "gui_driven": true,
+      "trial": null,
+      "confirmed": {
+        "bytes": 61170688,
+        "generation_id": "synveil-gen-v1",
+        "min_reader_state_format": 1,
+        "sha256": "86c2b7ec7dfa54eeb7cf742ebe0577acf41e4268047c3de6f9e7b9fdeac759b6",
+        "slot": "A",
+        "state_format": 1,
+        "version": 1
+      }
+    }
+  },
+  "gate_violations": [],
+  "gui_driven_scenarios": [
+    "G1-gui-stage-trial-confirm",
+    "G2-gui-rollback-confirm",
+    "G3-gui-badsig-refused"
+  ],
+  "agent_driven_scenarios": "tests/smoke-native-ab.py (nine scenarios)",
+  "graphical_update_controls_demonstrated": true,
+  "firmware_variables_written": false,
+  "physical_hardware_tested": false
+}

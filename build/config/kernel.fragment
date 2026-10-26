@@ -61,5 +61,11 @@ CONFIG_BPF_SYSCALL=y
 CONFIG_CMDLINE_BOOL=y
 CONFIG_CMDLINE_OVERRIDE=y
 
+# A/B updater chain loading (docs/AB_UPDATER.md): the init hook of
+# whichever generation the firmware loads chain-loads the desired
+# slot's image with kexec_file_load. No firmware variables are
+# written by the updater, so boot selection needs this syscall.
+CONFIG_KEXEC_FILE=y
+
 # Keep early bring-up simple.
 # CONFIG_MODULES is not set

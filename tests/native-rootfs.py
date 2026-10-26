@@ -27,7 +27,7 @@ class NativeRootfsTests(unittest.TestCase):
                          "git_dirty": False, "cargo_lock_sha256": hashlib.sha256(self.lock.read_bytes()).hexdigest(),
                          "rust": {"source_verification": {"sha256": "pinned-source", "verified_files": 2}},
                          "artifacts": {}}
-        for name in ("veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit"):
+        for name in ("veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab"):
             data = (name + " fixture").encode()
             (self.bundle / name).write_bytes(data)
             self.manifest["artifacts"][name] = {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
@@ -41,13 +41,14 @@ class NativeRootfsTests(unittest.TestCase):
         return verify_bundle(self.bundle, "current", self.lock, self.pin)
 
     def test_matching_bundle(self):
-        self.assertEqual(set(self.check()[1]), {"veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit"})
+        self.assertEqual(set(self.check()[1]), {"veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab"})
 
     def test_install_paths_and_modes(self):
         install_bundle(self.bundle, self.rootfs, "current", self.lock, self.pin)
         self.assertEqual((self.rootfs / "usr/sbin/veil-core").stat().st_mode & 0o777, 0o755)
         self.assertEqual((self.rootfs / "usr/sbin/veil-enroll").stat().st_mode & 0o777, 0o755)
         self.assertEqual((self.rootfs / "usr/sbin/veil-seat").stat().st_mode & 0o777, 0o755)
+        self.assertEqual((self.rootfs / "usr/sbin/veil-ab").stat().st_mode & 0o777, 0o755)
         self.assertEqual((self.rootfs / "usr/sbin/veil-audit").stat().st_mode & 0o777, 0o755)
         self.assertEqual((self.rootfs / "usr/sbin/veil-audit").read_bytes(), (self.bundle / "veil-audit").read_bytes())
         self.assertEqual((self.rootfs / "usr/bin/synctl").read_bytes(), (self.bundle / "synctl").read_bytes())
@@ -56,7 +57,7 @@ class NativeRootfsTests(unittest.TestCase):
     def test_audit_checker_is_required_and_hash_checked(self):
         artifact = self.manifest["artifacts"].pop("veil-audit")
         self.save_manifest()
-        with self.assertRaisesRegex(ValueError, "audit artifacts"):
+        with self.assertRaisesRegex(ValueError, "must contain"):
             self.check()
         self.manifest["artifacts"]["veil-audit"] = artifact
         self.save_manifest()

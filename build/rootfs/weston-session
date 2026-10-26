@@ -79,6 +79,51 @@ if ! kill -0 "$TERMINAL_PID" 2>/dev/null || ! kill -0 "$WESTON_PID" 2>/dev/null;
 fi
 mark SYNVEIL_WESTON_SESSION_TWO_WINDOWS_READY
 
+# The graphical update controls (owner Priority 2) exist only on
+# A/B generations: the ab-system marker gates the launch, so this
+# same script on a single-image system never starts the GUI. The
+# GUI is auxiliary — the session neither waits on it to end nor
+# ends with it; it is reaped before the compositor at logout. Its
+# agent only answers once a booted trial's health assessment has
+# finished, so readiness is awaited with a long bound and a timeout
+# degrades to a session-log note, never a failed session.
+GUI_PID=""
+if [ -f /etc/synveil/ab-system ] && [ -x /usr/bin/synveil-update-gui ]; then
+    # The GUI log is cumulative across sessions: an update flow
+    # spans a reboot (stage in one session, confirm in the next),
+    # and the log is the flow's evidence. Readiness below must
+    # therefore only consider lines written by THIS launch — a
+    # previous session's READY proves nothing about this one — so
+    # the greps run on the tail past the pre-launch byte offset.
+    GUI_LOG_OFFSET=0
+    if [ -f "$HOME/update-gui.log" ]; then
+        GUI_LOG_OFFSET=$(stat -c%s "$HOME/update-gui.log" 2>/dev/null || echo 0)
+    fi
+    synveil-update-gui >>"$HOME/update-gui.log" 2>&1 &
+    GUI_PID=$!
+    gui_ready() {
+        tail -c +$((GUI_LOG_OFFSET + 1)) "$HOME/update-gui.log" 2>/dev/null \
+            | grep -q SYNVEIL_UPDATE_GUI_READY
+    }
+    attempts=0
+    while ! gui_ready; do
+        if ! kill -0 "$GUI_PID" 2>/dev/null; then
+            echo "weston-session: update GUI exited before becoming ready"
+            GUI_PID=""
+            break
+        fi
+        attempts=$((attempts + 1))
+        if [ "$attempts" -gt 1200 ]; then
+            echo "weston-session: update GUI readiness timed out"
+            break
+        fi
+        sleep 0.1
+    done
+    if [ -n "$GUI_PID" ] && gui_ready; then
+        mark SYNVEIL_WESTON_SESSION_UPDATE_GUI_READY
+    fi
+fi
+
 # The first window closes on Escape (real keyboard input through the
 # compositor). Its exit is the keyboard proof; the terminal must still
 # be usable afterwards.
@@ -99,6 +144,9 @@ if ! kill -0 "$WESTON_PID" 2>/dev/null; then
 fi
 mark SYNVEIL_WESTON_SESSION_TERMINAL_INPUT_OK
 
+if [ -n "$GUI_PID" ]; then
+    kill "$GUI_PID" 2>/dev/null
+fi
 kill "$WESTON_PID" 2>/dev/null
 wait "$WESTON_PID" 2>/dev/null
 mark SYNVEIL_WESTON_SESSION_LOGOUT

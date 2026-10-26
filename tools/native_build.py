@@ -112,7 +112,7 @@ def main() -> int:
         readelf = str(compiler.parent / (args.target + "-readelf"))
         artifacts = {}
         binaries = {}
-        for name in ("veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit"):
+        for name in ("veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab"):
             binary = work / "cargo" / pin["rust_target"] / "release" / name
             audit_elf(run(readelf, "-h", str(binary)), run(readelf, "-l", str(binary)),
                       run(readelf, "-d", str(binary)))

@@ -204,6 +204,28 @@ def build(boot_target, esp_size_mb, state_size_mb):
             '/lib64/ld-linux-x86-64.so.2' not in program:
         raise ValueError('joined application did not link to native target glibc')
 
+    # The graphical update controls (owner Priority 2): a second
+    # client from the same source directory, same sysroot and
+    # protocol code, plus FreeType (already a sealed Weston asset)
+    # for text. It is inert in this image: the session launches it
+    # only on A/B generations (the ab-system marker), and even
+    # launched by hand it can only talk to the update agent's typed
+    # socket, which does not exist here.
+    gui_output = rootfs / 'usr/bin/synveil-update-gui'
+    run([tools['gcc'], '--sysroot=' + str(staging), '-std=c11', '-Wall',
+         '-Wextra', '-Werror', '-I' + str(generated),
+         '-I' + str(staging / 'usr/include/freetype2'),
+         ROOT / 'src/desktop-wayland/update-window.c',
+         generated / 'xdg-shell-code.c', '-lwayland-client', '-lfreetype',
+         '-lpthread', '-lm', '-o', gui_output])
+    gui_header = subprocess.check_output(
+        [str(tools['readelf']), '-h', str(gui_output)], text=True)
+    gui_program = subprocess.check_output(
+        [str(tools['readelf']), '-l', str(gui_output)], text=True)
+    if 'Advanced Micro Devices X86-64' not in gui_header or \
+            '/lib64/ld-linux-x86-64.so.2' not in gui_program:
+        raise ValueError('update GUI did not link to native target glibc')
+
     # Directory and file modes must not depend on the builder's umask
     # (same normalization as the fixture builder): system directories
     # 0755, files keep only their executable bit distinction.
@@ -251,6 +273,7 @@ def build(boot_target, esp_size_mb, state_size_mb):
              'image_sha256': hashlib.sha256(
                  (out / 'synveil-x86_64.img').read_bytes()).hexdigest(),
              'native_app_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
+             'update_gui_sha256': hashlib.sha256(gui_output.read_bytes()).hexdigest(),
              'component_assets_sha256': receipt['runtime_assets_sha256'],
              'esp_size_mb': esp_size_mb, 'state_size_mb': state_size_mb,
              'state_partuuid': STATE_PARTUUID,

@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# Starts the A/B update agent (root) on generations that carry the
+# ab-system marker. Installed only by tools/native_ab.py; other
+# rootfs profiles never see this script. The agent performs health
+# confirmation for a booted trial generation, then serves the
+# typed-action update socket (synveil.ab-agent/v1) used by the
+# session. It never starts on unmarked generations.
+exec >/dev/console 2>&1
+echo "[synveil-update] starting A/B update agent"
+exec /usr/sbin/veil-ab serve
