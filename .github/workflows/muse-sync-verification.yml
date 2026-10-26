@@ -35,6 +35,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gdisk gawk dosfstools mtools e2fsprogs
       - name: Verify transferred GPT discovery and real image files
         run: python3 tests/muse-storage-transfer.py
+      - name: Verify transferred writer and USB/VGA harness
+        run: |
+          bash -n tools/write-test-media.sh build/scripts/qemu.sh
+          python3 -m py_compile tests/smoke-native-joined-hardware.py
+          python3 tests/write-test-media.py
+          python3 tests/qemu-options.py
       - name: Verify formatting and Clippy
         run: |
           cargo fmt --all --check

@@ -46,6 +46,7 @@ HOST = (
     ("state-mount", "python3", "tests/state-mount-safety.py"),
     ("qmp-input", "python3", "tests/qmp-input.py"),
     ("qemu-options", "python3", "tests/qemu-options.py"),
+    ("write-test-media", "python3", "tests/write-test-media.py"),
 )
 RUST = (
     ("rustfmt", "cargo", "fmt", "--all", "--check"),

@@ -13,6 +13,20 @@ case "$DISPLAY_BACKEND" in
 esac
 VIDEO="${SYNVEIL_QEMU_VIDEO:-0}"
 [[ "$VIDEO" == 0 || "$VIDEO" == 1 ]] || die "SYNVEIL_QEMU_VIDEO must be 0 or 1"
+# Display device for the graphical profile. "virtio" is the historical
+# default (virtio-vga, claimed by the kernel's virtio_gpu driver).
+# "vga" selects the standard VGA adapter instead: the hardware kernel
+# carries no native driver for it (CONFIG_DRM_BOCHS unset), so the
+# guest display runs on the firmware framebuffer through simpledrm —
+# the path intended for the owner's RTX 3060. See docs/PHYSICAL_BOOT.md.
+GRAPHICS="${SYNVEIL_QEMU_GRAPHICS:-virtio}"
+[[ "$GRAPHICS" == virtio || "$GRAPHICS" == vga ]] || die "SYNVEIL_QEMU_GRAPHICS must be virtio or vga"
+# Attach the boot image itself over emulated USB storage (qemu-xhci +
+# usb-storage) instead of virtio-blk: the owner's first boot is from a
+# USB SSD, so the joined image must be proven booting from USB, not
+# only with its state on a USB-attached second disk.
+IMAGE_USB="${SYNVEIL_QEMU_IMAGE_USB:-0}"
+[[ "$IMAGE_USB" == 0 || "$IMAGE_USB" == 1 ]] || die "SYNVEIL_QEMU_IMAGE_USB must be 0 or 1"
 NETWORK="${SYNVEIL_QEMU_NETWORK:-0}"
 [[ "$NETWORK" == 0 || "$NETWORK" == 1 ]] || die "SYNVEIL_QEMU_NETWORK must be 0 or 1"
 # Developer test automation only: a Unix QMP monitor is powerful and must
@@ -63,9 +77,7 @@ QEMU_ARGS=(
     -monitor none
     -no-reboot
     -drive "if=none,id=synveil_disk,file=$IMAGE,format=raw,readonly=$IMAGE_READONLY"
-    -device "virtio-blk-pci,drive=synveil_disk,bootindex=1"
 )
-
 if [[ -n "$QMP_SOCKET" ]]; then
     QEMU_ARGS+=(-qmp "unix:$QMP_SOCKET,server=on,wait=off")
 fi
@@ -73,12 +85,27 @@ fi
 # Explicit opt-in graphics/input and user-mode network for the VM desktop target.
 # Serial-console CI remains headless, offline and recovery-capable by default.
 if [[ "$DISPLAY_BACKEND" != none || "$VIDEO" == 1 ]]; then
+    if [[ "$GRAPHICS" == vga ]]; then
+        QEMU_ARGS+=(-device VGA)
+    else
+        QEMU_ARGS+=(-device virtio-vga)
+    fi
     QEMU_ARGS+=(
-        -device virtio-vga
         -device qemu-xhci
         -device usb-kbd
         -device usb-tablet
     )
+elif [[ "$IMAGE_USB" == 1 ]]; then
+    # A USB boot disk needs its controller even in the headless profile.
+    QEMU_ARGS+=(-device qemu-xhci)
+fi
+# The boot-disk device is emitted only after the graphics/input block:
+# usb-storage resolves its bus at device-creation time, so the qemu-xhci
+# controller must already exist in the argument list.
+if [[ "$IMAGE_USB" == 1 ]]; then
+    QEMU_ARGS+=(-device "usb-storage,drive=synveil_disk,bootindex=1")
+else
+    QEMU_ARGS+=(-device "virtio-blk-pci,drive=synveil_disk,bootindex=1")
 fi
 if [[ "$NETWORK" == 1 ]]; then
     QEMU_ARGS+=(-netdev user,id=synveil_net -device virtio-net-pci,netdev=synveil_net)

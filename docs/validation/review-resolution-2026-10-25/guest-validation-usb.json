@@ -1,0 +1,44 @@
+{
+  "schema": "synveil.native-joined-hardware-guest/v1",
+  "source_commit": "7f6bf2b3bce0923475baf607bb4364d7f978b639",
+  "image_sha256": "6b10b482239ca3e771bd20d85a5f4e0dc414a00fc34334408eb134b150bacfc3",
+  "boot_target": "hardware",
+  "variant": "usb",
+  "qemu_graphics_device": "virtio-vga",
+  "qemu_boot_storage": "usb-storage",
+  "qemu_uefi_graphical_session": true,
+  "framebuffer_resolution": [
+    1280,
+    800
+  ],
+  "tty0_console_frames_before_greeter": 3,
+  "enrollment_graphical": true,
+  "mismatched_confirmation_rejected": true,
+  "wrong_password_denied_after_cold_reboot": true,
+  "weston_desktop_after_login": true,
+  "pointer_move_resize_keyboard": true,
+  "session_end_relocks_login": true,
+  "hard_power_cut_returns_to_login_and_credential_survives": true,
+  "broken_state_fails_closed_to_locked_login": true,
+  "state_on_image_provided_partition": true,
+  "separate_state_disk_used": false,
+  "serial_contains_no_guest_console_or_shell": true,
+  "screen_signatures_md5_bands": {
+    "enroll": {
+      "title": "d3c4bdcb0b88a88793fe696c8fd604fe",
+      "subtitle": "6600c627724e5ed09e8bcfad62f42365",
+      "footer": "979171f064122abce5d5fb97775a6eeb"
+    },
+    "login": {
+      "title": "3f8067ec0a74bd9c278654b9d33a960b",
+      "subtitle": "98ee48964c3e4fe401a17cf3a68b7b25",
+      "footer": "72825cdc762f9c8d9f0a64d7f2246fe0"
+    }
+  },
+  "physical_hardware_tested": false,
+  "qemu_only_limitations": [
+    "QEMU GOP framebuffer via virtio-vga stands in for the TG01 RTX 3060 firmware GOP; the kernel has no nouveau or NVIDIA driver, so physical display behavior is unproven",
+    "The complete image booted from emulated USB storage (qemu-xhci + usb-storage); the owner's physical USB SSD and HP firmware USB boot behavior are unproven",
+    "USB keyboard/tablet are QEMU devices; TG01 HID behavior is unproven"
+  ]
+}
