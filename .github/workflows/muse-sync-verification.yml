@@ -65,6 +65,7 @@ jobs:
           python3 tests/ab-update.py
           python3 tests/ab-release-crosscheck.py
           python3 tests/smoke-gates.py
+          python3 tests/muse-browser-transfer.py
       - name: Compile transferred update GUI against source-pinned protocol
         if: ${{ !cancelled() }}
         run: |
@@ -74,6 +75,11 @@ jobs:
             out/native-xdg-shell/generated/xdg-shell-code.c \
             $(pkg-config --cflags --libs wayland-client freetype2) -lpthread -lm \
             -o out/synveil-update-gui
+          gcc -std=c11 -Wall -Wextra -Werror -Iout/native-xdg-shell/generated \
+            src/desktop-wayland/files-window.c \
+            out/native-xdg-shell/generated/xdg-shell-code.c \
+            $(pkg-config --cflags --libs wayland-client freetype2) -lpthread -lm \
+            -o out/synveil-files
       - name: Run complete existing host tier including QEMU command fixtures
         if: ${{ !cancelled() }}
         run: bash build.sh offline-check --level host --timeout 180

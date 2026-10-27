@@ -236,9 +236,16 @@ AB_COMMANDS = {
     # can sit in the guest page cache past the quit (observed as a
     # 0-byte file after journal replay, 2026-10-26).
     "known-file": "echo synveil-ab-proof-file > /home/synveil/ab-known-file; sync",
+    # Browser/download proof: digest the downloaded payloads from
+    # INSIDE the guest and leave the results on the persistent home
+    # for host-side readback against the fixture's expected digests.
+    "dl-sha256": "sha256sum /home/synveil/Downloads/payload.bin > /home/synveil/Downloads/payload.sha256; sync",
+    "dl2-sha256": "sha256sum /home/synveil/Downloads/payload2.bin > /home/synveil/Downloads/payload2.sha256; sync",
 }
 
 _AB_CHAR_KEYS = {c: c for c in "abcdefghijklmnopqrstuvwxyz0123456789"}
+_AB_CHAR_KEYS.update({c: "shift+" + c.lower()
+                      for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"})
 _AB_CHAR_KEYS.update({" ": "spc", "/": "slash", "-": "minus", ".": "dot",
                       "_": "shift+minus", ">": "shift+dot", ";": "semicolon"})
 

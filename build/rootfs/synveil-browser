@@ -1,0 +1,151 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# Session launcher for the graphical browser (owner Priority 3):
+# distribution Chromium 156, native Wayland via Ozone, running as
+# the authenticated session user with its sandbox left entirely
+# alone — there is deliberately no --no-sandbox (nor any
+# TLS-related flag) anywhere in this image. The browser is
+# stock-configured: no managed policy, no hosts null-routing
+# and no launch flags block any connection (owner decision,
+# 2026-10-27 — the earlier connection-blocking regime was
+# removed in full). After starting the
+# browser, the launcher records kernel-level sandbox evidence for
+# one of its renderers (namespace + seccomp state from /proc) into
+# ~/sandbox-probe-status.txt: the Priority 3 gate reads it back
+# from the DATA partition and fails unless a renderer demonstrably
+# lives in a different user namespace than the session with
+# seccomp filtering active.
+#
+# First run seeds:
+#   * ~/Downloads (0700) — Chromium's download directory per the
+#     Preferences below, on the persistent DATA partition.
+#   * The profile at ~/.config/chromium (persistent, outside the
+#     replaceable generations): a minimal Preferences pinning the
+#     download directory to ~/Downloads with no per-download
+#     prompt. Seeded ONLY when the profile does not exist yet;
+#     the user's own later changes are never overwritten.
+#   * The NSS database at ~/.pki/nssdb — only in proof builds,
+#     where the image carries /usr/share/synveil/proof-ca.pem
+#     (the run-local test CA, recorded in the build receipt): the
+#     CA is imported with certutil so the proof endpoint verifies.
+#     Production images carry no proof CA and this step never runs.
+PATH=/bin:/usr/bin
+export PATH
+
+if [ "$(id -u)" != 1000 ]; then
+    echo "synveil-browser: refused unexpected session identity"
+    exit 1
+fi
+if [ -z "${HOME:-}" ] || [ ! -d "$HOME" ]; then
+    echo "synveil-browser: no home directory"
+    exit 1
+fi
+PROFILE="$HOME/.config/chromium"
+mkdir -p "$HOME/Downloads" "$PROFILE/Default" || {
+    echo "synveil-browser: cannot create profile directories"
+    exit 1
+}
+chmod 0700 "$HOME/Downloads" 2>/dev/null || true
+
+# The payload keeps the distribution's multiarch layout; only
+# this process tree gets the library path.
+LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH
+
+if [ ! -f "$PROFILE/Default/Preferences" ]; then
+    # The seed pins only the download directory to the
+    # persistent home (with no per-download prompt) — profile
+    # persistence, not connection control. Everything else in
+    # the profile is stock Chromium behavior.
+    printf '%s' '{"download":{"default_directory":"/home/synveil/Downloads","prompt_for_download":false},"browser":{"check_default_browser":false}}' \
+        > "$PROFILE/Default/Preferences" || {
+        echo "synveil-browser: cannot seed profile Preferences"
+        exit 1
+    }
+fi
+[ -f "$PROFILE/First Run" ] || : > "$PROFILE/First Run"
+
+if [ -f /usr/share/synveil/proof-ca.pem ] && [ ! -d "$HOME/.pki/nssdb" ]; then
+    # certutil creates the database FILES but not the directory.
+    mkdir -p "$HOME/.pki/nssdb"
+    certutil -N --empty-password -d "sql:$HOME/.pki/nssdb" \
+        >/dev/null 2>&1
+    certutil -A -t CT,C,c -n synveil-proof-ca \
+        -i /usr/share/synveil/proof-ca.pem \
+        -d "sql:$HOME/.pki/nssdb" >/dev/null 2>&1
+fi
+
+URL=""
+if [ -f /etc/synveil/browser-start-url ]; then
+    URL=$(cat /etc/synveil/browser-start-url)
+fi
+echo "SYNVEIL_BROWSER_STARTED backend=chromium url=${URL:-default}"
+
+# Proof builds only: capture Chromium's own network log so
+# the acceptance receipt can enumerate the remote endpoints
+# the browser contacted (informational — egress is not a gate
+# condition; see docs/BROWSER.md). Shipped builds never log
+# network activity.
+NETLOG=""
+if [ -f /usr/share/synveil/proof-ca.pem ]; then
+    mkdir -p "$HOME/net-logs"
+    NETLOG="--log-net-log=$HOME/net-logs/$(date +%s)-$$.json --net-log-capture-mode=Default"
+fi
+
+probe_sandbox() {
+    # Poll for a renderer of THIS profile and record its kernel
+    # sandbox state. Renderers are forked from the zygote once a
+    # page loads; give it a bounded minute.
+    status="$HOME/sandbox-probe-status.txt"
+    session_user_ns=$(readlink /proc/self/ns/user)
+    tries=0
+    while [ $tries -lt 120 ]; do
+        for proc in /proc/[0-9]*; do
+            pid=${proc#/proc/}
+            cmdline=$(tr '\0' ' ' < "$proc/cmdline" 2>/dev/null) || continue
+            case "$cmdline" in
+                *"--type=renderer"*"--user-data-dir=$PROFILE"*)
+                    # The zygote applies the renderer's seccomp
+                    # filter just after the process appears; on a
+                    # loaded first boot a first-sight read races
+                    # that window and records seccomp=0 even
+                    # though the filter lands moments later
+                    # (observed in the browser proof: boot 1's
+                    # records were 0, later boots' were 2).
+                    # Settle-poll the SAME pid until the filter
+                    # lands (bounded ~20 s), then record the
+                    # steady value — still truthful if it never
+                    # engages.
+                    seccomp=""
+                    settle=0
+                    while [ $settle -lt 40 ]; do
+                        seccomp=$(awk '/^Seccomp:/{print $2}' \
+                            "$proc/status" 2>/dev/null)
+                        [ "$seccomp" = "2" ] && break
+                        [ -d "$proc" ] || break
+                        settle=$((settle + 1))
+                        sleep 0.5
+                    done
+                    echo "SYNVEIL_SANDBOX_RENDERER user_ns=$(readlink "$proc/ns/user" 2>/dev/null) session_user_ns=$session_user_ns seccomp=${seccomp:-unknown} pid=$pid" \
+                        >> "$status"
+                    return 0
+                    ;;
+            esac
+        done
+        tries=$((tries + 1))
+        sleep 0.5
+    done
+    echo "SYNVEIL_SANDBOX_RENDERER none session_user_ns=$session_user_ns" \
+        >> "$status"
+}
+
+/usr/bin/chromium --ozone-platform=wayland \
+    --no-first-run --no-default-browser-check \
+    --disable-dev-shm-usage --disable-gpu \
+    --disk-cache-size=16777216 \
+    $NETLOG \
+    --user-data-dir="$PROFILE" $URL &
+BROWSER_PID=$!
+trap 'kill $BROWSER_PID 2>/dev/null' TERM INT
+probe_sandbox &
+wait $BROWSER_PID

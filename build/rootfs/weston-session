@@ -124,6 +124,81 @@ if [ -f /etc/synveil/ab-system ] && [ -x /usr/bin/synveil-update-gui ]; then
     fi
 fi
 
+# The graphical file-access window (owner Priority 4) exists only
+# where the files-app marker is set (A/B generations): an auxiliary
+# read-only listing of Downloads and home, launched and reaped
+# exactly like the update GUI. Its per-entry log is cumulative for
+# the same reason the GUI log is: a download in one session is
+# looked for in the next.
+FILES_PID=""
+if [ -f /etc/synveil/files-app ] && [ -x /usr/bin/synveil-files ]; then
+    FILES_LOG_OFFSET=0
+    if [ -f "$HOME/files-window.log" ]; then
+        FILES_LOG_OFFSET=$(stat -c%s "$HOME/files-window.log" 2>/dev/null || echo 0)
+    fi
+    synveil-files >>"$HOME/files-window.log" 2>&1 &
+    FILES_PID=$!
+    files_ready() {
+        tail -c +$((FILES_LOG_OFFSET + 1)) "$HOME/files-window.log" 2>/dev/null \
+            | grep -q SYNVEIL_FILES_WINDOW_READY
+    }
+    attempts=0
+    while ! files_ready; do
+        if ! kill -0 "$FILES_PID" 2>/dev/null; then
+            echo "weston-session: files window exited before becoming ready"
+            FILES_PID=""
+            break
+        fi
+        attempts=$((attempts + 1))
+        if [ "$attempts" -gt 600 ]; then
+            echo "weston-session: files window readiness timed out"
+            break
+        fi
+        sleep 0.1
+    done
+    if [ -n "$FILES_PID" ] && files_ready; then
+        mark SYNVEIL_WESTON_SESSION_FILES_READY
+    fi
+fi
+
+# The graphical browser (owner Priority 3) exists only where the
+# browser marker is set (A/B generations with the browser stage
+# installed). The wrapper prepares the profile's Downloads
+# directory, pins the Wayland backend and execs NetSurf; the
+# session only notes that it started — page loads are the
+# browser's own business and are evidenced by the network, not by
+# a session marker claiming more than it saw.
+BROWSER_PID=""
+if [ -f /etc/synveil/browser ] && [ -x /usr/bin/synveil-browser ]; then
+    BROWSER_LOG_OFFSET=0
+    if [ -f "$HOME/browser.log" ]; then
+        BROWSER_LOG_OFFSET=$(stat -c%s "$HOME/browser.log" 2>/dev/null || echo 0)
+    fi
+    synveil-browser >>"$HOME/browser.log" 2>&1 &
+    BROWSER_PID=$!
+    browser_started() {
+        tail -c +$((BROWSER_LOG_OFFSET + 1)) "$HOME/browser.log" 2>/dev/null \
+            | grep -q SYNVEIL_BROWSER_STARTED
+    }
+    attempts=0
+    while ! browser_started; do
+        if ! kill -0 "$BROWSER_PID" 2>/dev/null; then
+            echo "weston-session: browser exited before starting"
+            BROWSER_PID=""
+            break
+        fi
+        attempts=$((attempts + 1))
+        if [ "$attempts" -gt 600 ]; then
+            echo "weston-session: browser start timed out"
+            break
+        fi
+        sleep 0.1
+    done
+    if [ -n "$BROWSER_PID" ] && browser_started; then
+        mark SYNVEIL_WESTON_SESSION_BROWSER_STARTED
+    fi
+fi
+
 # The first window closes on Escape (real keyboard input through the
 # compositor). Its exit is the keyboard proof; the terminal must still
 # be usable afterwards.
@@ -146,6 +221,12 @@ mark SYNVEIL_WESTON_SESSION_TERMINAL_INPUT_OK
 
 if [ -n "$GUI_PID" ]; then
     kill "$GUI_PID" 2>/dev/null
+fi
+if [ -n "$FILES_PID" ]; then
+    kill "$FILES_PID" 2>/dev/null
+fi
+if [ -n "$BROWSER_PID" ]; then
+    kill "$BROWSER_PID" 2>/dev/null
 fi
 kill "$WESTON_PID" 2>/dev/null
 wait "$WESTON_PID" 2>/dev/null

@@ -226,6 +226,26 @@ def build(boot_target, esp_size_mb, state_size_mb):
             '/lib64/ld-linux-x86-64.so.2' not in gui_program:
         raise ValueError('update GUI did not link to native target glibc')
 
+    # The graphical file-access window (owner Priority 4): a third
+    # client from the same source directory, same sysroot, protocol
+    # code and FreeType assets. Read-only by construction; the
+    # session launches it only where the files-app marker exists
+    # (A/B generations), so it is inert in this image.
+    files_output = rootfs / 'usr/bin/synveil-files'
+    run([tools['gcc'], '--sysroot=' + str(staging), '-std=c11', '-Wall',
+         '-Wextra', '-Werror', '-I' + str(generated),
+         '-I' + str(staging / 'usr/include/freetype2'),
+         ROOT / 'src/desktop-wayland/files-window.c',
+         generated / 'xdg-shell-code.c', '-lwayland-client', '-lfreetype',
+         '-lpthread', '-lm', '-o', files_output])
+    files_header = subprocess.check_output(
+        [str(tools['readelf']), '-h', str(files_output)], text=True)
+    files_program = subprocess.check_output(
+        [str(tools['readelf']), '-l', str(files_output)], text=True)
+    if 'Advanced Micro Devices X86-64' not in files_header or \
+            '/lib64/ld-linux-x86-64.so.2' not in files_program:
+        raise ValueError('files window did not link to native target glibc')
+
     # Directory and file modes must not depend on the builder's umask
     # (same normalization as the fixture builder): system directories
     # 0755, files keep only their executable bit distinction.
@@ -274,6 +294,7 @@ def build(boot_target, esp_size_mb, state_size_mb):
                  (out / 'synveil-x86_64.img').read_bytes()).hexdigest(),
              'native_app_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
              'update_gui_sha256': hashlib.sha256(gui_output.read_bytes()).hexdigest(),
+             'files_window_sha256': hashlib.sha256(files_output.read_bytes()).hexdigest(),
              'component_assets_sha256': receipt['runtime_assets_sha256'],
              'esp_size_mb': esp_size_mb, 'state_size_mb': state_size_mb,
              'state_partuuid': STATE_PARTUUID,

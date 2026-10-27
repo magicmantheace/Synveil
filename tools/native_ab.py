@@ -27,6 +27,15 @@ The generations are installed-system images, not test fixtures:
 the same overlay and agent would ship in a real A/B install. The
 host fixture core (tools/ab_update.py) remains a separate,
 file-only model and is never mixed into these images.
+
+With --browser --boot-target hardware --out <dir> the same builder
+produces the owner test-media disk: the production browser overlay
+(no test CA, no test hosts, no fixture start page) on the hardware
+kernel (tty0 console, simpledrm framebuffer, USB/AHCI/NVMe
+storage). The qemu-target proof builds remain the update/browser
+acceptance route; the hardware disk is accepted by the framebuffer
+harness (tests/smoke-native-joined-hardware.py --ab-receipt).
+See docs/PHYSICAL_BOOT.md.
 """
 import argparse
 import hashlib
@@ -40,6 +49,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import ab_release
+import distro_chromium_assets as assets
 import native_joined as joined
 
 OUT = ROOT / "out" / "ab-proof"
@@ -53,10 +63,10 @@ DATA_PARTUUID = "ab000000-0000-4000-8000-0000000000da"
 RECOVERY_PARTUUID = "ab000000-0000-4000-8000-0000000000ec"
 
 ESP_SIZE_MB = 256
-SLOT_SIZE_MB = 160
+SLOT_SIZE_MB = 224
 STATE_SIZE_MB = 256
-DATA_SIZE_MB = 64
-RECOVERY_SIZE_MB = 160
+DATA_SIZE_MB = 128
+RECOVERY_SIZE_MB = 224
 
 GENERATIONS = [
     {"version": 1, "background": "0xFF101820", "seat_stub": False,
@@ -175,14 +185,249 @@ def overlay_generation(rootfs, spec, commit, public_hex):
     patch_init(rootfs)
 
 
-def build_kernel(out_dir, rootfs, recovery=False):
+def browser_stage():
+    """Verify the distro-Chromium stage's identity and return
+    (staging_tree, assets, validation_receipt). Same discipline
+    as the joined build's Weston stage check: the stage is only
+    ever consumed through its sealed, digest-verified asset list
+    (tools/distro_chromium.py)."""
+    bout = ROOT / "out" / "distro-chromium"
+    receipt = json.loads(joined.regular(bout / "validation.json").read_text())
+    if (receipt.get("schema") != "synveil.distro-chromium-stage/v1" or
+            receipt.get("target") != joined.ffi.TARGET):
+        raise ValueError("distro chromium stage identity mismatch")
+    staging = bout / "staging"
+    entries = json.loads(joined.regular(bout / "assets.json").read_text())
+    if assets.seal_digest(entries) != receipt.get("assets_sha256"):
+        raise ValueError("distro chromium seal digest mismatch")
+    if not assets.verified(staging, entries):
+        raise ValueError("distro chromium staging does not match its seal")
+    return staging, entries, receipt
+
+
+def copy_browser_asset(source, destination, name, identity):
+    """Sealed-payload copy with the standing rule: never replace
+    a file the generation rootfs already owns unless the bytes
+    are identical. Packaged modes are applied from the seal."""
+    relative = Path(name)
+    if not assets.allowed(name):
+        raise ValueError("forbidden browser asset")
+    target = destination / relative
+    parent = destination
+    for part in relative.parts[:-1]:
+        parent = parent / part
+        if parent.is_symlink():
+            raise ValueError("asset destination parent is a symlink")
+        parent.mkdir(exist_ok=True)
+        # The workspace umask (0007) would leave 0770 root:root
+        # parents the browser's uid cannot traverse (this exact
+        # failure hid /etc/chromium.d from the launcher wrapper).
+        parent.chmod(0o755)
+    if identity["kind"] == "symlink":
+        if target.is_symlink() and \
+                target.readlink().as_posix() == identity["target"]:
+            return "identical"
+        if target.exists() or target.is_symlink():
+            raise ValueError("refusing to replace rootfs entry: " + name)
+        target.symlink_to(identity["target"])
+        return "copied"
+    data = (source / relative).read_bytes()
+    if hashlib.sha256(data).hexdigest() != identity["sha256"]:
+        raise ValueError("sealed asset bytes changed: " + name)
+    if target.exists() or target.is_symlink():
+        if target.is_file() and not target.is_symlink() and \
+                target.read_bytes() == data:
+            return "identical"
+        raise ValueError("refusing to replace rootfs file: " + name)
+    with target.open("xb") as output:
+        output.write(data)
+    target.chmod(int(identity["mode"], 8))
+    return "copied"
+
+
+def check_link_closure(rootfs, tools, added):
+    """Every DT_NEEDED soname of every ELF the browser stage added
+    must resolve inside the finished generation rootfs (baseline
+    files + copied assets together, subdirectories included —
+    e.g. PulseAudio's private library directory). A library the
+    loader cannot find is a browser that fails at exec — catch
+    it at build time, on the host, where the failure is cheap."""
+    libdirs = [rootfs / "usr/lib", rootfs / "usr/lib64",
+               rootfs / "lib", rootfs / "lib64",
+               rootfs / "usr/lib/weston",
+               rootfs / "usr/lib/x86_64-linux-gnu",
+               rootfs / "usr/lib/chromium"]
+    present = set()
+    for folder in libdirs:
+        if folder.is_dir():
+            for entry in folder.rglob("*"):
+                present.add(entry.name)
+    missing = {}
+    checked = 0
+    for relative in added:
+        path = rootfs / relative
+        result = subprocess.run([str(tools["readelf"]), "-d", str(path)],
+                                capture_output=True, text=True)
+        if "NEEDED" not in result.stdout:
+            continue
+        checked += 1
+        for line in result.stdout.splitlines():
+            if "NEEDED" not in line:
+                continue
+            soname = line.split("[", 1)[1].rstrip("]\n")
+            if soname not in present:
+                missing.setdefault(soname, []).append(relative)
+    if missing:
+        raise ValueError("browser link closure incomplete: " +
+                         json.dumps(missing, indent=1))
+    return checked
+
+
+def browser_icon_png():
+    """A deterministic 48x48 RGB PNG: the files window's teal
+    with a paper-white disc — the panel launcher's icon. Generated,
+    never a binary blob in Git."""
+    import struct
+    import zlib
+    width = height = 48
+    rows = []
+    for y in range(height):
+        row = bytearray(b"\x00")
+        for x in range(width):
+            dx, dy = x - 23.5, y - 23.5
+            if dx * dx + dy * dy <= 14.0 * 14.0:
+                row += bytes((0xF2, 0xF0, 0xEB))
+            else:
+                row += bytes((0x1D, 0x5C, 0x57))
+        rows.append(bytes(row))
+    raw = b"".join(rows)
+
+    def chunk(kind, data):
+        return (struct.pack(">I", len(data)) + kind + data +
+                struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF))
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) +
+            chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
+def overlay_browser(rootfs, stage, *, test_ca, test_host, start_url):
+    """Install the Priority 3/4 payload into one generation rootfs:
+    networking scripts, the sealed Chromium assets, the launcher
+    wrapper and panel entry, the session markers, and — only when
+    the caller provisions them for a proof build — the test CA and
+    test endpoint. Returns the build-record section. Production
+    builds pass no test material: the trust bundle is then exactly
+    the distribution's sealed bundle, and the browser opens on
+    the start page the build was given (or its own default)."""
+    target, selected, stage_receipt = stage
+    tools, _sysroot = joined.ffi.target_tools()
+    counts = {"copied": 0, "identical": 0}
+    added = []
+    for name, identity in sorted(selected.items()):
+        outcome = copy_browser_asset(target, rootfs, name, identity)
+        counts[outcome] += 1
+        if outcome == "copied" and identity["kind"] == "file":
+            added.append(name)
+    closure_files = check_link_closure(rootfs, tools, added)
+
+    runtime = rootfs / "usr/libexec/synveil"
+    for script in ("configure-network", "udhcpc-script"):
+        destination = runtime / script
+        shutil.copyfile(ROOT / "build/rootfs" / script, destination)
+        destination.chmod(0o755)
+    wrapper = rootfs / "usr/bin/synveil-browser"
+    shutil.copyfile(ROOT / "build/rootfs/synveil-browser", wrapper)
+    wrapper.chmod(0o755)
+
+    # No managed policy is installed: the browser ships
+    # stock-configured (owner decision, 2026-10-27 — the
+    # synveil-privacy managed policy was removed in full).
+
+    config = rootfs / "etc/synveil"
+    for marker in ("browser", "files-app"):
+        entry = config / marker
+        entry.write_text("")
+        entry.chmod(0o644)
+    icon = rootfs / "usr/share/icons/synveil-browser.png"
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    with icon.open("xb") as handle:
+        handle.write(browser_icon_png())
+    icon.chmod(0o644)
+    weston_ini = config / "weston.ini"
+    weston_ini.write_text(weston_ini.read_text() +
+                          "\n[launcher]\n"
+                          "icon=/usr/share/icons/synveil-browser.png\n"
+                          "path=/usr/bin/synveil-browser\n")
+
+    hosts = rootfs / "etc/hosts"
+    hosts_text = "127.0.0.1 localhost\n"
+    # No name-layer connection blocking: the browser ships
+    # stock-configured (owner decision, 2026-10-27 — the
+    # earlier vendor null-routing regime was removed in
+    # full). The hosts file carries localhost and, for proof
+    # builds only, the fixture host below.
+    if test_host:
+        hosts_text += f"{test_host[0]} {test_host[1]}\n"
+    hosts.write_text(hosts_text)
+    hosts.chmod(0o644)
+    record = {
+        "stage_schema": stage_receipt["schema"],
+        "stage_validation_sha256": sha256(ROOT / "out" / "distro-chromium"
+                                          / "validation.json"),
+        "chromium_version": stage_receipt["chromium_version"],
+        "deb_packages": stage_receipt["deb_packages"],
+        "payload_files": stage_receipt["payload_files"],
+        "payload_bytes": stage_receipt["payload_bytes"],
+        "assets_copied": counts["copied"],
+        "assets_identical_to_baseline": counts["identical"],
+        "link_closure_files_checked": closure_files,
+        "test_ca_sha256": None,
+        "test_host": None,
+        "start_url": None,
+    }
+    if test_ca is not None:
+        # Proof provisioning, documented as such: the run-local
+        # test CA is APPENDED to the sealed distribution bundle
+        # (the generations then trust the distribution roots plus
+        # this one CA) and shipped alone for the launcher's NSS
+        # seed. The CA file itself is never committed; the build
+        # receipt records its sha256 and the driver refuses a
+        # mismatch.
+        ca_bytes = Path(test_ca).read_bytes()
+        digest = subprocess.run(
+            ["openssl", "x509", "-hash", "-noout"],
+            input=ca_bytes, capture_output=True)
+        if digest.returncode != 0:
+            raise ValueError("test CA is not a parseable certificate")
+        bundle = rootfs / "etc/ssl/certs/ca-certificates.crt"
+        with bundle.open("ab") as handle:
+            handle.write(ca_bytes)
+        share = rootfs / "usr/share/synveil"
+        share.mkdir(parents=True, exist_ok=True)
+        share.chmod(0o755)
+        proof_ca = share / "proof-ca.pem"
+        with proof_ca.open("xb") as handle:
+            handle.write(ca_bytes)
+        proof_ca.chmod(0o644)
+        record["test_ca_sha256"] = hashlib.sha256(ca_bytes).hexdigest()
+    if test_host:
+        record["test_host"] = {"address": test_host[0], "name": test_host[1]}
+    if start_url:
+        entry = config / "browser-start-url"
+        entry.write_text(start_url + "\n")
+        entry.chmod(0o644)
+        record["start_url"] = start_url
+    return record
+
+
+def build_kernel(out_dir, rootfs, recovery=False, boot_target="qemu"):
     """Pack rootfs into a cpio and relink the seed kernel into a UKI."""
     out_dir.mkdir(parents=True, exist_ok=True)
     tmp = out_dir / "tmp"
     tmp.mkdir(exist_ok=True)
     env = joined.base_env(out_dir, out_dir / "work")
     env.update(SYNVEIL_KERNEL_SEED_WORK=str(ROOT / "build/work"),
-               SYNVEIL_BOOT_TARGET="qemu", TMPDIR=str(tmp))
+               SYNVEIL_BOOT_TARGET=boot_target, TMPDIR=str(tmp))
     if recovery:
         env["SYNVEIL_KERNEL_TEST_RECOVERY_STATUS"] = "1"
     with (out_dir / "synveil-initramfs.cpio").open("wb") as archive:
@@ -193,8 +438,10 @@ def build_kernel(out_dir, rootfs, recovery=False):
     return out_dir / "synveil-x86_64.efi"
 
 
-def build_generations(commit, public_hex, baseline_rootfs):
+def build_generations(commit, public_hex, baseline_rootfs, browser=None,
+                      boot_target="qemu"):
     generations = {}
+    browser_record = None
     for spec in GENERATIONS:
         gdir = OUT / f"gen-v{spec['version']}"
         if gdir.exists():
@@ -203,7 +450,14 @@ def build_generations(commit, public_hex, baseline_rootfs):
         rootfs = gdir / "rootfs"
         shutil.copytree(baseline_rootfs, rootfs, symlinks=True)
         overlay_generation(rootfs, spec, commit, public_hex)
-        uki = build_kernel(gdir, rootfs)
+        if browser is not None:
+            record = overlay_browser(rootfs, browser["stage"],
+                                     test_ca=browser["test_ca"],
+                                     test_host=browser["test_host"],
+                                     start_url=browser["start_url"])
+            if browser_record is None:
+                browser_record = record
+        uki = build_kernel(gdir, rootfs, boot_target=boot_target)
         generations[spec["version"]] = {
             "version": spec["version"],
             "generation_id": spec["generation_id"],
@@ -222,11 +476,12 @@ def build_generations(commit, public_hex, baseline_rootfs):
     rdir.mkdir(parents=True)
     rootfs = rdir / "rootfs"
     shutil.copytree(baseline_rootfs, rootfs, symlinks=True)
-    uki = build_kernel(rdir, rootfs, recovery=True)
+    uki = build_kernel(rdir, rootfs, recovery=True,
+                       boot_target=boot_target)
     recovery = {"uki": str(uki), "uki_sha256": sha256(uki),
                 "uki_bytes": uki.stat().st_size}
     print(f"SYNVEIL_AB_RECOVERY_BUILT sha256={recovery['uki_sha256']}")
-    return generations, recovery
+    return generations, recovery, browser_record
 
 
 def fat_partition_image(size_mb, files):
@@ -336,12 +591,67 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build", action="store_true", required=True)
     parser.add_argument("--rebuild-joined", action="store_true")
+    parser.add_argument("--browser", action="store_true",
+                        help="build the browser proof disk (Priority 3/4) "
+                             "under out/browser-proof instead: generations "
+                             "additionally carry networking, the sealed "
+                             "browser stage and the file-access marker")
+    parser.add_argument("--browser-test-ca",
+                        help="PEM CA certificate installed as the "
+                             "generations' trust bundle (proof builds "
+                             "only; recorded in the build receipt)")
+    parser.add_argument("--browser-test-host", nargs=2,
+                        metavar=("ADDRESS", "NAME"),
+                        help="extra /etc/hosts entry for the proof endpoint")
+    parser.add_argument("--browser-start-url",
+                        help="URL the session's browser opens at start")
+    parser.add_argument("--boot-target", choices=("qemu", "hardware"),
+                        default="qemu",
+                        help="kernel boot target for every generation "
+                             "and the recovery image: qemu (default; "
+                             "serial console, virtio) or hardware "
+                             "(tty0 console, simpledrm framebuffer, "
+                             "USB/AHCI/NVMe storage — the owner "
+                             "test-media kernel)")
+    parser.add_argument("--out", default=None,
+                        help="output directory (default: out/ab-proof, "
+                             "or out/browser-proof with --browser)")
     args = parser.parse_args()
+    global OUT, TRUST_DIR, ESP_SIZE_MB, SLOT_SIZE_MB, DATA_SIZE_MB, \
+        RECOVERY_SIZE_MB
+    browser = None
+    if args.out:
+        OUT = Path(args.out)
+        if not OUT.is_absolute():
+            OUT = ROOT / OUT
+        TRUST_DIR = OUT / "trust"
+    if args.browser:
+        if not args.out:
+            OUT = ROOT / "out" / "browser-proof"
+            TRUST_DIR = OUT / "trust"
+        # The Chromium payload grows a generation rootfs from
+        # ~124 MB to ~560 MB (uncompressed cpio UKI): the browser
+        # proof disk's ESP/slots/recovery must hold a whole UKI
+        # each, and DATA gains room for a real browser profile.
+        # The plain A/B proof keeps its established layout.
+        ESP_SIZE_MB = 768
+        SLOT_SIZE_MB = 768
+        DATA_SIZE_MB = 384
+        RECOVERY_SIZE_MB = 768
+        browser = {
+            "stage": browser_stage(),
+            "test_ca": args.browser_test_ca,
+            "test_host": tuple(args.browser_test_host)
+                         if args.browser_test_host else None,
+            "start_url": args.browser_start_url,
+        }
     OUT.mkdir(parents=True, exist_ok=True)
     commit = git_commit()
     _private, public_hex = ab_release.ensure_keypair(TRUST_DIR)
     baseline_rootfs = ensure_joined_baseline(args.rebuild_joined)
-    generations, recovery = build_generations(commit, public_hex, baseline_rootfs)
+    generations, recovery, browser_record = build_generations(
+        commit, public_hex, baseline_rootfs, browser=browser,
+        boot_target=args.boot_target)
     disk = assemble_disk(generations, recovery)
     releases = {}
     # build_media creates outputs exclusively and refuses existing
@@ -363,6 +673,7 @@ def main():
     receipt = {
         "schema": "synveil.ab-proof-build/v1",
         "source_commit": commit,
+        "boot_target": args.boot_target,
         "publisher": {"key_id": ab_release.KEY_ID, "development": True,
                       "public_key_hex": public_hex},
         "generations": {str(k): v for k, v in generations.items()},
@@ -378,6 +689,7 @@ def main():
                      {"number": 6, "name": "RECOVERY", "partuuid": RECOVERY_PARTUUID, "size_mb": RECOVERY_SIZE_MB},
                  ]},
         "releases": releases,
+        "browser": browser_record,
         "physical_boot_validated": False,
     }
     (OUT / "build-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")

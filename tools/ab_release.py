@@ -152,8 +152,51 @@ def build_media(payload, metadata, signature, out_image):
         json.dumps(metadata, indent=2).encode() + b"\n")
     (stage / "synveil.release.sig").write_bytes(signature)
     shutil.copyfile(payload, stage / "synveil.release.bin")
+    # The media must fit the payload: 160 MB was sized for the
+    # plain A/B UKI, and the browser generation's 248 MB UKI
+    # silently overflowed it (debugfs reports the failed write on
+    # stderr but still exits 0, so the build "succeeded" and the
+    # guest agent later refused the media with 'release payload
+    # hash mismatch'). Build the filesystem FIRST, sized from the
+    # payload with -m 0 (a read-only release medium needs no root
+    # reserve), verify the payload back out of it by hash, and
+    # grow + retry if verification fails; only then create the
+    # disk image around the verified filesystem.
+    payload_bytes = (stage / "synveil.release.bin").stat().st_size
+    payload_sha = sha256(stage / "synveil.release.bin")
+    fs_mb = max(MEDIA_SIZE_MB - 2,
+                (payload_bytes * 21 // 20 + 16 * 1024 * 1024
+                 + (1024 * 1024 - 1)) // (1024 * 1024))
+    verified = False
+    for _attempt in range(4):
+        with open(fs_image, "wb") as handle:
+            handle.truncate(fs_mb * 1024 * 1024)
+        run(["mkfs.ext4", "-F", "-q", "-m", "0", "-L",
+             "SYNVEIL_RELEASE", "-b", "4096", str(fs_image)])
+        for name in ("synveil.release.json", "synveil.release.sig",
+                     "synveil.release.bin"):
+            run(["debugfs", "-w", "-R",
+                 f"write {stage / name} /{name}", str(fs_image)],
+                capture_output=True)
+        verify_copy = stage / "verify.bin"
+        run(["debugfs", "-R",
+             f"dump /synveil.release.bin {verify_copy}",
+             str(fs_image)], capture_output=True)
+        verified = verify_copy.is_file() \
+            and verify_copy.stat().st_size == payload_bytes \
+            and sha256(verify_copy) == payload_sha
+        verify_copy.unlink(missing_ok=True)
+        if verified:
+            break
+        fs_mb = fs_mb * 5 // 4 + 16
+    if not verified:
+        raise ValueError(
+            "release payload did not survive media packaging "
+            "(debugfs write is not trustworthy: it exits 0 on "
+            "failure)")
+    media_mb = fs_mb + 2
     with open(out_image, "xb") as handle:
-        handle.truncate(MEDIA_SIZE_MB * 1024 * 1024)
+        handle.truncate(media_mb * 1024 * 1024)
     run(["sgdisk", "--clear",
          "--new=1:2048:0", "--typecode=1:8300",
          "--change-name=1:Synveil Release",
@@ -161,12 +204,6 @@ def build_media(payload, metadata, signature, out_image):
     info = subprocess.check_output(["sgdisk", "-i", "1", str(out_image)], text=True)
     first = int([line for line in info.splitlines()
                  if "First sector:" in line][0].split(":", 1)[1].split()[0])
-    with open(fs_image, "xb") as handle:
-        handle.truncate((MEDIA_SIZE_MB - 2) * 1024 * 1024)
-    run(["mkfs.ext4", "-F", "-q", "-L", "SYNVEIL_RELEASE", "-b", "4096", str(fs_image)])
-    for name in ("synveil.release.json", "synveil.release.sig", "synveil.release.bin"):
-        run(["debugfs", "-w", "-R", f"write {stage / name} /{name}", str(fs_image)],
-            capture_output=True)
     with open(fs_image, "rb") as source, open(out_image, "r+b") as disk:
         disk.seek(first * 512)
         shutil.copyfileobj(source, disk)
