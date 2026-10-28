@@ -22,8 +22,8 @@ def verify_bundle(bundle: Path, commit: str, cargo_lock: Path, pin: dict) -> tup
     source = manifest.get("rust", {}).get("source_verification", {})
     if source.get("sha256") != pin["rust_src"]["sha256"] or source.get("verified_files", 0) < 1:
         raise ValueError("native bundle lacks matching Rust source verification")
-    if set(manifest.get("artifacts", {})) != {"veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab"}:
-        raise ValueError("native bundle must contain core, CLI, enrollment, seat, audit and A/B agent artifacts")
+    if set(manifest.get("artifacts", {})) != {"veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab", "veil-recovery"}:
+        raise ValueError("native bundle must contain core, CLI, enrollment, seat, audit, A/B agent and recovery maintenance artifacts")
     contents = {}
     for name, artifact in manifest["artifacts"].items():
         binary = bundle / name
@@ -40,7 +40,7 @@ def verify_bundle(bundle: Path, commit: str, cargo_lock: Path, pin: dict) -> tup
 
 def install_bundle(bundle: Path, rootfs: Path, commit: str, cargo_lock: Path, pin: dict) -> None:
     manifest, contents = verify_bundle(bundle, commit, cargo_lock, pin)
-    paths = {"veil-core": "usr/sbin/veil-core", "synctl": "usr/bin/synctl", "veil-enroll": "usr/sbin/veil-enroll", "veil-seat": "usr/sbin/veil-seat", "veil-audit": "usr/sbin/veil-audit", "veil-ab": "usr/sbin/veil-ab"}
+    paths = {"veil-core": "usr/sbin/veil-core", "synctl": "usr/bin/synctl", "veil-enroll": "usr/sbin/veil-enroll", "veil-seat": "usr/sbin/veil-seat", "veil-audit": "usr/sbin/veil-audit", "veil-ab": "usr/sbin/veil-ab", "veil-recovery": "usr/sbin/veil-recovery"}
     identity = rootfs / "usr/share/synveil/native-build.json"
     for path in [rootfs / target for target in paths.values()] + [identity]:
         if not path.resolve().is_relative_to(rootfs.resolve()) or path.is_symlink():

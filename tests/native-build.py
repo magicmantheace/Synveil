@@ -122,7 +122,7 @@ class NativeBuildTests(unittest.TestCase):
             target = command[command.index("--target") + 1]
             release = cargo_dir / target / "release"
             release.mkdir(parents=True)
-            for name in ("veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab"):
+            for name in ("veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab", "veil-recovery"):
                 (release / name).write_bytes(b"fixture target executable")
                 link_map = cargo_dir.parent / "maps" / (name.replace("-", "_") + ".map")
                 link_map.write_text("LOAD " + str(toolchain / "libc.a") + "\nLOAD " +
@@ -147,7 +147,7 @@ class NativeBuildTests(unittest.TestCase):
     def test_builder_publishes_only_audited_artifacts(self):
         self.assertEqual(self.invoke_builder(), 0)
         manifest = json.loads((self.root / "out/native/build.json").read_text())
-        self.assertEqual(set(manifest["artifacts"]), {"veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab"})
+        self.assertEqual(set(manifest["artifacts"]), {"veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab", "veil-recovery"})
         self.assertEqual(manifest["schema"], "synveil.native-build/v1")
 
     def test_builder_failure_does_not_publish(self):

@@ -1,3 +1,6 @@
+> RESOLVED upstream at 68df81f: prose now agrees with the JSONs.
+> This historical handoff is superseded by ../muse-sync-recovery-2026-10-28/MUSE_HANDOFF.md.
+
 # Muse handoff: contradictory broken-state acceptance evidence
 
 Reviewed Muse tip: `677421cfc81bf3a193b2bd00d3d26619f7f3979a`.

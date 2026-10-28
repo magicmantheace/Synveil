@@ -98,8 +98,15 @@ def main() -> int:
             raise ValueError("native work directory cannot contain whitespace or commas")
         for name in ("runtime", "maps", "tmp"):
             (work / name).mkdir()
-        # Bootstrap GCC puts the unwind objects in libgcc.a instead of libgcc_eh.a.
-        (work / "runtime/libgcc_eh.a").symlink_to(runtime)
+        # The unwind objects must be findable as libgcc_eh.a in the
+        # runtime overlay. A stage-1 GCC stores them in libgcc.a; a
+        # full GCC installs a real libgcc_eh.a beside libgcc.a. Prefer
+        # the real archive when it exists -- pointing the overlay at
+        # libgcc.a would shadow it with an archive that has no unwind
+        # objects and every static link would fail.
+        sibling_eh = runtime.parent / "libgcc_eh.a"
+        (work / "runtime/libgcc_eh.a").symlink_to(
+            sibling_eh if sibling_eh.is_file() else runtime)
         env = build_environment(os.environ, compiler, work, args.target)
         command = ["rustup", "run", pin["channel"], "cargo", "build", "--release", "--locked",
                    "--target", pin["rust_target"], "--target-dir", str(work / "cargo"),
@@ -112,7 +119,7 @@ def main() -> int:
         readelf = str(compiler.parent / (args.target + "-readelf"))
         artifacts = {}
         binaries = {}
-        for name in ("veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab"):
+        for name in ("veil-core", "synctl", "veil-enroll", "veil-seat", "veil-audit", "veil-ab", "veil-recovery"):
             binary = work / "cargo" / pin["rust_target"] / "release" / name
             audit_elf(run(readelf, "-h", str(binary)), run(readelf, "-l", str(binary)),
                       run(readelf, "-d", str(binary)))

@@ -62,6 +62,38 @@ pub fn verify_root_credential(username: &str, password: &[u8]) -> bool {
         .is_some_and(|phc| verify_phc(username, password, &phc))
 }
 
+/// Coarse credential-store state for the authenticated maintenance
+/// console (ADR 0010 tier 2). The categories describe the *store*,
+/// never the password: a wrong password against a `Present` store is
+/// an ordinary denial and is not distinguishable through this probe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RootCredentialState {
+    /// No designated state partition is mounted at /var.
+    NoState,
+    /// State is mounted and no credential record exists.
+    Absent,
+    /// Something exists at the record path but the strict reader
+    /// rejected it (bad PHC shape, wrong ownership/mode, symlink,
+    /// extra link). Verification denies exactly, like `Absent`.
+    Invalid,
+    /// A strictly valid record is present and verification can run.
+    Present,
+}
+
+pub fn root_credential_state() -> RootCredentialState {
+    if !has_persistent_state() {
+        return RootCredentialState::NoState;
+    }
+    if read_root_private_record(Path::new(ROOT_CREDENTIAL_PATH), 0).is_some() {
+        return RootCredentialState::Present;
+    }
+    if fs::symlink_metadata(ROOT_CREDENTIAL_PATH).is_ok() {
+        RootCredentialState::Invalid
+    } else {
+        RootCredentialState::Absent
+    }
+}
+
 // Credential authority is bound to the designated state partition, in
 // two layers that must both hold:
 //

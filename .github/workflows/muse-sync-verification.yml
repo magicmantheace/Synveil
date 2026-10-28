@@ -80,6 +80,57 @@ jobs:
             out/native-xdg-shell/generated/xdg-shell-code.c \
             $(pkg-config --cflags --libs wayland-client freetype2) -lpthread -lm \
             -o out/synveil-files
-      - name: Run complete existing host tier including QEMU command fixtures
+      - name: Run every Python host unittest suite including QMP fixtures
         if: ${{ !cancelled() }}
-        run: bash build.sh offline-check --level host --timeout 180
+        run: |
+          bash tests/lint-bootstrap.sh
+          python3 tests/muse-all-host-tests.py --timeout 180
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: integrated-host-test-results-${{ github.run_id }}
+          path: out/muse-all-host-tests/
+
+  verify-latest-muse-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: review
+      - uses: actions/checkout@v6
+        with:
+          repository: magicmantheace/shiny-dollop
+          ref: ef72f3fbcf925ad420c93e4b195b28f708cbb73d
+          path: muse
+          persist-credentials: false
+      - name: Install pinned Rust and host fixture tools
+        working-directory: muse/projects/synveil
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --no-self-update
+          rustup override set 1.99.0
+          sudo apt-get update
+          sudo apt-get install -y gdisk gawk dosfstools mtools e2fsprogs libwayland-dev libfreetype-dev libexpat1-dev libffi-dev meson ninja-build pkg-config gcc
+      - name: Check latest candidate Rust formatting
+        working-directory: muse/projects/synveil
+        run: cargo fmt --all --check
+      - name: Check latest candidate Clippy
+        if: ${{ !cancelled() }}
+        working-directory: muse/projects/synveil
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Run latest candidate workspace tests
+        if: ${{ !cancelled() }}
+        working-directory: muse/projects/synveil
+        run: cargo test --workspace --all-targets --locked
+      - name: Run all latest candidate Python host unittests
+        if: ${{ !cancelled() }}
+        run: python3 review/tests/muse-all-host-tests.py --root muse/projects/synveil --timeout 180
+      - name: Fault-test deferred candidate reset revocation
+        if: ${{ !cancelled() }}
+        working-directory: muse/projects/synveil
+        run: python3 ../../../review/tests/muse-reset-revocation-fault.py --source-file src/veil-core/src/bin/veil-recovery.rs
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: latest-muse-candidate-results-${{ github.run_id }}
+          path: muse/projects/synveil/out/muse-all-host-tests/

@@ -420,7 +420,8 @@ def overlay_browser(rootfs, stage, *, test_ca, test_host, start_url):
     return record
 
 
-def build_kernel(out_dir, rootfs, recovery=False, boot_target="qemu"):
+def build_kernel(out_dir, rootfs, recovery=False, maintenance=False,
+                 boot_target="qemu"):
     """Pack rootfs into a cpio and relink the seed kernel into a UKI."""
     out_dir.mkdir(parents=True, exist_ok=True)
     tmp = out_dir / "tmp"
@@ -430,6 +431,8 @@ def build_kernel(out_dir, rootfs, recovery=False, boot_target="qemu"):
                SYNVEIL_BOOT_TARGET=boot_target, TMPDIR=str(tmp))
     if recovery:
         env["SYNVEIL_KERNEL_TEST_RECOVERY_STATUS"] = "1"
+    if maintenance:
+        env["SYNVEIL_KERNEL_TEST_RECOVERY_MAINT"] = "1"
     with (out_dir / "synveil-initramfs.cpio").open("wb") as archive:
         run(["bash", "-o", "pipefail", "-c",
              "find . -print0 | sort -z | cpio --null -o --format=newc --owner=0:0"],
@@ -481,7 +484,18 @@ def build_generations(commit, public_hex, baseline_rootfs, browser=None,
     recovery = {"uki": str(uki), "uki_sha256": sha256(uki),
                 "uki_bytes": uki.stat().st_size}
     print(f"SYNVEIL_AB_RECOVERY_BUILT sha256={recovery['uki_sha256']}")
-    return generations, recovery, browser_record
+    mdir = OUT / "maintenance"
+    if mdir.exists():
+        shutil.rmtree(mdir)
+    mdir.mkdir(parents=True)
+    rootfs = mdir / "rootfs"
+    shutil.copytree(baseline_rootfs, rootfs, symlinks=True)
+    uki = build_kernel(mdir, rootfs, maintenance=True,
+                       boot_target=boot_target)
+    maintenance = {"uki": str(uki), "uki_sha256": sha256(uki),
+                   "uki_bytes": uki.stat().st_size}
+    print(f"SYNVEIL_AB_MAINTENANCE_BUILT sha256={maintenance['uki_sha256']}")
+    return generations, recovery, maintenance, browser_record
 
 
 def fat_partition_image(size_mb, files):
@@ -530,7 +544,7 @@ def slot_identity(slot, generation):
     }
 
 
-def assemble_disk(generations, recovery):
+def assemble_disk(generations, recovery, maintenance):
     disk = OUT / "synveil-ab.img"
     total_mb = (ESP_SIZE_MB + SLOT_SIZE_MB * 2 + STATE_SIZE_MB +
                 DATA_SIZE_MB + RECOVERY_SIZE_MB + 8)
@@ -556,6 +570,7 @@ def assemble_disk(generations, recovery):
     esp = fat_partition_image(ESP_SIZE_MB, {
         "EFI/BOOT/BOOTX64.EFI": gen_a["uki"],
         "EFI/synveil/recovery.efi": recovery["uki"],
+        "EFI/synveil/maintenance.efi": maintenance["uki"],
     })
     write_partition(disk, 1, esp)
     slot_a = fat_partition_image(SLOT_SIZE_MB, {
@@ -633,8 +648,10 @@ def main():
         # ~124 MB to ~560 MB (uncompressed cpio UKI): the browser
         # proof disk's ESP/slots/recovery must hold a whole UKI
         # each, and DATA gains room for a real browser profile.
-        # The plain A/B proof keeps its established layout.
-        ESP_SIZE_MB = 768
+        # The plain A/B proof keeps its established layout. The ESP
+        # also carries the recovery and maintenance UKIs (baseline
+        # rootfs size each), so it grows past the generation size.
+        ESP_SIZE_MB = 1024
         SLOT_SIZE_MB = 768
         DATA_SIZE_MB = 384
         RECOVERY_SIZE_MB = 768
@@ -649,10 +666,10 @@ def main():
     commit = git_commit()
     _private, public_hex = ab_release.ensure_keypair(TRUST_DIR)
     baseline_rootfs = ensure_joined_baseline(args.rebuild_joined)
-    generations, recovery, browser_record = build_generations(
+    generations, recovery, maintenance, browser_record = build_generations(
         commit, public_hex, baseline_rootfs, browser=browser,
         boot_target=args.boot_target)
-    disk = assemble_disk(generations, recovery)
+    disk = assemble_disk(generations, recovery, maintenance)
     releases = {}
     # build_media creates outputs exclusively and refuses existing
     # paths; this build owns its output directory, so remove its own
@@ -678,6 +695,7 @@ def main():
                       "public_key_hex": public_hex},
         "generations": {str(k): v for k, v in generations.items()},
         "recovery": recovery,
+        "maintenance": maintenance,
         "disk": {"path": str(disk), "sha256": sha256(disk),
                  "bytes": disk.stat().st_size,
                  "layout": [

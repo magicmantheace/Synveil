@@ -53,9 +53,13 @@ has no serial console and no developer serial recovery.
 An A/B full-stack disk (tools/native_ab.py --browser
 --boot-target hardware — the owner test-media image) can be driven
 instead with --ab-receipt: boots 1-2 run unchanged against that
-disk (boot 3 is skipped via --skip-broken-state: on the A/B layout
-a destroyed STATE partition takes the recovery-diagnostics path,
-not this harness's locked-login path), and after the power-cut
+disk, and boot 3 may be skipped via --skip-broken-state for
+images whose destroyed-state behavior is out of scope (earlier
+A/B runs were skipped that way, on the expectation that a
+destroyed STATE takes a recovery-diagnostics path; the
+2026-10-27 test-media runs executed boot 3 unskipped, and on
+that image the guest's observed endpoint was this harness's
+locked-login path), and after the power-cut
 boot the run's own disk copy is read back host-side — the browser
 start markers in the DATA-backed home's browser.log and the
 persisted Chromium profile are the evidence that the browser
