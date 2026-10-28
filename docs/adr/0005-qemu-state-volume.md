@@ -3,7 +3,8 @@
 - Status: Accepted (QEMU developer prototype only)
 - Date: 2026-10-11
 - Supersedes: none
-- Superseded by: none
+- Superseded by: ADR 0017 (device identity only; the volume's purpose,
+  host-side creation, and fail-soft recovery behavior stand)
 
 ## Context
 

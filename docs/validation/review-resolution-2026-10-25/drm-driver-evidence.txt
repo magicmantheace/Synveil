@@ -1,0 +1,21 @@
+# DRM driver evidence extracted from the diagnostic-twin serial logs
+# Diagnostic image SHA-256: b0e059ed2c7ee39f6cc569eef96a468200b51c1ce0e7324e380d3fa8d34d9f01
+# Shipped image SHA-256:    6b10b482239ca3e771bd20d85a5f4e0dc414a00fc34334408eb134b150bacfc3
+# The two kernel configs differ ONLY in the CONFIG_CMDLINE line
+# (diag adds console=ttyS0,115200n8 and loglevel=7; tty0 stays first).
+
+## Boot A - virtio-vga present (the original acceptance configuration)
+[    2.150466] ACPI: bus type drm_connector registered
+[    2.160622] [drm] pci: virtio-vga detected at 0000:00:02.0
+[    2.163162] [drm] features: -virgl +edid -resource_blob -host_visible
+[    2.163222] [drm] features: -context_init
+[    2.174554] [drm] number of scanouts: 1
+[    2.174949] [drm] number of cap sets: 0
+[    2.198480] [drm] Initialized virtio_gpu 0.1.0 for 0000:00:02.0 on minor 0
+[    2.258283] fbcon: virtio_gpudrmfb (fb0) is primary device
+[    2.298226] virtio-pci 0000:00:02.0: [drm] fb0: virtio_gpudrmfb frame buffer device
+
+## Boot B - standard VGA only (no virtio GPU present)
+[    3.103558] ACPI: bus type drm_connector registered
+[    4.081577] [drm] Initialized simpledrm 1.0.0 for simple-framebuffer.0 on minor 0
+[    4.461654] simple-framebuffer simple-framebuffer.0: [drm] fb0: simpledrmdrmfb frame buffer device

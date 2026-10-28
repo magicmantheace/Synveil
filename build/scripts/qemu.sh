@@ -13,6 +13,20 @@ case "$DISPLAY_BACKEND" in
 esac
 VIDEO="${SYNVEIL_QEMU_VIDEO:-0}"
 [[ "$VIDEO" == 0 || "$VIDEO" == 1 ]] || die "SYNVEIL_QEMU_VIDEO must be 0 or 1"
+# Display device for the graphical profile. "virtio" is the historical
+# default (virtio-vga, claimed by the kernel's virtio_gpu driver).
+# "vga" selects the standard VGA adapter instead: the hardware kernel
+# carries no native driver for it (CONFIG_DRM_BOCHS unset), so the
+# guest display runs on the firmware framebuffer through simpledrm —
+# the path intended for the owner's RTX 3060. See docs/PHYSICAL_BOOT.md.
+GRAPHICS="${SYNVEIL_QEMU_GRAPHICS:-virtio}"
+[[ "$GRAPHICS" == virtio || "$GRAPHICS" == vga ]] || die "SYNVEIL_QEMU_GRAPHICS must be virtio or vga"
+# Attach the boot image itself over emulated USB storage (qemu-xhci +
+# usb-storage) instead of virtio-blk: the owner's first boot is from a
+# USB SSD, so the joined image must be proven booting from USB, not
+# only with its state on a USB-attached second disk.
+IMAGE_USB="${SYNVEIL_QEMU_IMAGE_USB:-0}"
+[[ "$IMAGE_USB" == 0 || "$IMAGE_USB" == 1 ]] || die "SYNVEIL_QEMU_IMAGE_USB must be 0 or 1"
 NETWORK="${SYNVEIL_QEMU_NETWORK:-0}"
 [[ "$NETWORK" == 0 || "$NETWORK" == 1 ]] || die "SYNVEIL_QEMU_NETWORK must be 0 or 1"
 # Developer test automation only: a Unix QMP monitor is powerful and must
@@ -33,6 +47,13 @@ STATE_DISK="${SYNVEIL_QEMU_STATE_DISK:-}"
 if [[ -n "$STATE_DISK" ]]; then
     [[ -f "$STATE_DISK" && ! -L "$STATE_DISK" ]] || die "state disk must be a regular file: $STATE_DISK"
 fi
+# The boot image is firmware and stays read-only. The single exception is
+# an explicit test opt-in for the joined image, whose state partition
+# lives inside the boot image itself (ADR 0017) and must persist.
+IMAGE_WRITABLE="${SYNVEIL_QEMU_IMAGE_WRITABLE:-0}"
+[[ "$IMAGE_WRITABLE" == 0 || "$IMAGE_WRITABLE" == 1 ]] || die "SYNVEIL_QEMU_IMAGE_WRITABLE must be 0 or 1"
+IMAGE_READONLY=on
+[[ "$IMAGE_WRITABLE" == 1 ]] && IMAGE_READONLY=off
 
 QEMU_MACHINE=q35
 if [[ "$DISPLAY_BACKEND" != none || "$VIDEO" == 1 ]]; then
@@ -42,6 +63,12 @@ if [[ "$DISPLAY_BACKEND" != none || "$VIDEO" == 1 ]]; then
     QEMU_MACHINE=q35,i8042=off,vmport=off
 fi
 QEMU_ARGS=(
+    # No implicit devices: QEMU's defaults add an IDE CD-ROM (guest
+    # /sys/block/sr0) that no Synveil guest configuration declares,
+    # and the native-weston fixture's storage gate rightly rejects
+    # undeclared block devices. The device set is exactly the one
+    # enumerated by this script.
+    -nodefaults
     -machine "$QEMU_MACHINE"
     -m "${SYNVEIL_QEMU_MEMORY:-512M}"
     -smp "${SYNVEIL_QEMU_CPUS:-2}"
@@ -49,10 +76,8 @@ QEMU_ARGS=(
     -serial stdio
     -monitor none
     -no-reboot
-    -drive "if=none,id=synveil_disk,file=$IMAGE,format=raw,readonly=on"
-    -device "virtio-blk-pci,drive=synveil_disk,bootindex=1"
+    -drive "if=none,id=synveil_disk,file=$IMAGE,format=raw,readonly=$IMAGE_READONLY"
 )
-
 if [[ -n "$QMP_SOCKET" ]]; then
     QEMU_ARGS+=(-qmp "unix:$QMP_SOCKET,server=on,wait=off")
 fi
@@ -60,12 +85,27 @@ fi
 # Explicit opt-in graphics/input and user-mode network for the VM desktop target.
 # Serial-console CI remains headless, offline and recovery-capable by default.
 if [[ "$DISPLAY_BACKEND" != none || "$VIDEO" == 1 ]]; then
+    if [[ "$GRAPHICS" == vga ]]; then
+        QEMU_ARGS+=(-device VGA)
+    else
+        QEMU_ARGS+=(-device virtio-vga)
+    fi
     QEMU_ARGS+=(
-        -device virtio-vga
         -device qemu-xhci
         -device usb-kbd
         -device usb-tablet
     )
+elif [[ "$IMAGE_USB" == 1 ]]; then
+    # A USB boot disk needs its controller even in the headless profile.
+    QEMU_ARGS+=(-device qemu-xhci)
+fi
+# The boot-disk device is emitted only after the graphics/input block:
+# usb-storage resolves its bus at device-creation time, so the qemu-xhci
+# controller must already exist in the argument list.
+if [[ "$IMAGE_USB" == 1 ]]; then
+    QEMU_ARGS+=(-device "usb-storage,drive=synveil_disk,bootindex=1")
+else
+    QEMU_ARGS+=(-device "virtio-blk-pci,drive=synveil_disk,bootindex=1")
 fi
 if [[ "$NETWORK" == 1 ]]; then
     QEMU_ARGS+=(-netdev user,id=synveil_net -device virtio-net-pci,netdev=synveil_net)
@@ -74,11 +114,18 @@ else
 fi
 
 # State is a second, separately writable disk; EFI remains read-only.
+# SYNVEIL_QEMU_STATE_USB=1 attaches it over usb-storage instead of
+# virtio-blk: the physical install target is a USB SSD, whose
+# enumeration timing the state mount must tolerate (ADR 0019).
 if [[ -n "$STATE_DISK" ]]; then
     QEMU_ARGS+=(
         -drive "if=none,id=synveil_state,file=$STATE_DISK,format=raw,readonly=off"
-        -device "virtio-blk-pci,drive=synveil_state"
     )
+    if [[ "${SYNVEIL_QEMU_STATE_USB:-0}" == 1 ]]; then
+        QEMU_ARGS+=(-device "usb-storage,drive=synveil_state")
+    else
+        QEMU_ARGS+=(-device "virtio-blk-pci,drive=synveil_state")
+    fi
 fi
 
 if [[ -r /dev/kvm && "${SYNVEIL_QEMU_TCG:-0}" != 1 ]]; then

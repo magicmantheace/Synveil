@@ -1,0 +1,14 @@
+{
+  "schema": "synveil.recovery-maint-smoke/v1",
+  "source_commit": "63dff062d067a4bd6fe3f9c641b9c627c157c0a7",
+  "cases": {
+    "enroll-ok": true,
+    "maint-ok": true,
+    "maint-wrong": true,
+    "maint-absent": true,
+    "enroll-corrupt": true,
+    "maint-corrupt": true
+  },
+  "secret_in_image": false,
+  "physical_hardware_tested": false
+}

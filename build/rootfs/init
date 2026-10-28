@@ -34,6 +34,10 @@ boot_failure_recovery() {
 
 mkdir -p /dev /proc /sys /run /tmp
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+# Graphical terminal clients (weston-terminal) need a pty slave; without
+# devpts the slave path does not exist and the terminal dies at startup.
+mkdir -p /dev/pts
+mount -t devpts -o nosuid,noexec,mode=0620 devpts /dev/pts 2>/dev/null || true
 
 exec </dev/console >/dev/console 2>&1
 
@@ -71,6 +75,24 @@ fi
 if [ -x /usr/libexec/synveil/mount-state ]; then
     /usr/libexec/synveil/mount-state || echo SYNVEIL_STATE_UNAVAILABLE
 fi
+
+# BEGIN AUTHENTICATED_MAINTENANCE
+# Explicit boot argument selects ADR 0010 tier-2 maintenance: local
+# text-mode authentication through the ADR 0009 verifier (never the
+# graphical seat broker), then enumerated bounded actions only. This
+# branch runs after the state mount (the verifier needs it) and
+# before core, seat, networking and display. Neither success nor
+# failure ever opens an interactive root serial shell: the console
+# locks unconditionally when the maintenance program exits.
+if grep -qw 'synveil.recovery=maint' /proc/cmdline 2>/dev/null; then
+    if [ -x /usr/sbin/veil-recovery ]; then
+        /usr/sbin/veil-recovery
+    else
+        echo SYNVEIL_RECOVERY_MAINT_UNAVAILABLE
+    fi
+    serial_lock_forever
+fi
+# END AUTHENTICATED_MAINTENANCE
 
 if [ -x /usr/libexec/synveil/start-core ]; then
     /usr/libexec/synveil/start-core || {

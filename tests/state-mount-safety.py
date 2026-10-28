@@ -17,6 +17,13 @@ MOUNT_STATE = ROOT / "build/rootfs/mount-state"
 
 class StateMountSafetyTests(unittest.TestCase):
     def setUp(self):
+        # Pin a conventional umask for the fixture and the script process it
+        # spawns: mount-state correctly rejects group/world-writable
+        # privileged directories, and with an ambient umask such as 0007 the
+        # fixture's own directories (and the script's mkdir results) come
+        # out 0770 and fail that check for environmental reasons only.
+        self._umask = os.umask(0o022)
+        self.addCleanup(os.umask, self._umask)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -43,7 +50,8 @@ class StateMountSafetyTests(unittest.TestCase):
         self.env = {**os.environ, "PATH": str(fakebin) + ":" + os.environ["PATH"],
                     "SYNVEIL_TEST_CALLS": str(self.calls)}
         source = MOUNT_STATE.read_text()
-        source = source.replace("state=/dev/vdb", f"state={self.disk}")
+        source = source.replace("state=$(wait_for_state_device) || state=''",
+                                f"state={self.disk}")
         source = source.replace('[ ! -b "$state" ]', '[ ! -f "$state" ]')
         source = source.replace('0:0', f'{os.getuid()}:{os.getgid()}')
         source = source.replace('/var/lib/synveil/home/synveil', '__PERSIST_HOME__')

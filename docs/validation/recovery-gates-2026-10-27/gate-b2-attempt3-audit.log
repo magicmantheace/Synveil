@@ -1,0 +1,10 @@
+t=1793137716 event=session-start 
+t=1793137719 event=auth-denied attempt=1
+t=1793137722 event=auth-denied attempt=2
+t=1793137725 event=auth-denied attempt=3
+t=1793137725 event=session-end result=denied
+t=1793137753 event=session-start 
+t=1793137755 event=auth-ok 
+t=1793137756 event=action name=status result=ok
+t=1793137758 event=action name=restore result=armed slot=B version=2
+t=1793137758 event=session-end result=exit

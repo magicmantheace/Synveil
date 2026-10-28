@@ -47,6 +47,8 @@ class QemuOptionTests(unittest.TestCase):
         }
         env.pop("SYNVEIL_QEMU_DISPLAY", None)
         env.pop("SYNVEIL_QEMU_VIDEO", None)
+        env.pop("SYNVEIL_QEMU_GRAPHICS", None)
+        env.pop("SYNVEIL_QEMU_IMAGE_USB", None)
         env.pop("SYNVEIL_QEMU_NETWORK", None)
         env.pop("SYNVEIL_QEMU_STATE_DISK", None)
         env.pop("SYNVEIL_QEMU_QMP_SOCKET", None)
@@ -147,8 +149,30 @@ with open(os.environ["SYNVEIL_TEST_DISK"], "w") as disk:
         self.assertIn("-net", args)
         self.assertIn("none", args)
         self.assertEqual(args[args.index("-machine") + 1], "q35")
+        self.assertEqual(args.count("-nodefaults"), 1)
         self.assertNotIn("virtio-vga", args)
         self.assertNotIn("virtio-net-pci,netdev=synveil_net", args)
+
+    def test_boot_image_read_only_unless_explicitly_writable(self):
+        _, args = self.invoke()
+        drives = [arg for arg in args if "id=synveil_disk" in arg]
+        self.assertEqual(len(drives), 1)
+        self.assertIn("readonly=on", drives[0])
+        _, args = self.invoke({"SYNVEIL_QEMU_IMAGE_WRITABLE": "1"})
+        drives = [arg for arg in args if "id=synveil_disk" in arg]
+        self.assertEqual(len(drives), 1)
+        self.assertIn("readonly=off", drives[0])
+
+    def test_state_disk_is_virtio_by_default_and_usb_when_asked(self):
+        state = self.work / "state.img"
+        state.write_bytes(b"")
+        _, args = self.invoke({"SYNVEIL_QEMU_STATE_DISK": str(state)})
+        self.assertIn("virtio-blk-pci,drive=synveil_state", args)
+        self.assertNotIn("usb-storage,drive=synveil_state", args)
+        _, args = self.invoke({"SYNVEIL_QEMU_STATE_DISK": str(state),
+                               "SYNVEIL_QEMU_STATE_USB": "1"})
+        self.assertIn("usb-storage,drive=synveil_state", args)
+        self.assertNotIn("virtio-blk-pci,drive=synveil_state", args)
 
     def test_graphics_and_network_devices_are_opt_in(self):
         result, args = self.invoke({"SYNVEIL_QEMU_DISPLAY": "gtk",
@@ -196,6 +220,44 @@ with open(os.environ["SYNVEIL_TEST_DISK"], "w") as disk:
         result, args = self.invoke({"SYNVEIL_QEMU_QMP_SOCKET": str(endpoint)})
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(args, [])
+
+    def test_graphics_device_defaults_to_virtio_and_vga_is_selectable(self):
+        _, args = self.invoke({"SYNVEIL_QEMU_VIDEO": "1"})
+        self.assertIn("virtio-vga", args)
+        self.assertNotIn("VGA", args)
+        result, args = self.invoke({"SYNVEIL_QEMU_VIDEO": "1",
+                                    "SYNVEIL_QEMU_GRAPHICS": "vga"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("VGA", args)
+        self.assertNotIn("virtio-vga", args)
+        # Input stays on the USB controller in both graphics modes.
+        self.assertIn("qemu-xhci", args)
+        self.assertIn("usb-kbd", args)
+
+    def test_boot_image_over_usb_storage(self):
+        result, args = self.invoke({"SYNVEIL_QEMU_VIDEO": "1",
+                                    "SYNVEIL_QEMU_IMAGE_USB": "1"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("usb-storage,drive=synveil_disk,bootindex=1", args)
+        self.assertLess(args.index("qemu-xhci"),
+                        args.index("usb-storage,drive=synveil_disk,bootindex=1"))
+        self.assertNotIn("virtio-blk-pci,drive=synveil_disk,bootindex=1", args)
+        # The controller must exist even without the graphics profile.
+        result, args = self.invoke({"SYNVEIL_QEMU_IMAGE_USB": "1"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("usb-storage,drive=synveil_disk,bootindex=1", args)
+        self.assertLess(args.index("qemu-xhci"),
+                        args.index("usb-storage,drive=synveil_disk,bootindex=1"))
+        self.assertIn("qemu-xhci", args)
+        self.assertNotIn("usb-kbd", args)
+
+    def test_rejects_invalid_graphics_and_image_usb_before_launch(self):
+        for extra in ({"SYNVEIL_QEMU_GRAPHICS": "qxl"},
+                      {"SYNVEIL_QEMU_IMAGE_USB": "yes"}):
+            with self.subTest(extra=extra):
+                result, args = self.invoke(extra)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(args, [])
 
     def test_rejects_invalid_video_before_launch(self):
         result, args = self.invoke({"SYNVEIL_QEMU_VIDEO": "yes"})

@@ -101,7 +101,11 @@ class BundleTests(unittest.TestCase):
     def test_creates_private_distinct_disks_and_checksums(self):
         with patch("state_disk.subprocess.run") as formatter:
             create_bundle(self.out, self.rootfs, self.destination, REV, 64)
-        formatter.assert_called_once()
+        # Partition the image, then format the state filesystem inside
+        # partition 1: two formatter invocations, in that order.
+        self.assertEqual(formatter.call_count, 2)
+        self.assertEqual(formatter.call_args_list[0].args[0][0], "sgdisk")
+        self.assertEqual(formatter.call_args_list[1].args[0][0], "mkfs.ext4")
         self.assertEqual((self.destination / "synveil-state.ext4").stat().st_size,
                          64 * 1024 * 1024)
         self.assertEqual((self.destination / "synveil-state.ext4").stat().st_mode & 0o777,

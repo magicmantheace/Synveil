@@ -1,7 +1,64 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
-# Opt-in QEMU state volume; no guest-side formatting or disk discovery.
-state=/dev/vdb
+# Persistent state lives on the unique partition carrying the project's
+# fixed GPT identity: partition name "Synveil State" and the PARTUUID
+# below. A device name such as /dev/sda2 or /dev/vdb1 is never trusted,
+# so the same policy covers the state partition inside the install
+# image and a separately attached partitioned state disk. The GUID is a
+# role label, not a secret; authenticity of install media belongs to
+# the signed installer milestone. No guest-side formatting: a missing,
+# ambiguous, or unformatted state partition simply disables persistence.
+# Keep the GUID in sync with tools/state_disk.py,
+# src/veil-core/src/credential.rs, and src/veil-display/enroll.c.
+state_partuuid=7c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053
+state_partname='Synveil State'
+
+scan_state_partitions() {
+    scan_count=0
+    scan_found=''
+    for entry in /sys/class/block/*; do
+        [ -f "$entry/uevent" ] || continue
+        partuuid=''
+        partname=''
+        while IFS='=' read -r key value; do
+            case $key in
+                PARTUUID) partuuid=$value ;;
+                PARTNAME) partname=$value ;;
+            esac
+        done < "$entry/uevent"
+        if [ "$partuuid" = "$state_partuuid" ] &&
+           [ "$partname" = "$state_partname" ]; then
+            scan_count=$((scan_count + 1))
+            scan_found="/dev/${entry##*/}"
+        fi
+    done
+}
+
+# The install target is removable USB media, whose partitions can
+# appear seconds after init starts (USB enumeration is asynchronous),
+# while a directly attached disk is present immediately. Poll while
+# no designated partition exists, for a bounded ~10 seconds; finding
+# more than one fails closed at once. The notice goes to stderr so
+# the command substitution below captures only the device path.
+wait_for_state_device() {
+    waited=0
+    while :; do
+        scan_state_partitions
+        if [ "$scan_count" -eq 1 ]; then
+            printf '%s\n' "$scan_found"
+            return 0
+        fi
+        [ "$scan_count" -gt 1 ] && return 1
+        [ "$waited" -ge 40 ] && return 1
+        if [ "$waited" -eq 0 ]; then
+            echo "[synveil-state] waiting for the designated state partition; removable media can enumerate late" >&2
+        fi
+        sleep 0.25
+        waited=$((waited + 1))
+    done
+}
+
+state=$(wait_for_state_device) || state=''
 
 # Check each component *before* mkdir/chmod/chown. A writable state image
 # might contain symlinks; mkdir -p and chmod follow them if used unchecked.
@@ -35,7 +92,7 @@ sticky_directory() {
 }
 
 if [ ! -b "$state" ]; then
-    echo "[synveil-state] expected state device missing; booting without persistence"
+    echo "[synveil-state] no designated state partition; booting without persistence"
     exit 1
 fi
 if [ -L /var ] || [ ! -d /var ]; then

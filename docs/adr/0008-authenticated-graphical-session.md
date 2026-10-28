@@ -3,7 +3,7 @@
 - Status: Accepted (security boundary; developer preview implemented; production pending)
 - Date: 2026-10-11
 - Supersedes: none
-- Superseded by: none
+- Superseded by: ADR 0017 (state-device identity only)
 
 ## Context
 

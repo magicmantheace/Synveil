@@ -14,15 +14,21 @@ from state_disk import create_state_disk  # noqa: E402
 
 
 class StateDiskTests(unittest.TestCase):
-    def test_creates_private_raw_image_with_expected_formatter(self):
+    def test_creates_private_partitioned_image_with_expected_tools(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "state.ext4"
             with patch("state_disk.subprocess.run") as run:
                 create_state_disk(path, 64)
             self.assertEqual(path.stat().st_size, 64 * 1024 * 1024)
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-            run.assert_called_once_with(
-                ["mkfs.ext4", "-F", "-q", "-L", "SYNVEIL_STATE", str(path)], check=True)
+            self.assertEqual(run.call_count, 2)
+            self.assertEqual(run.call_args_list[0].args[0], [
+                "sgdisk", "-n", "1:2048:+62M", "-t", "1:8300",
+                "-c", "1:Synveil State",
+                "-u", "1:7c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053", str(path)])
+            self.assertEqual(run.call_args_list[1].args[0], [
+                "mkfs.ext4", "-F", "-q", "-L", "SYNVEIL_STATE", "-b", "4096",
+                "-E", "offset=1048576", str(path), str((64 - 2) * 256)])
 
     def test_existing_content_remains_untouched(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -53,7 +59,7 @@ class StateDiskTests(unittest.TestCase):
                     create_state_disk(path, size)
             self.assertFalse(path.exists())
 
-    def test_failed_mkfs_removes_new_partial_image(self):
+    def test_failed_format_removes_new_partial_image(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "state"
             with patch("state_disk.subprocess.run",

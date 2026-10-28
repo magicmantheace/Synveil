@@ -1,0 +1,114 @@
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #55 SMP PREEMPT_DYNAMIC Mon Oct 26 18:42:11 UTC 2026
+[    0.000000] Command line: 
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.105662] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.825255] audit: type=2000 audit(1793042684.586:1): state=initialized audit_enabled=0 res=1
+[    0.855630] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.855902] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.856042] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    1.076563] SCSI subsystem initialized
+[    1.544708] VFS: Disk quotas dquot_6.6.0
+[    1.673273] Initialise system trusted keyrings
+[    1.684294] NFS: Registering the id_resolver key type
+[    1.685182] Key type id_resolver registered
+[    1.685321] Key type id_legacy registered
+[    1.866443] Key type asymmetric registered
+[    1.866871] Asymmetric key parser 'x509' registered
+[    2.196427] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.544124] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.625543] Key type dns_resolver registered
+[    2.712533] Loading compiled-in X.509 certificates
+[    2.744490] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    2.767941] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    2.769521] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    5.053198] Warning: unable to open an initial console.
+[    5.053522] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_PROVISIONED slot=A version=1 generation_id=synveil-gen-v1
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":138,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793042690281,"version":"0.1.0-dev"}
+synctl: No such file or directory (os error 2)
+{"component":"veil-core","event":"supervisor_child_started","fields":{"attempt":0,"pid":143},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":138,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793042690360,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":143,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793042690385,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"socket_ready","fields":{"protocol":"synveil.core/v1","socket":"/run/synveil/veil-core.sock"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":143,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793042690402,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"request","fields":{"id":"synctl-144","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":143,"schema":"synveil.audit/v1","sequence":3,"unix_time_ms":1793042690463,"version":"0.1.0-dev"}
+{
+  "schema": "synveil.core/v1",
+  "id": "synctl-144",
+  "ok": true,
+  "result": {
+    "git_revision": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+    "persistent_audit": {
+      "configured": true,
+      "failed_writes": 2,
+      "state": "healthy"
+    },
+    "protocol": "synveil.core/v1",
+    "service": "veil-core",
+    "state": "ready",
+    "version": "0.1.0-dev"
+  }
+}
+SYNVEIL_CORE_READY
+[synveil-update] starting A/B update agent
+
+SYNVEIL_SEAT_READY
+SYNVEIL_DISPLAY_READY
+SYNVEIL_AB_AGENT_READY
+SYNVEIL_AB_HEALTH outcome=no-trial
+SYNVEIL_INPUT_READY
+SYNVEIL_VT_READY
+
+Synveil bootstrap
+Linux: 6.18.55-synveil
+Machine: x86_64
+SYNVEIL_BOOT_OK
+
+SYNVEIL_SERIAL_RECOVERY_LOCKED
+
+SYNVEIL_ENROLL_READY
+[   10.212715] random: crng init done
+
+SYNVEIL_ENROLL_CONFIRM_READY
+
+SYNVEIL_ENROLL_COMPLETED
+SYNVEIL_LOGIN_READY
+
+SYNVEIL_GRAPHICAL_AUTH_ACTIVE
+[   27.499407] udevd[168]: specified group 'tty' unknown
+[   27.507149] udevd[168]: specified group 'dialout' unknown
+[   27.507834] udevd[168]: specified group 'kmem' unknown
+[   27.508124] udevd[168]: specified group 'input' unknown
+[   27.508376] udevd[168]: specified group 'video' unknown
+[   27.511145] udevd[168]: specified group 'sgx' unknown
+[   27.513359] udevd[168]: specified group 'audio' unknown
+[   27.521110] udevd[168]: specified group 'lp' unknown
+[   27.525944] udevd[168]: specified group 'disk' unknown
+SYNVEIL_SEATD_READY

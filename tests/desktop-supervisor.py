@@ -65,6 +65,10 @@ class DesktopSupervisorTests(unittest.TestCase):
 
     def test_explicit_auth_marker_selects_only_the_login_preview(self):
         self.auth_marker.touch()
+        # start-desktop requires the marker mode to be exactly 0644; pin it
+        # explicitly instead of depending on the ambient umask (a umask of
+        # 0007 would otherwise create 0660 and trip the safety check).
+        self.auth_marker.chmod(0o644)
         self.assertEqual(self.invoke(TEST_SUCCESS_AFTER="2").returncode, 0)
         self.assertEqual(self.log.read_text().splitlines(), ["--login"] * 2)
 

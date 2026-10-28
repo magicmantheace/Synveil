@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -42,12 +43,83 @@ int synveil_enroll_matches(const unsigned char *first, size_t first_length,
 }
 
 // The graphical setup must agree with the Rust verifier about mounted,
-// durable credential storage. Merely seeing a different st_dev would accept
-// ephemeral tmpfs and then create a password no subsequent boot can use.
+// durable credential storage. This layer pins the mount shape (target
+// and filesystem; writability is checked separately). The mounted
+// device must additionally carry the designated GPT state identity
+// (synveil_enroll_device_is_state below). Merely seeing a different
+// st_dev would accept ephemeral tmpfs and then create a password no
+// subsequent boot can use.
 int synveil_enroll_mount_matches(const char *source, const char *target,
                                   const char *type) {
-    return source && target && type && strcmp(source, "/dev/vdb") == 0 &&
+    return source && target && type && source[0] != '\0' &&
            strcmp(target, "/var") == 0 && strcmp(type, "ext4") == 0;
+}
+
+// Fixed GPT identity of the designated state partition; mirrors
+// veil-core's credential policy (STATE_PARTUUID / STATE_PARTNAME),
+// tools/state_disk.py, and build/rootfs/mount-state. The GUID is a
+// role label, not a secret.
+#define STATE_PARTUUID "7c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053"
+#define STATE_PARTNAME "Synveil State"
+
+// Pure check over one block device's kernel uevent text: exactly one
+// PARTUUID and one PARTNAME line, both equal to the designated values.
+int synveil_enroll_uevent_is_state(const char *text) {
+    if (!text) return 0;
+    int uuid_seen = 0, name_seen = 0, uuid_ok = 0, name_ok = 0;
+    const char *cursor = text;
+    while (*cursor) {
+        const char *newline = strchr(cursor, '\n');
+        size_t length = newline ? (size_t)(newline - cursor) : strlen(cursor);
+        const char *equals = memchr(cursor, '=', length);
+        if (equals) {
+            size_t key_length = (size_t)(equals - cursor);
+            size_t value_length = length - key_length - 1;
+            const char *value = equals + 1;
+            int *seen = NULL, *ok = NULL;
+            const char *expected = NULL;
+            if (key_length == 8 && memcmp(cursor, "PARTUUID", 8) == 0) {
+                seen = &uuid_seen;
+                ok = &uuid_ok;
+                expected = STATE_PARTUUID;
+            } else if (key_length == 8 &&
+                       memcmp(cursor, "PARTNAME", 8) == 0) {
+                seen = &name_seen;
+                ok = &name_ok;
+                expected = STATE_PARTNAME;
+            }
+            if (seen) {
+                // A repeated identity key is ambiguous, even a faithful
+                // one; the kernel emits each key at most once.
+                if (*seen) return 0;
+                *seen = 1;
+                *ok = value_length == strlen(expected) &&
+                      memcmp(value, expected, value_length) == 0;
+            }
+        }
+        if (!newline) break;
+        cursor = newline + 1;
+    }
+    return uuid_seen && name_seen && uuid_ok && name_ok;
+}
+
+static int synveil_enroll_device_is_state(const char *device) {
+    struct stat info;
+    if (stat(device, &info) != 0 || !S_ISBLK(info.st_mode)) return 0;
+    char path[128];
+    if (snprintf(path, sizeof path, "/sys/dev/block/%u:%u/uevent",
+                 major(info.st_rdev), minor(info.st_rdev)) >=
+        (int)sizeof path)
+        return 0;
+    FILE *uevent = fopen(path, "re");
+    if (!uevent) return 0;
+    char buffer[4096];
+    size_t length = fread(buffer, 1, sizeof buffer - 1, uevent);
+    int read_error = ferror(uevent);
+    fclose(uevent);
+    if (read_error || length == 0) return 0;
+    buffer[length] = '\0';
+    return synveil_enroll_uevent_is_state(buffer);
 }
 
 int synveil_enroll_mount_options_writable(const char *options) {
@@ -63,6 +135,7 @@ static int mounted_expected_state(void) {
     if (!mounts) return 0;
     int matched = 0;
     int count = 0;
+    char source[512] = "";
     struct mntent *entry;
     while ((entry = getmntent(mounts)) != NULL) {
         if (strcmp(entry->mnt_dir, "/var") != 0) continue;
@@ -70,16 +143,19 @@ static int mounted_expected_state(void) {
         if (!synveil_enroll_mount_matches(entry->mnt_fsname,
                                           entry->mnt_dir,
                                           entry->mnt_type) ||
-            !synveil_enroll_mount_options_writable(entry->mnt_opts)) {
+            !synveil_enroll_mount_options_writable(entry->mnt_opts) ||
+            strlen(entry->mnt_fsname) >= sizeof source) {
             matched = 0;
             break;
         }
+        strcpy(source, entry->mnt_fsname);
         matched = 1;
     }
     fclose(mounts);
-    // Ignore ambiguous mount stacks, even if one entry is the expected
-    // writable /dev/vdb. Match the native Argon2id verifier's contract.
-    return matched && count == 1;
+    // Ignore ambiguous mount stacks, even if one entry has the expected
+    // shape, and require the mounted device to carry the designated GPT
+    // state identity. Match the native Argon2id verifier's contract.
+    return matched && count == 1 && synveil_enroll_device_is_state(source);
 }
 
 static int private_directory(const char *path) {

@@ -1,0 +1,1150 @@
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #55 SMP PREEMPT_DYNAMIC Mon Oct 26 18:42:11 UTC 2026
+[    0.000000] Command line: 
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.000000] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.017000] tsc: Unable to calibrate against PIT
+[    0.588254] audit: type=2000 audit(1793041142.605:1): state=initialized audit_enabled=0 res=1
+[    0.620961] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.621164] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.621291] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    0.842903] SCSI subsystem initialized
+[    1.269783] VFS: Disk quotas dquot_6.6.0
+[    1.387782] Initialise system trusted keyrings
+[    1.399671] NFS: Registering the id_resolver key type
+[    1.400560] Key type id_resolver registered
+[    1.400707] Key type id_legacy registered
+[    1.564079] Key type asymmetric registered
+[    1.564524] Asymmetric key parser 'x509' registered
+[    1.824814] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    1.880994] virtio_blk virtio2: [vdb] 327680 512-byte logical blocks (168 MB/160 MiB)
+[    2.081601] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.135156] Key type dns_resolver registered
+[    2.266977] Loading compiled-in X.509 certificates
+[    2.298048] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    2.326560] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    2.331110] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    4.703579] Warning: unable to open an initial console.
+[    4.707776] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_CONFIRMED_BOOT slot=A version=1
+synctl: No such file or directory (os error 2)
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":127,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041150178,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"supervisor_child_started","fields":{"attempt":0,"pid":132},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":127,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041150279,"version":"0.1.0-dev"}
+synctl: No such file or directory (os error 2)
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041150354,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"socket_ready","fields":{"protocol":"synveil.core/v1","socket":"/run/synveil/veil-core.sock"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041150441,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"synctl-137","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":3,"unix_time_ms":1793041150527,"version":"0.1.0-dev"}
+{
+  "schema": "synveil.core/v1",
+  "id": "synctl-137",
+  "ok": true,
+  "result": {
+    "git_revision": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+    "persistent_audit": {
+      "configured": true,
+      "failed_writes": 0,
+      "state": "healthy"
+    },
+    "protocol": "synveil.core/v1",
+    "service": "veil-core",
+    "state": "ready",
+    "version": "0.1.0-dev"
+  }
+}
+SYNVEIL_CORE_READY
+[synveil-update] starting A/B update agent
+
+SYNVEIL_SEAT_READY
+SYNVEIL_AB_AGENT_READY
+SYNVEIL_DISPLAY_READY
+SYNVEIL_AB_HEALTH outcome=no-trial
+SYNVEIL_INPUT_READY
+SYNVEIL_VT_READY
+
+Synveil bootstrap
+Linux: 6.18.55-synveil
+Machine: x86_64
+SYNVEIL_BOOT_OK
+
+SYNVEIL_SERIAL_RECOVERY_LOCKED
+
+SYNVEIL_LOGIN_READY
+[   12.149971] random: crng init done
+
+SYNVEIL_GRAPHICAL_AUTH_ACTIVE
+[   17.197992] udevd[160]: specified group 'tty' unknown
+[   17.200148] udevd[160]: specified group 'dialout' unknown
+[   17.201089] udevd[160]: specified group 'kmem' unknown
+[   17.201817] udevd[160]: specified group 'input' unknown
+[   17.202505] udevd[160]: specified group 'video' unknown
+[   17.204003] udevd[160]: specified group 'sgx' unknown
+[   17.205789] udevd[160]: specified group 'audio' unknown
+[   17.207934] udevd[160]: specified group 'lp' unknown
+[   17.209393] udevd[160]: specified group 'disk' unknown
+SYNVEIL_SEATD_READY
+SYNVEIL_AB_STAGE_COPYING slot=B version=3 bytes=60503040
+SYNVEIL_AB_STAGED slot=B version=3 key_id=synveil-dev-2026-01 development=true
+[   40.319166] reboot: Restarting system
+[   40.319658] reboot: machine restart
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #55 SMP PREEMPT_DYNAMIC Mon Oct 26 18:42:11 UTC 2026
+[    0.000000] Command line: 
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.109947] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.823292] audit: type=2000 audit(1793041195.592:1): state=initialized audit_enabled=0 res=1
+[    0.853865] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.854292] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.854492] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    1.065652] SCSI subsystem initialized
+[    1.560013] VFS: Disk quotas dquot_6.6.0
+[    1.679863] Initialise system trusted keyrings
+[    1.690270] NFS: Registering the id_resolver key type
+[    1.691569] Key type id_resolver registered
+[    1.691741] Key type id_legacy registered
+[    1.886275] Key type asymmetric registered
+[    1.887093] Asymmetric key parser 'x509' registered
+[    2.188786] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.221618] virtio_blk virtio2: [vdb] 327680 512-byte logical blocks (168 MB/160 MiB)
+[    2.374488] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.436251] Key type dns_resolver registered
+[    2.536617] Loading compiled-in X.509 certificates
+[    2.570522] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    2.600726] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    2.608629] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    6.292470] Warning: unable to open an initial console.
+[    6.294582] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_TRIAL_HANDOVER slot=B version=3 attempts_left=3
+SYNVEIL_AB_CHAIN_LOAD slot=B version=3 generation_id=synveil-gen-v3
+[   12.068991] kexec_core: Starting new kernel
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #57 SMP PREEMPT_DYNAMIC Mon Oct 26 18:45:35 UTC 2026
+[    0.000000] Command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.110877] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.214126] Spurious LAPIC timer interrupt on cpu 0
+[    0.027376] calibrate_delay_direct() dropping max bogoMips estimate 3 = 2437920
+[    0.027376] calibrate_delay_direct() dropping max bogoMips estimate 2 = 1717191
+[    0.802499] audit: type=2000 audit(1793041210.566:1): state=initialized audit_enabled=0 res=1
+[    0.817835] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.818001] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.819063] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    1.032746] SCSI subsystem initialized
+[    1.543915] VFS: Disk quotas dquot_6.6.0
+[    1.696182] Initialise system trusted keyrings
+[    1.710303] NFS: Registering the id_resolver key type
+[    1.712202] Key type id_resolver registered
+[    1.713157] Key type id_legacy registered
+[    1.857268] Key type asymmetric registered
+[    1.860021] Asymmetric key parser 'x509' registered
+[    2.163951] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.223901] virtio_blk virtio2: [vdb] 327680 512-byte logical blocks (168 MB/160 MiB)
+[    2.363958] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.425190] Key type dns_resolver registered
+[    2.526623] Loading compiled-in X.509 certificates
+[    2.557111] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    2.603713] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    2.605149] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    4.944607] Warning: unable to open an initial console.
+[    4.950563] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_TRIAL_BOOT slot=B version=3 attempts_left=2
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":127,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041218115,"version":"0.1.0-dev"}
+synctl: No such file or directory (os error 2)
+{"component":"veil-core","event":"supervisor_child_started","fields":{"attempt":0,"pid":132},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":127,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041218195,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041218224,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"socket_ready","fields":{"protocol":"synveil.core/v1","socket":"/run/synveil/veil-core.sock"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041218240,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"request","fields":{"id":"synctl-133","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":3,"unix_time_ms":1793041218297,"version":"0.1.0-dev"}
+{
+  "schema": "synveil.core/v1",
+  "id": "synctl-133",
+  "ok": true,
+  "result": {
+    "git_revision": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+    "persistent_audit": {
+      "configured": true,
+      "failed_writes": 2,
+      "state": "healthy"
+    },
+    "protocol": "synveil.core/v1",
+    "service": "veil-core",
+    "state": "ready",
+    "version": "0.1.0-dev"
+  }
+}
+SYNVEIL_CORE_READY
+[synveil-update] starting A/B update agent
+
+SYNVEIL_SEAT_RESTARTING
+SYNVEIL_DISPLAY_READY
+SYNVEIL_AB_AGENT_READY
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":4,"unix_time_ms":1793041218577,"version":"0.1.0-dev"}
+SYNVEIL_INPUT_READY
+SYNVEIL_VT_READY
+
+Synveil bootstrap
+Linux: 6.18.55-synveil
+Machine: x86_64
+SYNVEIL_BOOT_OK
+
+SYNVEIL_SERIAL_RECOVERY_LOCKED
+
+SYNVEIL_LOGIN_READY
+
+SYNVEIL_SEAT_RESTARTING
+
+SYNVEIL_SEAT_RESTART_EXHAUSTED
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":5,"unix_time_ms":1793041220645,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":6,"unix_time_ms":1793041222696,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":7,"unix_time_ms":1793041224747,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":8,"unix_time_ms":1793041226797,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":9,"unix_time_ms":1793041228845,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":10,"unix_time_ms":1793041230897,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":11,"unix_time_ms":1793041232954,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":12,"unix_time_ms":1793041235013,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":13,"unix_time_ms":1793041237075,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":14,"unix_time_ms":1793041239124,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":15,"unix_time_ms":1793041241217,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":16,"unix_time_ms":1793041243269,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":17,"unix_time_ms":1793041245326,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":18,"unix_time_ms":1793041247382,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":19,"unix_time_ms":1793041249436,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":20,"unix_time_ms":1793041251488,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":21,"unix_time_ms":1793041253545,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":22,"unix_time_ms":1793041255597,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":23,"unix_time_ms":1793041257650,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":24,"unix_time_ms":1793041259700,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":25,"unix_time_ms":1793041261751,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":26,"unix_time_ms":1793041263799,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":27,"unix_time_ms":1793041265853,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":28,"unix_time_ms":1793041267907,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":29,"unix_time_ms":1793041269959,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":30,"unix_time_ms":1793041272011,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":31,"unix_time_ms":1793041274065,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":32,"unix_time_ms":1793041276120,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":33,"unix_time_ms":1793041278167,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":34,"unix_time_ms":1793041280218,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":35,"unix_time_ms":1793041282272,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":36,"unix_time_ms":1793041284324,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":37,"unix_time_ms":1793041286375,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":38,"unix_time_ms":1793041288434,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":39,"unix_time_ms":1793041290485,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":40,"unix_time_ms":1793041292538,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":41,"unix_time_ms":1793041294589,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":42,"unix_time_ms":1793041296680,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":43,"unix_time_ms":1793041298733,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":44,"unix_time_ms":1793041300792,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":45,"unix_time_ms":1793041302845,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":46,"unix_time_ms":1793041304895,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":47,"unix_time_ms":1793041306950,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":48,"unix_time_ms":1793041309002,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":49,"unix_time_ms":1793041311052,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":50,"unix_time_ms":1793041313112,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":51,"unix_time_ms":1793041315169,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":52,"unix_time_ms":1793041317223,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":53,"unix_time_ms":1793041319276,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":54,"unix_time_ms":1793041321324,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":55,"unix_time_ms":1793041323380,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":56,"unix_time_ms":1793041325440,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":57,"unix_time_ms":1793041327494,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":58,"unix_time_ms":1793041329549,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":59,"unix_time_ms":1793041331633,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":60,"unix_time_ms":1793041333702,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":61,"unix_time_ms":1793041335756,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":62,"unix_time_ms":1793041337815,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":63,"unix_time_ms":1793041339886,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":64,"unix_time_ms":1793041341946,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":65,"unix_time_ms":1793041344002,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":66,"unix_time_ms":1793041346062,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":67,"unix_time_ms":1793041348121,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":68,"unix_time_ms":1793041350171,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":69,"unix_time_ms":1793041352227,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":70,"unix_time_ms":1793041354281,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":71,"unix_time_ms":1793041356335,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":72,"unix_time_ms":1793041358399,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":73,"unix_time_ms":1793041360449,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":74,"unix_time_ms":1793041362504,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":75,"unix_time_ms":1793041364599,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":76,"unix_time_ms":1793041366662,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":77,"unix_time_ms":1793041368717,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":78,"unix_time_ms":1793041370785,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":79,"unix_time_ms":1793041372851,"version":"0.1.0-dev"}
+[  164.743297] random: crng init done
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":80,"unix_time_ms":1793041374913,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":81,"unix_time_ms":1793041376968,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":82,"unix_time_ms":1793041379022,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":83,"unix_time_ms":1793041381076,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":84,"unix_time_ms":1793041383132,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":85,"unix_time_ms":1793041385203,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":86,"unix_time_ms":1793041387258,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":87,"unix_time_ms":1793041389315,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":88,"unix_time_ms":1793041391374,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":89,"unix_time_ms":1793041393438,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":90,"unix_time_ms":1793041395491,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":91,"unix_time_ms":1793041397543,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":92,"unix_time_ms":1793041399597,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":93,"unix_time_ms":1793041401650,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":94,"unix_time_ms":1793041403704,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":95,"unix_time_ms":1793041405756,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":96,"unix_time_ms":1793041407810,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":97,"unix_time_ms":1793041409863,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":98,"unix_time_ms":1793041411918,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":99,"unix_time_ms":1793041413972,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":100,"unix_time_ms":1793041416033,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":101,"unix_time_ms":1793041418104,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":102,"unix_time_ms":1793041420158,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":103,"unix_time_ms":1793041422217,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":104,"unix_time_ms":1793041424269,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":105,"unix_time_ms":1793041426323,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":106,"unix_time_ms":1793041428383,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":107,"unix_time_ms":1793041430438,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":108,"unix_time_ms":1793041432491,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":109,"unix_time_ms":1793041434545,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":110,"unix_time_ms":1793041436606,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":111,"unix_time_ms":1793041438672,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":112,"unix_time_ms":1793041440723,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":113,"unix_time_ms":1793041442779,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":114,"unix_time_ms":1793041444828,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":115,"unix_time_ms":1793041446880,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":116,"unix_time_ms":1793041448930,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":117,"unix_time_ms":1793041450984,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":118,"unix_time_ms":1793041453037,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":119,"unix_time_ms":1793041455088,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":120,"unix_time_ms":1793041457145,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":121,"unix_time_ms":1793041459198,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":122,"unix_time_ms":1793041461257,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":123,"unix_time_ms":1793041463310,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":124,"unix_time_ms":1793041465376,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":125,"unix_time_ms":1793041467426,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":126,"unix_time_ms":1793041469477,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":127,"unix_time_ms":1793041471532,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":128,"unix_time_ms":1793041473585,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":129,"unix_time_ms":1793041475644,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":130,"unix_time_ms":1793041477697,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":131,"unix_time_ms":1793041479750,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":132,"unix_time_ms":1793041481809,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":133,"unix_time_ms":1793041483864,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":134,"unix_time_ms":1793041485914,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":135,"unix_time_ms":1793041487967,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":136,"unix_time_ms":1793041490019,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":137,"unix_time_ms":1793041492070,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":138,"unix_time_ms":1793041494126,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":139,"unix_time_ms":1793041496183,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":140,"unix_time_ms":1793041498237,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":141,"unix_time_ms":1793041500289,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":142,"unix_time_ms":1793041502345,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":143,"unix_time_ms":1793041504395,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":144,"unix_time_ms":1793041506449,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":145,"unix_time_ms":1793041508513,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":146,"unix_time_ms":1793041510567,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":147,"unix_time_ms":1793041512615,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":148,"unix_time_ms":1793041514669,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":149,"unix_time_ms":1793041516731,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":132,"schema":"synveil.audit/v1","sequence":150,"unix_time_ms":1793041518784,"version":"0.1.0-dev"}
+SYNVEIL_AB_HEALTH_FAILED check=session
+[  310.235004] reboot: Restarting system
+[  310.235270] reboot: machine restart
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #55 SMP PREEMPT_DYNAMIC Mon Oct 26 18:42:11 UTC 2026
+[    0.000000] Command line: 
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.126303] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.029736] calibrate_delay_direct() dropping max bogoMips estimate 0 = 1950550
+[    0.029736] calibrate_delay_direct() dropping max bogoMips estimate 2 = 1798033
+[    0.861942] audit: type=2000 audit(1793041535.609:1): state=initialized audit_enabled=0 res=1
+[    0.904207] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.904449] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.904594] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    1.164287] SCSI subsystem initialized
+[    1.667084] VFS: Disk quotas dquot_6.6.0
+[    1.814663] Initialise system trusted keyrings
+[    1.824784] NFS: Registering the id_resolver key type
+[    1.824784] Key type id_resolver registered
+[    1.824784] Key type id_legacy registered
+[    2.019384] Key type asymmetric registered
+[    2.020375] Asymmetric key parser 'x509' registered
+[    2.659259] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.684608] virtio_blk virtio2: [vdb] 327680 512-byte logical blocks (168 MB/160 MiB)
+[    2.851992] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.898026] Key type dns_resolver registered
+[    2.979972] Loading compiled-in X.509 certificates
+[    3.078020] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    3.111608] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    3.119624] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    5.665638] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[    5.666247] Warning: unable to open an initial console.
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_TRIAL_HANDOVER slot=B version=3 attempts_left=2
+SYNVEIL_AB_CHAIN_LOAD slot=B version=3 generation_id=synveil-gen-v3
+[   12.432273] kexec_core: Starting new kernel
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #57 SMP PREEMPT_DYNAMIC Mon Oct 26 18:45:35 UTC 2026
+[    0.000000] Command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.118315] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.224753] Spurious LAPIC timer interrupt on cpu 0
+[    0.029054] calibrate_delay_direct() dropping min bogoMips estimate 4 = 1230993
+[    0.029054] calibrate_delay_direct() dropping max bogoMips estimate 3 = 1764549
+[    0.842463] audit: type=2000 audit(1793041551.593:1): state=initialized audit_enabled=0 res=1
+[    0.860981] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.861299] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.861404] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    1.086083] SCSI subsystem initialized
+[    1.606840] VFS: Disk quotas dquot_6.6.0
+[    1.748572] Initialise system trusted keyrings
+[    1.761473] NFS: Registering the id_resolver key type
+[    1.762811] Key type id_resolver registered
+[    1.763715] Key type id_legacy registered
+[    1.942357] Key type asymmetric registered
+[    1.942778] Asymmetric key parser 'x509' registered
+[    2.244496] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.280553] virtio_blk virtio2: [vdb] 327680 512-byte logical blocks (168 MB/160 MiB)
+[    2.448769] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.520721] Key type dns_resolver registered
+[    2.635940] Loading compiled-in X.509 certificates
+[    2.670038] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    2.705426] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    2.706616] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    5.573069] Warning: unable to open an initial console.
+[    5.579002] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_TRIAL_BOOT slot=B version=3 attempts_left=1
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":129,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041560506,"version":"0.1.0-dev"}
+synctl: No such file or directory (os error 2)
+{"component":"veil-core","event":"supervisor_child_started","fields":{"attempt":0,"pid":134},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":129,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041560596,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041560634,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"socket_ready","fields":{"protocol":"synveil.core/v1","socket":"/run/synveil/veil-core.sock"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041560651,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"synctl-135","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":3,"unix_time_ms":1793041560756,"version":"0.1.0-dev"}
+{
+  "schema": "synveil.core/v1",
+  "id": "synctl-135",
+  "ok": true,
+  "result": {
+    "git_revision": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+    "persistent_audit": {
+      "configured": true,
+      "failed_writes": 1,
+      "state": "healthy"
+    },
+    "protocol": "synveil.core/v1",
+    "service": "veil-core",
+    "state": "ready",
+    "version": "0.1.0-dev"
+  }
+}
+SYNVEIL_CORE_READY
+[synveil-update] starting A/B update agent
+
+SYNVEIL_SEAT_RESTARTING
+SYNVEIL_DISPLAY_READY
+SYNVEIL_AB_AGENT_READY
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":4,"unix_time_ms":1793041560979,"version":"0.1.0-dev"}
+SYNVEIL_INPUT_READY
+SYNVEIL_VT_READY
+
+Synveil bootstrap
+Linux: 6.18.55-synveil
+Machine: x86_64
+SYNVEIL_BOOT_OK
+
+SYNVEIL_SERIAL_RECOVERY_LOCKED
+
+SYNVEIL_LOGIN_READY
+
+SYNVEIL_SEAT_RESTARTING
+
+SYNVEIL_SEAT_RESTART_EXHAUSTED
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":5,"unix_time_ms":1793041563040,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":6,"unix_time_ms":1793041565100,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":7,"unix_time_ms":1793041567160,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":8,"unix_time_ms":1793041569216,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":9,"unix_time_ms":1793041571286,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":10,"unix_time_ms":1793041573350,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":11,"unix_time_ms":1793041575470,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":12,"unix_time_ms":1793041577582,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":13,"unix_time_ms":1793041579693,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":14,"unix_time_ms":1793041581766,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":15,"unix_time_ms":1793041583822,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":16,"unix_time_ms":1793041585885,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":17,"unix_time_ms":1793041587942,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":18,"unix_time_ms":1793041589993,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":19,"unix_time_ms":1793041592047,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":20,"unix_time_ms":1793041594102,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":21,"unix_time_ms":1793041596162,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":22,"unix_time_ms":1793041598216,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":23,"unix_time_ms":1793041600289,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":24,"unix_time_ms":1793041602345,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":25,"unix_time_ms":1793041604399,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":26,"unix_time_ms":1793041606450,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":27,"unix_time_ms":1793041608509,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":28,"unix_time_ms":1793041610564,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":29,"unix_time_ms":1793041612620,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":30,"unix_time_ms":1793041614674,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":31,"unix_time_ms":1793041616733,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":32,"unix_time_ms":1793041618790,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":33,"unix_time_ms":1793041620842,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":34,"unix_time_ms":1793041622894,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":35,"unix_time_ms":1793041624946,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":36,"unix_time_ms":1793041627006,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":37,"unix_time_ms":1793041629059,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":38,"unix_time_ms":1793041631118,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":39,"unix_time_ms":1793041633173,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":40,"unix_time_ms":1793041635238,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":41,"unix_time_ms":1793041637292,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":42,"unix_time_ms":1793041639344,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":43,"unix_time_ms":1793041641401,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":44,"unix_time_ms":1793041643457,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":45,"unix_time_ms":1793041645511,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":46,"unix_time_ms":1793041647565,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":47,"unix_time_ms":1793041649617,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":48,"unix_time_ms":1793041651668,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":49,"unix_time_ms":1793041653720,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":50,"unix_time_ms":1793041655770,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":51,"unix_time_ms":1793041657826,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":52,"unix_time_ms":1793041659883,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":53,"unix_time_ms":1793041661938,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":54,"unix_time_ms":1793041664001,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":55,"unix_time_ms":1793041666051,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":56,"unix_time_ms":1793041668105,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":57,"unix_time_ms":1793041670162,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":58,"unix_time_ms":1793041672214,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":59,"unix_time_ms":1793041674269,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":60,"unix_time_ms":1793041676323,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":61,"unix_time_ms":1793041678376,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":62,"unix_time_ms":1793041680430,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":63,"unix_time_ms":1793041682483,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":64,"unix_time_ms":1793041684538,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":65,"unix_time_ms":1793041686589,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":66,"unix_time_ms":1793041688648,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":67,"unix_time_ms":1793041690703,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":68,"unix_time_ms":1793041692762,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":69,"unix_time_ms":1793041694815,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":70,"unix_time_ms":1793041696873,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":71,"unix_time_ms":1793041698930,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":72,"unix_time_ms":1793041700985,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":73,"unix_time_ms":1793041703051,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":74,"unix_time_ms":1793041705103,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":75,"unix_time_ms":1793041707157,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":76,"unix_time_ms":1793041709215,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":77,"unix_time_ms":1793041711270,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":78,"unix_time_ms":1793041713335,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":79,"unix_time_ms":1793041715393,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":80,"unix_time_ms":1793041717456,"version":"0.1.0-dev"}
+[  166.711049] random: crng init done
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":81,"unix_time_ms":1793041719519,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":82,"unix_time_ms":1793041721574,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":83,"unix_time_ms":1793041723631,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":84,"unix_time_ms":1793041725688,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":85,"unix_time_ms":1793041727742,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":86,"unix_time_ms":1793041729791,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":87,"unix_time_ms":1793041731848,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":88,"unix_time_ms":1793041733899,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":89,"unix_time_ms":1793041735957,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":90,"unix_time_ms":1793041738008,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":91,"unix_time_ms":1793041740059,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":92,"unix_time_ms":1793041742115,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":93,"unix_time_ms":1793041744170,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":94,"unix_time_ms":1793041746220,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":95,"unix_time_ms":1793041748283,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":96,"unix_time_ms":1793041750340,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":97,"unix_time_ms":1793041752395,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":98,"unix_time_ms":1793041754454,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":99,"unix_time_ms":1793041756525,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":100,"unix_time_ms":1793041758581,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":101,"unix_time_ms":1793041760635,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":102,"unix_time_ms":1793041762691,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":103,"unix_time_ms":1793041764746,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":104,"unix_time_ms":1793041766804,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":105,"unix_time_ms":1793041768859,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":106,"unix_time_ms":1793041770917,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":107,"unix_time_ms":1793041772968,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":108,"unix_time_ms":1793041775022,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":109,"unix_time_ms":1793041777077,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":110,"unix_time_ms":1793041779130,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":111,"unix_time_ms":1793041781188,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":112,"unix_time_ms":1793041783244,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":113,"unix_time_ms":1793041785308,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":114,"unix_time_ms":1793041787361,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":115,"unix_time_ms":1793041789419,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":116,"unix_time_ms":1793041791472,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":117,"unix_time_ms":1793041793528,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":118,"unix_time_ms":1793041795583,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":119,"unix_time_ms":1793041797639,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":120,"unix_time_ms":1793041799697,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":121,"unix_time_ms":1793041801748,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":122,"unix_time_ms":1793041803800,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":123,"unix_time_ms":1793041805850,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":124,"unix_time_ms":1793041807905,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":125,"unix_time_ms":1793041809958,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":126,"unix_time_ms":1793041812016,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":127,"unix_time_ms":1793041814085,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":128,"unix_time_ms":1793041816165,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":129,"unix_time_ms":1793041818224,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":130,"unix_time_ms":1793041820301,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":131,"unix_time_ms":1793041822354,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":132,"unix_time_ms":1793041824414,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":133,"unix_time_ms":1793041826468,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":134,"unix_time_ms":1793041828524,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":135,"unix_time_ms":1793041830585,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":136,"unix_time_ms":1793041832640,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":137,"unix_time_ms":1793041834689,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":138,"unix_time_ms":1793041836755,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":139,"unix_time_ms":1793041838809,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":140,"unix_time_ms":1793041840861,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":141,"unix_time_ms":1793041842927,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":142,"unix_time_ms":1793041844978,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":143,"unix_time_ms":1793041847028,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":144,"unix_time_ms":1793041849093,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":145,"unix_time_ms":1793041851153,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":146,"unix_time_ms":1793041853210,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":147,"unix_time_ms":1793041855286,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":148,"unix_time_ms":1793041857338,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":149,"unix_time_ms":1793041859394,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":150,"unix_time_ms":1793041861445,"version":"0.1.0-dev"}
+SYNVEIL_AB_HEALTH_FAILED check=session
+[  311.822154] reboot: Restarting system
+[  311.822576] reboot: machine restart
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #55 SMP PREEMPT_DYNAMIC Mon Oct 26 18:42:11 UTC 2026
+[    0.000000] Command line: 
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.000000] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.016000] tsc: Unable to calibrate against PIT
+[    0.571789] audit: type=2000 audit(1793041872.587:1): state=initialized audit_enabled=0 res=1
+[    0.606115] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.606388] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.606810] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    0.808642] SCSI subsystem initialized
+[    1.297675] VFS: Disk quotas dquot_6.6.0
+[    1.435296] Initialise system trusted keyrings
+[    1.456366] NFS: Registering the id_resolver key type
+[    1.458154] Key type id_resolver registered
+[    1.458305] Key type id_legacy registered
+[    1.731918] Key type asymmetric registered
+[    1.732338] Asymmetric key parser 'x509' registered
+[    1.998704] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.028465] virtio_blk virtio2: [vdb] 327680 512-byte logical blocks (168 MB/160 MiB)
+[    2.214651] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.288359] Key type dns_resolver registered
+[    2.420614] Loading compiled-in X.509 certificates
+[    2.476089] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    2.501126] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    2.502368] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    4.961377] Warning: unable to open an initial console.
+[    4.961916] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_TRIAL_HANDOVER slot=B version=3 attempts_left=1
+SYNVEIL_AB_CHAIN_LOAD slot=B version=3 generation_id=synveil-gen-v3
+[   12.222909] kexec_core: Starting new kernel
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #57 SMP PREEMPT_DYNAMIC Mon Oct 26 18:45:35 UTC 2026
+[    0.000000] Command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.115607] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.604523] APIC calibration not consistent with PM-Timer: 101ms instead of 100ms
+[    0.835286] audit: type=2000 audit(1793041888.584:1): state=initialized audit_enabled=0 res=1
+[    0.857095] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.857262] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.857262] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    1.102449] SCSI subsystem initialized
+[    1.601661] VFS: Disk quotas dquot_6.6.0
+[    1.757678] Initialise system trusted keyrings
+[    1.767496] NFS: Registering the id_resolver key type
+[    1.768663] Key type id_resolver registered
+[    1.768914] Key type id_legacy registered
+[    1.917594] Key type asymmetric registered
+[    1.918019] Asymmetric key parser 'x509' registered
+[    2.192889] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.220820] virtio_blk virtio2: [vdb] 327680 512-byte logical blocks (168 MB/160 MiB)
+[    2.375689] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.414601] Key type dns_resolver registered
+[    2.499898] Loading compiled-in X.509 certificates
+[    2.560600] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    2.584079] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    2.587168] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    4.750049] Warning: unable to open an initial console.
+[    4.754082] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_TRIAL_BOOT slot=B version=3 attempts_left=0
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":128,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041896079,"version":"0.1.0-dev"}
+synctl: No such file or directory (os error 2)
+{"component":"veil-core","event":"supervisor_child_started","fields":{"attempt":0,"pid":133},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":128,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041896162,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793041896202,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"socket_ready","fields":{"protocol":"synveil.core/v1","socket":"/run/synveil/veil-core.sock"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793041896239,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"request","fields":{"id":"synctl-134","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":3,"unix_time_ms":1793041896281,"version":"0.1.0-dev"}
+{
+  "schema": "synveil.core/v1",
+  "id": "synctl-134",
+  "ok": true,
+  "result": {
+    "git_revision": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+    "persistent_audit": {
+      "configured": true,
+      "failed_writes": 2,
+      "state": "healthy"
+    },
+    "protocol": "synveil.core/v1",
+    "service": "veil-core",
+    "state": "ready",
+    "version": "0.1.0-dev"
+  }
+}
+SYNVEIL_CORE_READY
+[synveil-update] starting A/B update agent
+
+SYNVEIL_SEAT_RESTARTING
+SYNVEIL_AB_AGENT_READY
+SYNVEIL_DISPLAY_READY
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":4,"unix_time_ms":1793041896495,"version":"0.1.0-dev"}
+SYNVEIL_INPUT_READY
+SYNVEIL_VT_READY
+
+Synveil bootstrap
+Linux: 6.18.55-synveil
+Machine: x86_64
+SYNVEIL_BOOT_OK
+
+SYNVEIL_SERIAL_RECOVERY_LOCKED
+
+SYNVEIL_LOGIN_READY
+
+SYNVEIL_SEAT_RESTARTING
+
+SYNVEIL_SEAT_RESTART_EXHAUSTED
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":5,"unix_time_ms":1793041898557,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":6,"unix_time_ms":1793041900610,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":7,"unix_time_ms":1793041902669,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":8,"unix_time_ms":1793041904730,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":9,"unix_time_ms":1793041906780,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":10,"unix_time_ms":1793041908830,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":11,"unix_time_ms":1793041910882,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":12,"unix_time_ms":1793041912940,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":13,"unix_time_ms":1793041915003,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":14,"unix_time_ms":1793041917056,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":15,"unix_time_ms":1793041919120,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":16,"unix_time_ms":1793041921175,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":17,"unix_time_ms":1793041923273,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":18,"unix_time_ms":1793041925364,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":19,"unix_time_ms":1793041927423,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":20,"unix_time_ms":1793041929486,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":21,"unix_time_ms":1793041931541,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":22,"unix_time_ms":1793041933613,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":23,"unix_time_ms":1793041935698,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":24,"unix_time_ms":1793041937753,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":25,"unix_time_ms":1793041939813,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":26,"unix_time_ms":1793041941864,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":27,"unix_time_ms":1793041943918,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":28,"unix_time_ms":1793041945971,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":29,"unix_time_ms":1793041948021,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":30,"unix_time_ms":1793041950077,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":31,"unix_time_ms":1793041952135,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":32,"unix_time_ms":1793041954184,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":33,"unix_time_ms":1793041956236,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":34,"unix_time_ms":1793041958294,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":35,"unix_time_ms":1793041960356,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":36,"unix_time_ms":1793041962411,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":37,"unix_time_ms":1793041964477,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":38,"unix_time_ms":1793041966534,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":39,"unix_time_ms":1793041968591,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":40,"unix_time_ms":1793041970646,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":41,"unix_time_ms":1793041972697,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":42,"unix_time_ms":1793041974751,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":43,"unix_time_ms":1793041976801,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":44,"unix_time_ms":1793041978856,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":45,"unix_time_ms":1793041980956,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":46,"unix_time_ms":1793041983017,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":47,"unix_time_ms":1793041985068,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":48,"unix_time_ms":1793041987122,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":49,"unix_time_ms":1793041989175,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":50,"unix_time_ms":1793041991234,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":51,"unix_time_ms":1793041993296,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":52,"unix_time_ms":1793041995349,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":53,"unix_time_ms":1793041997405,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":54,"unix_time_ms":1793041999455,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":55,"unix_time_ms":1793042001509,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":56,"unix_time_ms":1793042003564,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":57,"unix_time_ms":1793042005615,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":58,"unix_time_ms":1793042007672,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":59,"unix_time_ms":1793042009725,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":60,"unix_time_ms":1793042011779,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":61,"unix_time_ms":1793042013851,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":62,"unix_time_ms":1793042015911,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":63,"unix_time_ms":1793042017962,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":64,"unix_time_ms":1793042020018,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":65,"unix_time_ms":1793042022075,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":66,"unix_time_ms":1793042024127,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":67,"unix_time_ms":1793042026188,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":68,"unix_time_ms":1793042028262,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":69,"unix_time_ms":1793042030323,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":70,"unix_time_ms":1793042032374,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":71,"unix_time_ms":1793042034430,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":72,"unix_time_ms":1793042036483,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":73,"unix_time_ms":1793042038541,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":74,"unix_time_ms":1793042040604,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":75,"unix_time_ms":1793042042656,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":76,"unix_time_ms":1793042044711,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":77,"unix_time_ms":1793042046762,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":78,"unix_time_ms":1793042048819,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":79,"unix_time_ms":1793042050875,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":80,"unix_time_ms":1793042052930,"version":"0.1.0-dev"}
+[  166.983111] random: crng init done
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":81,"unix_time_ms":1793042054984,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":82,"unix_time_ms":1793042057042,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":83,"unix_time_ms":1793042059103,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":84,"unix_time_ms":1793042061161,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":85,"unix_time_ms":1793042063233,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":86,"unix_time_ms":1793042065284,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":87,"unix_time_ms":1793042067335,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":88,"unix_time_ms":1793042069389,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":89,"unix_time_ms":1793042071439,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":90,"unix_time_ms":1793042073495,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":91,"unix_time_ms":1793042075557,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":92,"unix_time_ms":1793042077612,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":93,"unix_time_ms":1793042079668,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":94,"unix_time_ms":1793042081721,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":95,"unix_time_ms":1793042083776,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":96,"unix_time_ms":1793042085828,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":97,"unix_time_ms":1793042087881,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":98,"unix_time_ms":1793042089934,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":99,"unix_time_ms":1793042091989,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":100,"unix_time_ms":1793042094046,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":101,"unix_time_ms":1793042096099,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":102,"unix_time_ms":1793042098159,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":103,"unix_time_ms":1793042100220,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":104,"unix_time_ms":1793042102271,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":105,"unix_time_ms":1793042104327,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":106,"unix_time_ms":1793042106378,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":107,"unix_time_ms":1793042108431,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":108,"unix_time_ms":1793042110484,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":109,"unix_time_ms":1793042112534,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":110,"unix_time_ms":1793042114589,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":111,"unix_time_ms":1793042116640,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":112,"unix_time_ms":1793042118727,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":113,"unix_time_ms":1793042120780,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":114,"unix_time_ms":1793042122834,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":115,"unix_time_ms":1793042124884,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":116,"unix_time_ms":1793042126949,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":117,"unix_time_ms":1793042129006,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":118,"unix_time_ms":1793042131062,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":119,"unix_time_ms":1793042133114,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":120,"unix_time_ms":1793042135162,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":121,"unix_time_ms":1793042137213,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":122,"unix_time_ms":1793042139267,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":123,"unix_time_ms":1793042141320,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":124,"unix_time_ms":1793042143375,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":125,"unix_time_ms":1793042145428,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":126,"unix_time_ms":1793042147487,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":127,"unix_time_ms":1793042149541,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":128,"unix_time_ms":1793042151591,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":129,"unix_time_ms":1793042153642,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":130,"unix_time_ms":1793042155698,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":131,"unix_time_ms":1793042157750,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":132,"unix_time_ms":1793042159802,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":133,"unix_time_ms":1793042161853,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":134,"unix_time_ms":1793042163910,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":135,"unix_time_ms":1793042165962,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":136,"unix_time_ms":1793042168017,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":137,"unix_time_ms":1793042170068,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":138,"unix_time_ms":1793042172123,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":139,"unix_time_ms":1793042174178,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":140,"unix_time_ms":1793042176229,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":141,"unix_time_ms":1793042178293,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":142,"unix_time_ms":1793042180353,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":143,"unix_time_ms":1793042182413,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":144,"unix_time_ms":1793042184478,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":145,"unix_time_ms":1793042186529,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":146,"unix_time_ms":1793042188583,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":147,"unix_time_ms":1793042190642,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":148,"unix_time_ms":1793042192688,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":149,"unix_time_ms":1793042194736,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"request","fields":{"id":"ab-health","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":133,"schema":"synveil.audit/v1","sequence":150,"unix_time_ms":1793042196787,"version":"0.1.0-dev"}
+SYNVEIL_AB_HEALTH_FAILED check=session
+[  310.215573] reboot: Restarting system
+[  310.215871] reboot: machine restart
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+[    0.000000] Linux version 6.18.55-synveil (root@htch-runtime) (x86_64-synveil-linux-gnu-gcc (GCC) 16.2.0, GNU ld (GNU Binutils) 2.46.1) #55 SMP PREEMPT_DYNAMIC Mon Oct 26 18:42:11 UTC 2026
+[    0.000000] Command line: 
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+[    0.000000] BIOS-e820: [mem 0x000000000080b000-0x000000000080bfff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000000080c000-0x000000000080ffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000000810000-0x00000000008fffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x0000000000900000-0x000000002e93efff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002e93f000-0x000000002e9fffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ea00000-0x000000002f4ecfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002f4ed000-0x000000002f76cfff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002f76d000-0x000000002f77efff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x000000002f77f000-0x000000002f7fefff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x000000002f7ff000-0x000000002feebfff] usable
+[    0.000000] BIOS-e820: [mem 0x000000002feec000-0x000000002ff6ffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000002ff70000-0x000000002fffffff] ACPI NVS
+[    0.000000] BIOS-e820: [mem 0x00000000e0000000-0x00000000efffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x00000000ffc00000-0x00000000ffffffff] reserved
+[    0.000000] BIOS-e820: [mem 0x000000fd00000000-0x000000ffffffffff] reserved
+[    0.000000] earlycon: uart0 at I/O port 0x3f8 (options '115200')
+[    0.000000] printk: legacy bootconsole [uart0] enabled
+[    0.131112] Kernel command line: console=ttyS0,115200n8 earlycon=uart,io,0x3f8,115200 rdinit=/init panic=-1 loglevel=6
+[    0.028027] calibrate_delay_direct() dropping min bogoMips estimate 0 = 1309735
+[    0.875901] audit: type=2000 audit(1793042208.619:1): state=initialized audit_enabled=0 res=1
+[    0.914058] mtrr: your CPUs had inconsistent fixed MTRR settings
+[    0.914600] mtrr: your CPUs had inconsistent variable MTRR settings
+[    0.914600] mtrr: your CPUs had inconsistent MTRRdefType settings
+[    1.149698] SCSI subsystem initialized
+[    1.623651] VFS: Disk quotas dquot_6.6.0
+[    1.760531] Initialise system trusted keyrings
+[    1.771934] NFS: Registering the id_resolver key type
+[    1.773944] Key type id_resolver registered
+[    1.775009] Key type id_legacy registered
+[    1.932831] Key type asymmetric registered
+[    1.934816] Asymmetric key parser 'x509' registered
+[    2.226134] virtio_blk virtio1: [vda] 2179072 512-byte logical blocks (1.12 GB/1.04 GiB)
+[    2.280703] virtio_blk virtio2: [vdb] 327680 512-byte logical blocks (168 MB/160 MiB)
+[    2.475903] amd_pstate: the _CPC object is not present in SBIOS or ACPI disabled
+[    2.512944] Key type dns_resolver registered
+[    2.583576] Loading compiled-in X.509 certificates
+[    2.617621] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    2.641538] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    2.642826] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    5.091073] Warning: unable to open an initial console.
+[    5.092956] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[synveil-init] starting bootstrap userspace
+SYNVEIL_HOME_READY
+SYNVEIL_STATE_READY
+SYNVEIL_AB_HOME_MOUNTED
+SYNVEIL_AB_TRIAL_EXHAUSTED slot=B version=3
+SYNVEIL_AB_CONFIRMED_BOOT slot=A version=1
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":129,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793042216711,"version":"0.1.0-dev"}
+synctl: No such file or directory (os error 2)
+{"component":"veil-core","event":"supervisor_child_started","fields":{"attempt":0,"pid":134},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":129,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793042216811,"version":"0.1.0-dev"}
+{"component":"veil-core","event":"start","fields":{"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","protocol":"synveil.core/v1","version":"0.1.0-dev"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":1,"unix_time_ms":1793042216844,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"socket_ready","fields":{"protocol":"synveil.core/v1","socket":"/run/synveil/veil-core.sock"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":2,"unix_time_ms":1793042216872,"version":"0.1.0-dev"}
+[synveil-audit] persistent write failed: Resource temporarily unavailable (os error 11)
+{"component":"veil-core","event":"request","fields":{"id":"synctl-135","method":"status"},"git_revision":"55d9db88aecc96fdc07d0d695e2855148a69ca4c","pid":134,"schema":"synveil.audit/v1","sequence":3,"unix_time_ms":1793042216920,"version":"0.1.0-dev"}
+{
+  "schema": "synveil.core/v1",
+  "id": "synctl-135",
+  "ok": true,
+  "result": {
+    "git_revision": "55d9db88aecc96fdc07d0d695e2855148a69ca4c",
+    "persistent_audit": {
+      "configured": true,
+      "failed_writes": 2,
+      "state": "healthy"
+    },
+    "protocol": "synveil.core/v1",
+    "service": "veil-core",
+    "state": "ready",
+    "version": "0.1.0-dev"
+  }
+}
+SYNVEIL_CORE_READY
+[synveil-update] starting A/B update agent
+
+SYNVEIL_SEAT_READY
+SYNVEIL_AB_AGENT_READY
+SYNVEIL_AB_HEALTH outcome=no-trial
+SYNVEIL_DISPLAY_READY
+SYNVEIL_INPUT_READY
+SYNVEIL_VT_READY
+
+Synveil bootstrap
+Linux: 6.18.55-synveil
+Machine: x86_64
+SYNVEIL_BOOT_OK
+
+SYNVEIL_SERIAL_RECOVERY_LOCKED
+
+SYNVEIL_LOGIN_READY
+[   12.747594] random: crng init done
+
+SYNVEIL_GRAPHICAL_AUTH_ACTIVE
+[   17.483625] udevd[158]: specified group 'tty' unknown
+[   17.485197] udevd[158]: specified group 'dialout' unknown
+[   17.485759] udevd[158]: specified group 'kmem' unknown
+[   17.486076] udevd[158]: specified group 'input' unknown
+[   17.486918] udevd[158]: specified group 'video' unknown
+[   17.487516] udevd[158]: specified group 'sgx' unknown
+[   17.488036] udevd[158]: specified group 'audio' unknown
+[   17.489584] udevd[158]: specified group 'lp' unknown
+[   17.490111] udevd[158]: specified group 'disk' unknown
+SYNVEIL_SEATD_READY

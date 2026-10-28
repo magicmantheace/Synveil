@@ -1,0 +1,54 @@
+{
+  "schema": "synveil.native-joined-hardware-guest/v1",
+  "source_commit": "9dbeda0d2be75c3f6e3267c949ec6db3656193e3",
+  "image_sha256": "4be22adaaddb4c5e5abab87d8d636abc18cd4f4e67265b0a1fac188db1925553",
+  "image_kind": "ab-full-stack",
+  "boot_target": "hardware",
+  "variant": "vga",
+  "qemu_graphics_device": "VGA",
+  "qemu_boot_storage": "virtio-blk-pci",
+  "qemu_uefi_graphical_session": true,
+  "framebuffer_resolution": [
+    1280,
+    800
+  ],
+  "tty0_console_frames_before_greeter": 3,
+  "enrollment_graphical": true,
+  "mismatched_confirmation_rejected": true,
+  "wrong_password_denied_after_cold_reboot": true,
+  "weston_desktop_after_login": true,
+  "pointer_move_resize_keyboard": false,
+  "desktop_windows_closed_and_terminal_exited": true,
+  "session_end_relocks_login": true,
+  "hard_power_cut_returns_to_login_and_credential_survives": true,
+  "broken_state_fails_closed_to_locked_login": true,
+  "state_on_image_provided_partition": true,
+  "separate_state_disk_used": false,
+  "serial_contains_no_guest_console_or_shell": true,
+  "screen_signatures_md5_bands": {
+    "enroll": {
+      "title": "d3c4bdcb0b88a88793fe696c8fd604fe",
+      "subtitle": "6600c627724e5ed09e8bcfad62f42365",
+      "footer": "979171f064122abce5d5fb97775a6eeb"
+    },
+    "login": {
+      "title": "3f8067ec0a74bd9c278654b9d33a960b",
+      "subtitle": "98ee48964c3e4fe401a17cf3a68b7b25",
+      "footer": "72825cdc762f9c8d9f0a64d7f2246fe0"
+    }
+  },
+  "physical_hardware_tested": false,
+  "qemu_only_limitations": [
+    "QEMU standard VGA GOP stands in for the TG01 RTX 3060 firmware GOP. The hardware kernel has no native driver for this adapter (CONFIG_DRM_BOCHS unset, no virtio GPU present), so the display ran through simpledrm on the EFI framebuffer; physical RTX 3060 behavior is unproven",
+    "virtio-blk stands in for the owner's USB SSD; this image's boot from emulated USB storage is recorded by the usb variant of this acceptance",
+    "USB keyboard/tablet are QEMU devices; TG01 HID behavior is unproven"
+  ],
+  "chromium_evidence": {
+    "browser_log_on_data_partition": true,
+    "browser_started_markers_in_log": 2,
+    "chromium_profile_present": true,
+    "downloads_dir_present": true
+  },
+  "chromium_launched_and_persisted_on_data": true,
+  "desktop_proof": "ab peel: each full-stack window is closed by its own proven primitive (browser by focus click + Ctrl+Shift+W, files and update GUI by their drawn close boxes, first window by raise + Escape) and the terminal is focused and exited by the typed fixed exit command; success is the login screen's return, the session's own end condition. No drag/resize is claimed for the A/B desktop."
+}

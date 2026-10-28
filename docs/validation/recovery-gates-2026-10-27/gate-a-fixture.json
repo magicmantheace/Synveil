@@ -1,0 +1,18 @@
+{
+  "case": "recovery-status",
+  "git_commit": "915751db24383ce9355cb2964949c0aa99332304",
+  "artifacts": {
+    "synveil-initramfs.cpio": {
+      "sha256": "22102551f05fad834d98a3f2b13c983d42b088234be6e1b58464b26be4b008b5",
+      "bytes": 17445888
+    },
+    "synveil-x86_64.efi": {
+      "sha256": "5ed5fe11c14480b6343ed6db0f2798103695a6ce21903632914427c45c1d4b17",
+      "bytes": 22709248
+    },
+    "synveil-x86_64.img": {
+      "sha256": "5194f24eb07de080a740d82e5e7d2ef2b493e7b330a6f54ae5b305cd5217b980",
+      "bytes": 134217728
+    }
+  }
+}

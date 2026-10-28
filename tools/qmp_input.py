@@ -222,6 +222,74 @@ def type_test_secret(socket_path: Path, secret: str, *, timeout=15.0):
 
 
 
+# A/B update proof: the session terminal may receive only these six
+# complete, fixed command lines, selected by id. The caller cannot
+# supply or alter any character of the text; the map is the allowlist.
+AB_COMMANDS = {
+    "stage": "/usr/sbin/veil-ab request stage",
+    "confirm": "/usr/sbin/veil-ab request confirm",
+    "rollback": "/usr/sbin/veil-ab request rollback",
+    "status": "/usr/sbin/veil-ab request status",
+    "reboot": "/usr/sbin/veil-ab request reboot",
+    # The trailing sync matters: the proof reads the file back from
+    # the disk image after a hard QEMU quit, and an unsynced write
+    # can sit in the guest page cache past the quit (observed as a
+    # 0-byte file after journal replay, 2026-10-26).
+    "known-file": "echo synveil-ab-proof-file > /home/synveil/ab-known-file; sync",
+    # Browser/download proof: digest the downloaded payloads from
+    # INSIDE the guest and leave the results on the persistent home
+    # for host-side readback against the fixture's expected digests.
+    "dl-sha256": "sha256sum /home/synveil/Downloads/payload.bin > /home/synveil/Downloads/payload.sha256; sync",
+    "dl2-sha256": "sha256sum /home/synveil/Downloads/payload2.bin > /home/synveil/Downloads/payload2.sha256; sync",
+}
+
+_AB_CHAR_KEYS = {c: c for c in "abcdefghijklmnopqrstuvwxyz0123456789"}
+_AB_CHAR_KEYS.update({c: "shift+" + c.lower()
+                      for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"})
+_AB_CHAR_KEYS.update({" ": "spc", "/": "slash", "-": "minus", ".": "dot",
+                      "_": "shift+minus", ">": "shift+dot", ";": "semicolon"})
+
+
+def type_ab_command(socket_path: Path, command_id: str, *, timeout=30.0):
+    """Type one fixed A/B proof command line into the session terminal.
+
+    Only the enumerated command ids above exist; each expands to a
+    constant string defined here, never to caller-provided text.
+    """
+    if command_id not in AB_COMMANDS:
+        raise ValueError("unsupported A/B test command id")
+    text = AB_COMMANDS[command_id]
+    socket_path = Path(socket_path)
+    if not socket_path.is_absolute():
+        raise ValueError("QMP socket must use an absolute path")
+    deadline = time.monotonic() + timeout
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+        while True:
+            try:
+                sock.settimeout(max(0.1, min(1.0, deadline - time.monotonic())))
+                sock.connect(str(socket_path))
+                break
+            except (FileNotFoundError, ConnectionRefusedError):
+                if time.monotonic() >= deadline:
+                    raise QMPError("QMP socket unavailable before deadline")
+                time.sleep(0.05)
+        sock.settimeout(max(0.1, deadline - time.monotonic()))
+        with sock.makefile("rb") as reader:
+            _read_reply(reader, greeting=True)
+            emit_command(sock, reader, {"execute": "qmp_capabilities"})
+            for char in text:
+                if time.monotonic() >= deadline:
+                    raise QMPError("A/B command typing exceeded deadline")
+                key = _AB_CHAR_KEYS[char]
+                if "+" in key:
+                    modifier, base = key.split("+", 1)
+                    _hold_keys(sock, reader, (modifier, base))
+                else:
+                    _hold_keys(sock, reader, (key,))
+                time.sleep(0.03)
+            _hold_keys(sock, reader, ("ret",))
+
+
 def switch_to_login_vt(socket_path: Path, *, timeout=5.0):
     """Send only Ctrl+Alt+F2 to test authenticated VT lease revocation.
 

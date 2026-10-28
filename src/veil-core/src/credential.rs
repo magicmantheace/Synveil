@@ -6,7 +6,7 @@ use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt
 use argon2::{Algorithm, Params, Version};
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Write};
-use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 
 // Trusted build-owned account; never accept UID/GID from a login request.
@@ -62,42 +62,136 @@ pub fn verify_root_credential(username: &str, password: &[u8]) -> bool {
         .is_some_and(|phc| verify_phc(username, password, &phc))
 }
 
-// This existing pre-install QEMU image has one *specific* virtual state
-// device, configured by build/rootfs/mount-state. A generic ext4 mount over
-// /var is NOT an authority to read/write an owner's password verifier:
-// e.g. a rebound home or an unexpected writable volume must fail closed.
-// The device policy will need a separate reviewed update for real installed
-// hardware with stable PARTUUIDs, never an automatic fallback.
-const VM_STATE_DEVICE: &str = "/dev/vdb";
+/// Coarse credential-store state for the authenticated maintenance
+/// console (ADR 0010 tier 2). The categories describe the *store*,
+/// never the password: a wrong password against a `Present` store is
+/// an ordinary denial and is not distinguishable through this probe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RootCredentialState {
+    /// No designated state partition is mounted at /var.
+    NoState,
+    /// State is mounted and no credential record exists.
+    Absent,
+    /// Something exists at the record path but the strict reader
+    /// rejected it (bad PHC shape, wrong ownership/mode, symlink,
+    /// extra link). Verification denies exactly, like `Absent`.
+    Invalid,
+    /// A strictly valid record is present and verification can run.
+    Present,
+}
 
-fn pinned_vm_state_mount(mounts: &str) -> bool {
+pub fn root_credential_state() -> RootCredentialState {
+    if !has_persistent_state() {
+        return RootCredentialState::NoState;
+    }
+    if read_root_private_record(Path::new(ROOT_CREDENTIAL_PATH), 0).is_some() {
+        return RootCredentialState::Present;
+    }
+    if fs::symlink_metadata(ROOT_CREDENTIAL_PATH).is_ok() {
+        RootCredentialState::Invalid
+    } else {
+        RootCredentialState::Absent
+    }
+}
+
+// Credential authority is bound to the designated state partition, in
+// two layers that must both hold:
+//
+// 1. The mount table must show exactly one /var mount, ext4 and
+//    writable. A duplicate or contradictory mount table is ambiguous
+//    and fails closed: a generic ext4 mount over /var is NOT an
+//    authority to read/write an owner's password verifier, e.g. a
+//    rebound home or an unexpected writable volume must fail closed.
+// 2. The mounted device must be the partition carrying the project's
+//    fixed GPT identity (partition name and PARTUUID below), resolved
+//    through sysfs, never through a device name. The same policy
+//    covers the state partition inside the install image and a
+//    separately attached partitioned state disk, on QEMU and on
+//    physical hardware alike. There is no fallback to any other device.
+//
+// The GUID is a role label, not a secret: whoever controls disk
+// attachment already controls the machine. Authenticity of install
+// media belongs to the signed installer milestone. Keep the GUID in
+// sync with tools/state_disk.py, build/rootfs/mount-state, and
+// src/veil-display/enroll.c.
+pub const STATE_PARTUUID: &str = "7c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053";
+pub const STATE_PARTNAME: &str = "Synveil State";
+
+fn state_mount_device(mounts: &str) -> Option<String> {
     let mut matching = 0u8;
+    let mut found = None;
     for line in mounts.lines() {
         let mut fields = line.split_whitespace();
-        let Some(device) = fields.next() else { continue };
-        let Some(target) = fields.next() else { continue };
+        let Some(device) = fields.next() else {
+            continue;
+        };
+        let Some(target) = fields.next() else {
+            continue;
+        };
         if target != "/var" {
             continue;
         }
-        // A duplicate or contradictory mount table is ambiguous. Never
-        // take the first matching ext4 line and ignore later /var entries.
-        matching = match matching.checked_add(1) {
-            Some(value) => value,
-            None => return false,
-        };
+        matching = matching.checked_add(1)?;
         let fs_type = fields.next();
         let mount_flags = fields.next().unwrap_or("");
         let writable = mount_flags.split(',').any(|flag| flag == "rw");
-        if device != VM_STATE_DEVICE || fs_type != Some("ext4") || !writable {
+        if fs_type != Some("ext4") || !writable {
+            return None;
+        }
+        found = Some(device.to_string());
+    }
+    if matching == 1 { found } else { None }
+}
+
+fn uevent_is_state_partition(uevent: &str) -> bool {
+    let mut partuuid = None;
+    let mut partname = None;
+    for line in uevent.lines() {
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let slot = match key {
+            "PARTUUID" => &mut partuuid,
+            "PARTNAME" => &mut partname,
+            _ => continue,
+        };
+        // A repeated identity key is ambiguous even when it repeats the
+        // expected value; the kernel emits each key at most once.
+        if slot.is_some() {
             return false;
         }
+        *slot = Some(value);
     }
-    matching == 1
+    partuuid == Some(STATE_PARTUUID) && partname == Some(STATE_PARTNAME)
+}
+
+fn device_is_state_partition(device: &str) -> bool {
+    let Ok(metadata) = fs::metadata(device) else {
+        return false;
+    };
+    if !metadata.file_type().is_block_device() {
+        return false;
+    }
+    let rdev = metadata.rdev();
+    // dev_t encoding (new_encode_dev): the minor's low 8 bits and the
+    // major's low 12 bits sit at bit 0 and bit 8; the remaining bits of
+    // each sit above bit 12 and bit 32 respectively.
+    let major = ((rdev >> 8) & 0xfff) | ((rdev >> 32) & 0xffff_f000);
+    let minor = (rdev & 0xff) | ((rdev >> 12) & 0xffff_ff00);
+    let Ok(uevent) = fs::read_to_string(format!("/sys/dev/block/{major}:{minor}/uevent")) else {
+        return false;
+    };
+    uevent_is_state_partition(&uevent)
 }
 
 fn has_persistent_state() -> bool {
-    fs::read_to_string("/proc/mounts")
-        .is_ok_and(|mounts| pinned_vm_state_mount(&mounts))
+    let Ok(mounts) = fs::read_to_string("/proc/mounts") else {
+        return false;
+    };
+    let Some(device) = state_mount_device(&mounts) else {
+        return false;
+    };
+    device_is_state_partition(&device)
 }
 
 /// One-time developer-VM enrollment; read password from an already protected
@@ -238,26 +332,70 @@ mod tests {
     static IDS: AtomicU64 = AtomicU64::new(1);
 
     #[test]
-    fn only_unique_writable_pinned_vm_state_mount_is_credential_authority() {
-        let expected = "/dev/vda / ext4 rw,relatime 0 0\n/dev/vdb /var ext4 rw,nosuid,nodev,noatime 0 0\n";
-        assert!(pinned_vm_state_mount(expected));
+    fn only_unique_writable_var_mount_names_the_credential_device() {
+        let expected =
+            "/dev/vda / ext4 rw,relatime 0 0\n/dev/vdb1 /var ext4 rw,nosuid,nodev,noatime 0 0\n";
+        assert_eq!(state_mount_device(expected).as_deref(), Some("/dev/vdb1"));
+        // The device name itself is not the authority at this layer: any
+        // name is returned and must still pass the GPT identity check
+        // before a credential is touched.
+        assert_eq!(
+            state_mount_device("/dev/sda2 /var ext4 rw 0 0\n").as_deref(),
+            Some("/dev/sda2")
+        );
         for wrong in [
             "",
-            "/dev/vdb /var ext4 ro,nosuid,nodev 0 0\n",
-            "/dev/vda /var ext4 rw,nosuid,nodev 0 0\n",
+            "/dev/vdb1 /var ext4 ro,nosuid,nodev 0 0\n",
             "tmpfs /var tmpfs rw 0 0\n",
-            "/dev/vdb /var xfs rw 0 0\n",
-            "/dev/vdb /var ext4 defaults 0 0\n",
-            "/dev/vdb /var ext4\n",
-            "/dev/vdb /var ext4 rw 0 0\n/dev/vdb /var ext4 rw 0 0\n",
-            "/dev/vdb /var ext4 rw 0 0\n/dev/vda /var ext4 ro 0 0\n",
+            "/dev/vdb1 /var xfs rw 0 0\n",
+            "/dev/vdb1 /var ext4 defaults 0 0\n",
+            "/dev/vdb1 /var ext4\n",
+            "/dev/vdb1 /var ext4 rw 0 0\n/dev/vdb1 /var ext4 rw 0 0\n",
+            "/dev/vdb1 /var ext4 rw 0 0\n/dev/vda2 /var ext4 ro 0 0\n",
             "/dev/vdb /var\\040backup ext4 rw 0 0\n",
         ] {
-            assert!(!pinned_vm_state_mount(wrong), "unsafe mount accepted: {wrong}");
+            assert_eq!(
+                state_mount_device(wrong),
+                None,
+                "unsafe mount accepted: {wrong}"
+            );
         }
-        assert!(pinned_vm_state_mount(
-            "/dev/vdb /var ext4 rw,nosuid,nodev 0 0\n/dev/vdc /home ext4 rw 0 0\n"
-        ));
+        assert_eq!(
+            state_mount_device(
+                "/dev/vdb1 /var ext4 rw,nosuid,nodev 0 0\n/dev/vdc /home ext4 rw 0 0\n"
+            )
+            .as_deref(),
+            Some("/dev/vdb1")
+        );
+    }
+
+    #[test]
+    fn only_designated_gpt_identity_is_the_state_partition() {
+        let expected = "MAJOR=254\nMINOR=17\nDEVNAME=vdb1\nDEVTYPE=partition\n\
+                        PARTN=1\nPARTNAME=Synveil State\n\
+                        PARTUUID=7c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053\n";
+        assert!(uevent_is_state_partition(expected));
+        for wrong in [
+            "",
+            // A whole disk has no partition identity at all.
+            "MAJOR=254\nMINOR=16\nDEVNAME=vdb\nDEVTYPE=disk\n",
+            // Another project's partition.
+            "DEVNAME=sda2\nDEVTYPE=partition\nPARTNAME=Synveil State\n\
+             PARTUUID=0c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053\n",
+            "DEVNAME=sda2\nDEVTYPE=partition\nPARTNAME=Other State\n\
+             PARTUUID=7c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053\n",
+            "DEVNAME=sda2\nDEVTYPE=partition\n\
+             PARTUUID=7c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053\n",
+            // A repeated identity key is ambiguous, even a faithful one.
+            "DEVNAME=sda2\nDEVTYPE=partition\nPARTNAME=Synveil State\n\
+             PARTUUID=7c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053\n\
+             PARTUUID=7c9e2d41-8b3a-4f5e-a6d1-2e8c4b7f9053\n",
+        ] {
+            assert!(
+                !uevent_is_state_partition(wrong),
+                "unsafe uevent accepted: {wrong}"
+            );
+        }
     }
 
     fn fixture_phc() -> String {

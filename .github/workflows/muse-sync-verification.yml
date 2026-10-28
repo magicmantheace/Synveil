@@ -1,0 +1,136 @@
+name: Muse synchronization verification
+
+on:
+  push:
+    branches: [development/muse-verified-sync-2026-10-24]
+  pull_request:
+    branches: [development/first-boot-desktop]
+    paths:
+      - tests/desktop-supervisor.py
+      - tests/state-mount-safety.py
+      - src/veil-core/src/audit.rs
+      - src/veil-core/tests/audit.rs
+      - src/veil-core/src/credential.rs
+      - .github/workflows/muse-sync-verification.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: muse-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-transfers:
+    if: github.event_name == 'push' || github.head_ref == 'development/muse-verified-sync-2026-10-24'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install the existing pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --no-self-update
+          rustup override set 1.99.0
+      - name: Install regular-file storage validation tools
+        run: sudo apt-get update && sudo apt-get install -y gdisk gawk dosfstools mtools e2fsprogs libwayland-dev libfreetype-dev libexpat1-dev libffi-dev meson ninja-build pkg-config gcc
+      - name: Verify transferred GPT discovery and real image files
+        run: python3 tests/muse-storage-transfer.py
+      - name: Verify transferred writer and USB/VGA harness
+        run: |
+          bash -n tools/write-test-media.sh build/scripts/qemu.sh
+          python3 -m py_compile tests/smoke-native-joined-hardware.py
+          python3 tests/write-test-media.py
+          python3 tests/qemu-options.py
+      - name: Verify Rust formatting
+        run: cargo fmt --all --check
+      - name: Verify Clippy independently of formatting
+        if: ${{ !cancelled() }}
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Verify transferred fixtures and workspace under all three umasks
+        if: ${{ !cancelled() }}
+        run: |
+          for mask in 0007 0022 0077; do
+            (
+              umask "$mask"
+              echo "Verifying transferred fixtures and Rust tests under umask $mask"
+              python3 tests/desktop-supervisor.py
+              python3 tests/state-mount-safety.py
+              cargo test --workspace --all-targets --locked
+            )
+          done
+          git diff --exit-code -- Cargo.lock
+      - name: Verify updater evidence gates and release-output safety
+        if: ${{ !cancelled() }}
+        run: |
+          python3 tests/ab-update.py
+          python3 tests/ab-release-crosscheck.py
+          python3 tests/smoke-gates.py
+          python3 tests/muse-browser-transfer.py
+      - name: Compile transferred update GUI against source-pinned protocol
+        if: ${{ !cancelled() }}
+        run: |
+          python3 tools/native_xdg_shell.py --generate
+          gcc -std=c11 -Wall -Wextra -Werror -Iout/native-xdg-shell/generated \
+            src/desktop-wayland/update-window.c \
+            out/native-xdg-shell/generated/xdg-shell-code.c \
+            $(pkg-config --cflags --libs wayland-client freetype2) -lpthread -lm \
+            -o out/synveil-update-gui
+          gcc -std=c11 -Wall -Wextra -Werror -Iout/native-xdg-shell/generated \
+            src/desktop-wayland/files-window.c \
+            out/native-xdg-shell/generated/xdg-shell-code.c \
+            $(pkg-config --cflags --libs wayland-client freetype2) -lpthread -lm \
+            -o out/synveil-files
+      - name: Run every Python host unittest suite including QMP fixtures
+        if: ${{ !cancelled() }}
+        run: |
+          bash tests/lint-bootstrap.sh
+          python3 tests/muse-all-host-tests.py --timeout 180
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: integrated-host-test-results-${{ github.run_id }}
+          path: out/muse-all-host-tests/
+
+  verify-latest-muse-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: review
+      - uses: actions/checkout@v6
+        with:
+          repository: magicmantheace/shiny-dollop
+          ref: ef72f3fbcf925ad420c93e4b195b28f708cbb73d
+          path: muse
+          persist-credentials: false
+      - name: Install pinned Rust and host fixture tools
+        working-directory: muse/projects/synveil
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --no-self-update
+          rustup override set 1.99.0
+          sudo apt-get update
+          sudo apt-get install -y gdisk gawk dosfstools mtools e2fsprogs libwayland-dev libfreetype-dev libexpat1-dev libffi-dev meson ninja-build pkg-config gcc
+      - name: Check latest candidate Rust formatting
+        working-directory: muse/projects/synveil
+        run: cargo fmt --all --check
+      - name: Check latest candidate Clippy
+        if: ${{ !cancelled() }}
+        working-directory: muse/projects/synveil
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Run latest candidate workspace tests
+        if: ${{ !cancelled() }}
+        working-directory: muse/projects/synveil
+        run: cargo test --workspace --all-targets --locked
+      - name: Run all latest candidate Python host unittests
+        if: ${{ !cancelled() }}
+        run: python3 review/tests/muse-all-host-tests.py --root muse/projects/synveil --timeout 180
+      - name: Fault-test deferred candidate reset revocation
+        if: ${{ !cancelled() }}
+        working-directory: muse/projects/synveil
+        run: python3 ../../../review/tests/muse-reset-revocation-fault.py --source-file src/veil-core/src/bin/veil-recovery.rs
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: latest-muse-candidate-results-${{ github.run_id }}
+          path: muse/projects/synveil/out/muse-all-host-tests/

@@ -1,0 +1,74 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# Root preparation for one authenticated Weston session, run by
+# synveil-vt --authenticated-weston immediately before it starts the
+# UID 1000 session script: the device daemon (so libinput can enumerate
+# input devices through the udev database) and seatd (Weston's DRM and
+# input arbiter, group "seat" = the session user's primary group).
+# weston-seat-cleanup reverses this. Fixed paths and arguments only;
+# nothing here is reachable before authentication.
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+export PATH
+
+# A previous launcher that died before cleanup must not leave a stale
+# seatd holding the seat for this login.
+if [ -f /run/seatd.pid ]; then
+    old_pid=$(cat /run/seatd.pid 2>/dev/null)
+    case $old_pid in
+        ''|*[!0-9]*) ;;
+        *) kill "$old_pid" 2>/dev/null ;;
+    esac
+    rm -f /run/seatd.pid /run/seatd.sock
+fi
+
+udevd=''
+for candidate in /sbin/udevd /usr/sbin/udevd /usr/bin/udevd /bin/udevd; do
+    if [ -x "$candidate" ]; then
+        udevd=$candidate
+        break
+    fi
+done
+if [ -z "$udevd" ]; then
+    echo "[synveil-seat] udevd missing; Weston session refused"
+    exit 1
+fi
+"$udevd" --daemon || exit 1
+
+udevadm=''
+for candidate in /sbin/udevadm /usr/sbin/udevadm /usr/bin/udevadm /bin/udevadm; do
+    if [ -x "$candidate" ]; then
+        udevadm=$candidate
+        break
+    fi
+done
+if [ -z "$udevadm" ]; then
+    echo "[synveil-seat] udevadm missing; Weston session refused"
+    exit 1
+fi
+"$udevadm" trigger --action=add >/dev/null 2>&1
+"$udevadm" settle --timeout=10 >/dev/null 2>&1 || true
+
+seatd=''
+for candidate in /usr/bin/seatd /usr/sbin/seatd /sbin/seatd /bin/seatd; do
+    if [ -x "$candidate" ]; then
+        seatd=$candidate
+        break
+    fi
+done
+if [ -z "$seatd" ]; then
+    echo "[synveil-seat] seatd missing; Weston session refused"
+    exit 1
+fi
+"$seatd" -g seat >/run/seatd.log 2>&1 &
+echo $! > /run/seatd.pid
+
+attempts=0
+while [ ! -S /run/seatd.sock ]; do
+    attempts=$((attempts + 1))
+    if [ "$attempts" -gt 50 ]; then
+        echo "[synveil-seat] seatd socket did not appear"
+        exit 1
+    fi
+    sleep 0.1
+done
+echo SYNVEIL_SEATD_READY

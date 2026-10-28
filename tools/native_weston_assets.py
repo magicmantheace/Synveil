@@ -14,7 +14,8 @@ DATA = ('usr/share/weston/', 'usr/share/fonts/', 'usr/share/X11/xkb/',
 BINARIES = frozenset(('usr/bin/weston', 'usr/bin/weston-terminal',
     'usr/bin/weston-simple-shm', 'usr/libexec/weston-desktop-shell',
     'usr/libexec/weston-keyboard', 'usr/bin/seatd', 'usr/sbin/seatd',
-    'sbin/seatd', 'bin/seatd', 'bin/udevadm', 'sbin/udevadm', 'usr/bin/udevadm', 'usr/sbin/udevadm'))
+    'sbin/seatd', 'bin/seatd', 'bin/udevd', 'sbin/udevd', 'usr/bin/udevd', 'usr/sbin/udevd',
+    'bin/udevadm', 'sbin/udevadm', 'usr/bin/udevadm', 'usr/sbin/udevadm'))
 ALIASES = frozenset(('lib64', 'usr/lib64'))
 
 

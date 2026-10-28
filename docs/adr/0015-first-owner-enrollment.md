@@ -3,6 +3,9 @@
 - Status: Proposed (integration unimplemented; test infrastructure only)
 - Date: 2026-10-21
 - Scope: First-boot usable graphical Synveil with persistent, authenticated owner state
+- Update (2026-10-25): ADR 0017 replaces the `/dev/vdb` fixture identity
+  below with the designated GPT state-partition identity; the single
+  credential authority requirement is unchanged.
 
 ## Current verified facts
 

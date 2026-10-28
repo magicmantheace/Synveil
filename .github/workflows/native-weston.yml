@@ -9,7 +9,7 @@ on:
         required: true
         description: Build native C++, source-built Weston and software DRM dependencies
   push:
-    branches: [development/first-boot-desktop]
+    branches: [development/first-boot-desktop, development/muse-verified-sync-2026-10-24]
     paths:
       - build.sh
       - build/scripts/toolchain-cxx.sh

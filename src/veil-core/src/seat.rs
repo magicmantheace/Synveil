@@ -250,11 +250,47 @@ fn spawn_guarded(mut command: Command) -> io::Result<Child> {
     command.spawn()
 }
 
+const WESTON_SESSION_MARKER: &str = "/etc/synveil/weston-session";
+
+/// The joined graphical profile selects the Weston session launcher
+/// through an immutable rootfs marker, validated exactly like the
+/// display profile markers: a regular file, never a symlink, root-owned,
+/// mode 0644. An absent marker selects the framebuffer terminal; a
+/// marker that fails validation refuses the launch entirely rather
+/// than silently falling back to a different session type.
+fn weston_marker_state(metadata: &fs::Metadata) -> bool {
+    !metadata.file_type().is_symlink()
+        && metadata.file_type().is_file()
+        && metadata.uid() == 0
+        && metadata.permissions().mode() & 0o777 == 0o644
+}
+
+fn weston_session_mode() -> io::Result<bool> {
+    match fs::symlink_metadata(WESTON_SESSION_MARKER) {
+        Ok(metadata) => {
+            if weston_marker_state(&metadata) {
+                Ok(true)
+            } else {
+                Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "unsafe Weston session marker",
+                ))
+            }
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
 fn start_fixed_terminal() -> io::Result<Child> {
     // No shell interpolation or client-selected argv. This process dies
     // with its broker; its UID1000 child dies with its parent.
     let mut command = Command::new("/usr/bin/synveil-vt");
-    command.arg("--authenticated-terminal");
+    command.arg(if weston_session_mode()? {
+        "--authenticated-weston"
+    } else {
+        "--authenticated-terminal"
+    });
     spawn_guarded(command)
 }
 
@@ -503,6 +539,35 @@ mod tests {
     fn peer_identity_comes_from_kernel() {
         let (stream, _) = UnixStream::pair().unwrap();
         assert_eq!(peer_uid(&stream).unwrap(), unsafe { native_euid() });
+    }
+
+    #[test]
+    fn weston_marker_must_be_root_owned_regular_0644() {
+        use std::os::unix::fs::PermissionsExt;
+        let owner = unsafe { native_euid() };
+        // The seat runs as root in the guest; on a host test run the
+        // "root-owned" expectation is the test runner's own uid, so the
+        // positive case is only meaningful when both coincide. The
+        // negative cases below hold regardless of who runs the test.
+        let dir = std::env::temp_dir().join(format!("synveil-seat-marker-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir(&dir).unwrap();
+        let marker = dir.join("weston-session");
+        fs::write(&marker, []).unwrap();
+        fs::set_permissions(&marker, Permissions::from_mode(0o644)).unwrap();
+        let metadata = fs::symlink_metadata(&marker).unwrap();
+        assert_eq!(weston_marker_state(&metadata), owner == 0);
+        for mode in [0o664, 0o666, 0o600, 0o444] {
+            fs::set_permissions(&marker, Permissions::from_mode(mode)).unwrap();
+            assert!(
+                !weston_marker_state(&fs::symlink_metadata(&marker).unwrap()),
+                "mode {mode:o} accepted"
+            );
+        }
+        let link = dir.join("weston-session-link");
+        std::os::unix::fs::symlink(&marker, &link).unwrap();
+        assert!(!weston_marker_state(&fs::symlink_metadata(&link).unwrap()));
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

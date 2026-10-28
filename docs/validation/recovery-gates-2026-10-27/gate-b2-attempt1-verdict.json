@@ -1,0 +1,17 @@
+{
+  "schema": "synveil.recovery-maint-ab-smoke/v1",
+  "source_commit": "63dff062d067a4bd6fe3f9c641b9c627c157c0a7",
+  "disk_sha256": "a744509d69907fc70d3e790a08e21917d3e1b2d98da98fb63835bbe47755515e",
+  "cases": {
+    "provision": true,
+    "enroll": true,
+    "maint-denied": true,
+    "maint-restore": false,
+    "restored-boot": false,
+    "data-intact": false,
+    "control-trial-armed": false,
+    "audit-log": false
+  },
+  "owner_file_sha256": "e9f7e3e43a9160017bf40524801f56af2918c09e16e78dcec862a89aaeb92984",
+  "physical_hardware_tested": false
+}

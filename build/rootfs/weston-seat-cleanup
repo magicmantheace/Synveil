@@ -1,0 +1,19 @@
+#!/bin/sh
+# SPDX-License-Identifier: MPL-2.0
+# Reverse weston-seat-prepare after an authenticated Weston session
+# ends. udevd is intentionally left running: it is a stateless device
+# daemon, harmless without a session, and the next login's prepare
+# step re-triggers device enumeration anyway.
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+export PATH
+
+if [ -f /run/seatd.pid ]; then
+    seatd_pid=$(cat /run/seatd.pid 2>/dev/null)
+    case $seatd_pid in
+        ''|*[!0-9]*) ;;
+        *) kill "$seatd_pid" 2>/dev/null ;;
+    esac
+    rm -f /run/seatd.pid
+fi
+rm -f /run/seatd.sock
+exit 0

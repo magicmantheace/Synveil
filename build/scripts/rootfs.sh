@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MPL-2.0
 set -Eeuo pipefail
+# A rootfs must not inherit the build host's umask: under 0007 every
+# directory and heredoc-written file below lands as 0770/0660, which
+# locks the unprivileged session user out of /etc, /usr and its own
+# home directory. Items that need stricter modes pin them explicitly
+# (home/synveil 0700, tmp 1777, markers 0644).
+umask 022
 source "$(dirname "$0")/common.sh"
 
 NATIVE_ROOTFS="${SYNVEIL_NATIVE_ROOTFS:-0}"
@@ -78,6 +84,11 @@ if [[ "$GRAPHICS_ROOTFS" == 1 ]]; then
         "$ROOT_DIR/src/veil-display/input.c" -o "$ROOTFS_DIR/usr/bin/synveil-input"
     "$TARGET-gcc" --sysroot="$SYSROOT" -static -O2 -std=c11 -Wall -Wextra -Werror \
         "$ROOT_DIR/src/veil-display/vt.c" -o "$ROOTFS_DIR/usr/bin/synveil-vt"
+    # gcc honours the ambient umask (0007 on the build host yields 0770),
+    # which would make synveil-display unexecutable for the UID 1000
+    # session it is started as. Pin the modes like every install -m line.
+    chmod 0755 "$ROOTFS_DIR/usr/bin/synveil-display" \
+        "$ROOTFS_DIR/usr/bin/synveil-input" "$ROOTFS_DIR/usr/bin/synveil-vt"
     install -D -m 0755 "$ROOT_DIR/build/rootfs/start-desktop" \
         "$ROOTFS_DIR/usr/libexec/synveil/start-desktop"
     if [[ "$DESKTOP_AUTOSTART" == 1 ]]; then
