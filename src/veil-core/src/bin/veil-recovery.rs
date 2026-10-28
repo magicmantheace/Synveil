@@ -32,7 +32,7 @@
 //! volume; passwords and credential material are never logged.
 
 use std::fs::OpenOptions;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::process::{Command, ExitCode};
 use std::time::{SystemTime, UNIX_EPOCH};
 use veil_core::ab;

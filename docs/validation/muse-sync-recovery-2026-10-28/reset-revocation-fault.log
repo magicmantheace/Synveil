@@ -1,0 +1,10 @@
+Excerpt from GitHub Actions run 40707255322, job 122882595994.
+Candidate source: ef72f3fbcf925ad420c93e4b195b28f708cbb73d.
+Compiled unchanged run_reset function, injected storage failure using doubles.
+This is not a QEMU serial log or a physical power-cut test.
+
+2026-10-28T14:37:00.1029536Z thread 'main' (10287) panicked at /tmp/synveil-reset-fault-vu4timnb/fault.rs:229:5:
+2026-10-28T14:37:00.1060550Z reset reported success while the supposedly single-use factor is still active
+2026-10-28T14:37:00.1062410Z SYNVEIL_RECOVERY_RESET_OK_REVOKE_FAILED
+2026-10-28T14:37:00.1062657Z FAULT_RESULT password_changed=true revoke_attempted=true factor_active=true success=true
+2026-10-28T14:37:00.1111671Z ##[error]Process completed with exit code 101.

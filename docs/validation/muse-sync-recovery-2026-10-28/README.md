@@ -8,7 +8,8 @@ reviewed record reconciliation at 68df81f. No independent feature work.
 
 ## Accepted
 
-29 completed upstream files are transferred without behavior changes:
+29 completed upstream files are transferred without behavior changes (one
+unused-import cleanup uses the import list already present in Muse ef72f3f):
 tier-2 authenticated text maintenance; its init and kernel entry; the
 existing Argon2id credential-state probe; native build/packaging and
 real-libgcc_eh archive selection; the maintenance UKI/ESP wiring; corrected
@@ -75,7 +76,13 @@ lint. A separate read-only candidate job checks the fixed latest Muse
 snapshot's full Rust workspace, Clippy, formatting and all Python unittests,
 then runs the reset revocation fault test. No failure is suppressed.
 Candidate failure is kept separate from checks of accepted integrated code.
-Initial status PENDING; PR #40 carries exact-commit CI results.
+Initial revision 654e739: all 57 integrated Python suites pass in CI,
+including all six locally failing suites, real large-media construction and
+both GUI compilations. Rust tests pass under all three umasks. The only
+accepted-code failure was Clippy rejecting an unused Read import in the
+older maintenance snapshot. The import is removed using Muse's latest import
+list, with no runtime change; verification of that cleanup is pending.
+Run 40707255322, integrated job 122882595459 records the initial failure.
 
 The fault test extracts the actual upstream run_reset function unchanged,
 compiles it against deterministic storage/input doubles, and injects a
@@ -83,7 +90,13 @@ revocation write failure after a successful password replacement. Its safety
 assertion fails if reset returns success while the simulated factor stays
 active. This is a control-flow fault test, not a real guest, on-disk crash or
 physical power-cut reproduction. Local execution is blocked by missing rustc;
-CI performs it and must show its FAULT_RESULT before claiming reproduction.
+CI executed it against exact ef72f3f and reproduced the defect:
+password_changed=true, revoke_attempted=true, factor_active=true, success=true,
+followed by the failing safety assertion. Read-only candidate job 122882595994
+in run 40707255322 passed normal formatting, Clippy, all 175 Rust tests and
+56 Python suites (514 reported tests), then failed this additional fault test.
+See reset-revocation-fault.log for the relevant verbatim CI lines. No normal
+candidate test failure is being invented from the added assertion.
 
 Prior browser integration b648a25 completed successfully in run 40537124946,
 job 122305276528. That older pass is historical, not this transfer's result.

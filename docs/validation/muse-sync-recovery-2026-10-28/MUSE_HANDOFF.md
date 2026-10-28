@@ -16,11 +16,13 @@ Independent fault test in original integration:
 python3 tests/muse-reset-revocation-fault.py --source-file <Muse checkout>/projects/synveil/src/veil-core/src/bin/veil-recovery.rs
 
 It compiles the actual run_reset function unchanged, with storage/input test
-doubles that force revoke_factor to fail after replacement succeeds. Expected
-current defect: password_changed=true, revoke_attempted=true,
+doubles that force revoke_factor to fail after replacement succeeds. CI-reproduced
+defect: password_changed=true, revoke_attempted=true,
 factor_active=true, success=true; the safety assertion must fail. This does
-not claim an actual guest power-cut reproduction. CI records the execution;
-local rustc is absent. If compilation fails instead, that is not reproduction.
+not claim an actual guest power-cut reproduction. CI job 122882595994, run 40707255322, compiled the extracted function and
+produced exactly that result before the safety assertion failed. Its normal
+175 Rust tests and 56 Python suites passed. The fault is not a compiler or
+environment failure. Local rustc remains absent.
 
 Please implement and review a crash-consistent reset transaction with defined
 recovery behavior for failures between credential replacement and revocation.
